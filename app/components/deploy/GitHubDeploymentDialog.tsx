@@ -30,7 +30,17 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdRepoUrl, setCreatedRepoUrl] = useState('');
-  const [publishKey, setPublishKey] = useState('');
+  const [publishKey, setPublishKey] = useState(() =>
+    typeof window !== 'undefined' ? window.localStorage.getItem('tzsvtav_coolify_publish_key') || '' : '',
+  );
+  const [rememberPublishKey, setRememberPublishKey] = useState(() =>
+    typeof window !== 'undefined' && !!window.localStorage.getItem('tzsvtav_coolify_publish_key'),
+  );
+  const removeSavedPublishKey = () => {
+    window.localStorage.removeItem('tzsvtav_coolify_publish_key');
+    setRememberPublishKey(false);
+    setPublishKey('');
+  };
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedDomain, setPublishedDomain] = useState('');
   const [publishError, setPublishError] = useState('');
@@ -58,13 +68,21 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         throw new Error(result.error || 'Nem sikerült a közzététel.');
       }
 
+      if (rememberPublishKey) {
+        window.localStorage.setItem('tzsvtav_coolify_publish_key', publishKey);
+      } else {
+        window.localStorage.removeItem('tzsvtav_coolify_publish_key');
+      }
+
       setPublishedDomain(result.domain);
       toast.success('Coolify telepítés elindítva.');
     } catch (error) {
       setPublishError(error instanceof Error ? error.message : 'Közzétételi hiba.');
     } finally {
       setIsPublishing(false);
-      setPublishKey('');
+      if (!rememberPublishKey) {
+        setPublishKey('');
+      }
     }
   };
 
@@ -689,6 +707,27 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                           autoComplete="off"
                           className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-sm text-bolt-elements-textPrimary"
                         />
+                        <label className="flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
+                          <input
+                            type="checkbox"
+                            checked={rememberPublishKey}
+                            onChange={(event) => {
+                              setRememberPublishKey(event.target.checked);
+                              if (!event.target.checked) {
+                                window.localStorage.removeItem('tzsvtav_coolify_publish_key');
+                              }
+                            }}
+                          />
+                          Kulcs megjegyzése ezen a böngészőn
+                        </label>
+                        <p className="text-xs text-bolt-elements-textSecondary">
+                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott számítógépen ne használd.
+                        </p>
+                        {rememberPublishKey && publishKey && (
+                          <button type="button" onClick={removeSavedPublishKey} className="text-xs underline text-bolt-elements-textSecondary">
+                            Mentett kulcs törlése
+                          </button>
+                        )}
                         {publishError && <p role="alert" className="text-xs text-red-500">{publishError}</p>}
                         <button
                           type="button"
