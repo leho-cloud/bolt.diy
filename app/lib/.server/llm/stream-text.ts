@@ -342,21 +342,13 @@ export async function streamText(props: {
         )
       : options || {};
 
-  // DEBUG: Log filtered options
+  // Log only parameter names and counts, never tool schemas or user-supplied values.
   logger.info(
-    `DEBUG STREAM: Options filtering for model "${modelDetails.name}":`,
-    JSON.stringify(
-      {
-        isReasoning,
-        originalOptions: options || {},
-        filteredOptions,
-        originalOptionsKeys: options ? Object.keys(options) : [],
-        filteredOptionsKeys: Object.keys(filteredOptions),
-        removedParams: options ? Object.keys(options).filter((key) => !(key in filteredOptions)) : [],
-      },
-      null,
-      2,
-    ),
+    `Streaming options for model "${modelDetails.name}": ${JSON.stringify({
+      isReasoning,
+      optionKeys: Object.keys(filteredOptions),
+      toolCount: Object.keys((filteredOptions as StreamingOptions).tools || {}).length,
+    })}`,
   );
 
   /*
@@ -373,19 +365,10 @@ export async function streamText(props: {
     ...forwardedOptions
   } = filteredOptions as StreamingOptions & Record<string, unknown>;
 
-  if (provider.name === 'OpenRouter' && forwardedOptions.tools && Object.keys(forwardedOptions.tools).length > 0) {
-    const routing = forwardedOptions.providerOptions?.openrouter?.provider;
-    forwardedOptions.providerOptions = {
-      ...forwardedOptions.providerOptions,
-      openrouter: {
-        ...forwardedOptions.providerOptions?.openrouter,
-        provider: {
-          ...(routing && typeof routing === 'object' && !Array.isArray(routing) ? routing : {}),
-          require_parameters: true,
-        },
-      },
-    };
-  }
+  // Do not force OpenRouter's require_parameters routing. Its strict filter can
+  // reject otherwise usable routes for tool-enabled models when a provider does
+  // not advertise every optional parameter. Preserve explicit user settings.
+
 
   const selectedModel = provider.getModelInstance({
     model: modelDetails.name,
@@ -410,21 +393,13 @@ export async function streamText(props: {
     ...(isReasoning ? { temperature: 1 } : {}),
   };
 
-  // DEBUG: Log final streaming parameters
   logger.info(
-    `DEBUG STREAM: Final streaming params for model "${modelDetails.name}":`,
-    JSON.stringify(
-      {
-        hasTemperature: 'temperature' in streamParams,
-        hasMaxOutputTokens: 'maxOutputTokens' in streamParams,
-        paramKeys: Object.keys(streamParams).filter((key) => !['model', 'messages', 'system'].includes(key)),
-        streamParams: Object.fromEntries(
-          Object.entries(streamParams).filter(([key]) => !['model', 'messages', 'system'].includes(key)),
-        ),
-      },
-      null,
-      2,
-    ),
+    `Sending model request: ${JSON.stringify({
+      provider: provider.name,
+      model: modelDetails.name,
+      maxOutputTokens: safeMaxTokens,
+      toolCount: Object.keys(forwardedOptions.tools || {}).length,
+    })}`,
   );
 
   return await _streamText(streamParams);
