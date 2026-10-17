@@ -20,6 +20,7 @@ export default [
   { file: 'routes/webcontainer.preview.$id.tsx', path: '/webcontainer/preview/:id' },
   { file: 'routes/api.bug-report.ts', path: '/api/bug-report' },
   { file: 'routes/api.chat.ts', path: '/api/chat' },
+  { file: 'routes/api.coolify-publish.ts', path: '/api/coolify-publish' },
   { file: 'routes/api.check-env-key.ts', path: '/api/check-env-key' },
   { file: 'routes/api.configured-providers.ts', path: '/api/configured-providers' },
   { file: 'routes/api.enhancer.ts', path: '/api/enhancer' },
