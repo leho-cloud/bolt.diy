@@ -52,7 +52,7 @@ describe('agent plan and completion tools', () => {
   it('requires the plan tool first and enforces preview criteria for starter builds', async () => {
     const loop = createAgentLoopTools([user], true, true);
     expect(loop.prepareStep({ steps: [] })).toEqual({
-      toolChoice: { type: 'tool', toolName: 'agent_plan' },
+      toolChoice: 'auto',
       activeTools: ['agent_plan'],
     });
     expect(await loop.tools.agent_plan.execute!({ ...plan, requiresPreview: false }, executeOptions)).toMatchObject({
