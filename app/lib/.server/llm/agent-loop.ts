@@ -194,7 +194,11 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
 
       return {
         ...instructions,
-        toolChoice: 'required' as const,
+        // Some OpenRouter routes return a normal text completion even when the
+        // request forces tool_choice=required. The SDK then rejects the entire
+        // response and no project edit can be applied. Keep tool instructions
+        // and completion evidence checks, but allow a compatible 'auto' choice.
+        toolChoice: 'auto' as const,
         ...(taskToolNames
           ? {
               activeTools: [...activeProjectTools!, 'agent_plan' as const, 'agent_complete' as const],
