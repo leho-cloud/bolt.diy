@@ -10,7 +10,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: 'Nem támogatott kérés.' }, { status: 405 });
   }
 
-  // The production app runs in a Cloudflare-compatible Worker inside Docker.\n  // Worker bindings live in context.cloudflare.env, not necessarily in process.env.\n  const workerEnv = (context as unknown as { cloudflare?: { env?: Record<string, string> } })?.cloudflare?.env || {};\n  const env = { ...process.env, ...workerEnv };
+  // Prefer runtime Worker bindings supplied by the Docker-hosted Worker.
+  const workerEnv = (context as unknown as { cloudflare?: { env?: Record<string, string> } })?.cloudflare?.env || {};
+  const env = { ...process.env, ...workerEnv };
   const { COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_PROJECT_UUID, COOLIFY_SERVER_UUID, COOLIFY_PUBLISH_KEY } = env;
 
   const requiredKeys = [
