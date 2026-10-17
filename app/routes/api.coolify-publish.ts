@@ -71,21 +71,10 @@ export async function action({ request, context }: ActionFunctionArgs) {
   };
 
   try {
-    // Only public repositories can be built by the public GitHub integration.
-    const publicRepo = await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}`, {
-      headers: { Accept: 'application/vnd.github+json' },
-      signal: AbortSignal.timeout(12000),
-    });
-
-    if (!publicRepo.ok) {
-      return Response.json({ error: 'A GitHub-tároló nem nyilvános vagy nem elérhető. A Coolify publikus GitHub-kapcsolatot használ.' }, { status: 400 });
-    }
-
-    const repoInfo = (await publicRepo.json()) as { private?: boolean; default_branch?: string };
-
-    if (repoInfo.private) {
-      return Response.json({ error: 'A GitHub-tároló privát. Ehhez a közzétételhez nyilvános tároló szükséges.' }, { status: 400 });
-    }
+    // The repository owner is allowlisted above. Let Coolify perform repository
+    // access checks during deployment instead of blocking on GitHub API rate
+    // limits or outbound network failures from the Worker.
+    const gitBranch = 'main';
 
     const applicationsData = await coolify('/applications');
     const applications = Array.isArray(applicationsData) ? applicationsData : (Array.isArray(applicationsData.data) ? applicationsData.data : []);
@@ -108,7 +97,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           server_uuid: COOLIFY_SERVER_UUID,
           environment_name: env.COOLIFY_ENVIRONMENT_NAME || 'production',
           git_repository: repo,
-          git_branch: repoInfo.default_branch || 'main',
+          git_branch: gitBranch,
           build_pack: 'nixpacks',
           ports_exposes: '3000',
           name: `TZSVTAV – ${slug}`,
