@@ -194,6 +194,14 @@ export const DeployButton = ({
             </DropdownMenu.Item>
 
             <DropdownMenu.Item
+              className="cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2"
+              disabled={isDeploying || !activePreview}
+              onClick={handleGitHubDeployClick}
+            >
+              <span className="i-ph:globe-hemisphere-west text-lg text-[#e31837]" />
+              <span>Élesítés saját szerverre (TZSVTAV)</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
               className={classNames(
                 'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
                 {
