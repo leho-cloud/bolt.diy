@@ -36,10 +36,16 @@ export default class OpenRouterProvider extends BaseProvider {
       maxCompletionTokens: 16384,
     },
     {
-      name: 'anthropic/claude-3.5-sonnet',
-      label: 'Claude 3.5 Sonnet',
+      name: 'anthropic/claude-sonnet-5.5',
+      label: 'Claude Sonnet 5.5 (paid)',
       provider: 'OpenRouter',
-      maxTokenAllowed: 200000,
+      maxTokenAllowed: 1000000,
+    },
+    {
+      name: 'openai/gpt-6.1-sol',
+      label: 'GPT-6.1 Sol (paid)',
+      provider: 'OpenRouter',
+      maxTokenAllowed: 1050000,
     },
     {
       name: 'openai/gpt-4o',
