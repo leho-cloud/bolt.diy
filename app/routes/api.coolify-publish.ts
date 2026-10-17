@@ -13,8 +13,20 @@ export async function action({ request }: ActionFunctionArgs) {
   const env = process.env;
   const { COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_PROJECT_UUID, COOLIFY_SERVER_UUID, COOLIFY_PUBLISH_KEY } = env;
 
-  if (![COOLIFY_API_URL, COOLIFY_API_TOKEN, COOLIFY_PROJECT_UUID, COOLIFY_SERVER_UUID, COOLIFY_PUBLISH_KEY].every(Boolean)) {
-    return Response.json({ error: 'Coolify közzététel még nincs beállítva a szerveren.' }, { status: 503 });
+  const requiredKeys = [
+    'COOLIFY_API_URL',
+    'COOLIFY_API_TOKEN',
+    'COOLIFY_PROJECT_UUID',
+    'COOLIFY_SERVER_UUID',
+    'COOLIFY_PUBLISH_KEY',
+  ] as const;
+  const missingKeys = requiredKeys.filter((key) => !env[key]?.trim());
+
+  if (missingKeys.length > 0) {
+    return Response.json(
+      { error: 'Hiányzó Coolify környezeti változók: ' + missingKeys.join(', ') },
+      { status: 503 },
+    );
   }
 
   const suppliedKey = request.headers.get('x-publish-key') || '';
