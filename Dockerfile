@@ -60,7 +60,9 @@ ENV WRANGLER_SEND_METRICS=false \
 # Example: docker run -e OPENAI_API_KEY=your_key_here ...
 
 # Install curl for healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+  && update-ca-certificates \
+  && test -s /etc/ssl/certs/ca-certificates.crt \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy built files
