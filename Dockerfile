@@ -98,3 +98,6 @@ ENV VITE_LOG_LEVEL=${VITE_LOG_LEVEL} \
 
 RUN mkdir -p /app/run
 CMD ["pnpm", "run", "dev", "--host"]
+
+# Default Coolify/Docker build to the production runtime, not the development stage.
+FROM bolt-ai-production AS default
