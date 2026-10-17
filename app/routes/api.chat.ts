@@ -403,7 +403,14 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
            * hard per-request ceiling even if the user's general step setting is higher.
            */
           stopWhen: isStepCount(agentLoopEnabled ? Math.min(maxLLMSteps ?? 12, 12) : (maxLLMSteps ?? 1)),
-          timeout: recoveringAgent ? { stepMs: 660_000, totalMs: 900_000 } : { chunkMs: 45_000 },
+          // A browser-backed project tool may legitimately need more than 45s
+          // between model chunks. Keep bounded per-step and total budgets
+          // for build requests rather than aborting an in-progress file edit.
+          timeout: recoveringAgent
+            ? { stepMs: 660_000, totalMs: 900_000 }
+            : chatMode === 'build'
+              ? { stepMs: 180_000, totalMs: 360_000 }
+              : { chunkMs: 45_000 },
           ...(recoveringAgent
             ? { streamRetries: 0, onError: recovery.onError, onToolCallRetry: () => notifyRetry('tool-call') }
             : {}),
