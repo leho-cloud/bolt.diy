@@ -22,6 +22,7 @@ const lines = keys
 if (lines.length) {
   writeFileSync('/app/.dev.vars', lines.join('\n') + '\n', { mode: 0o600 });
   chmodSync('/app/.dev.vars', 0o600);
+  writeFileSync('/app/build/server/.dev.vars', lines.join('\n') + '\n', { mode: 0o600 });
 }
 
 const child = spawn('pnpm', ['run', 'dockerstart'], { stdio: 'inherit', env: process.env });
