@@ -58,6 +58,8 @@ interface ChatBoxProps {
   setProvider?: ((provider: ProviderInfo) => void) | undefined;
   model?: string | undefined;
   setModel?: ((model: string) => void) | undefined;
+  autoModelMode?: 'manual' | 'economy' | 'balanced' | 'quality';
+  setAutoModelMode?: (mode: 'manual' | 'economy' | 'balanced' | 'quality') => void;
   setUploadedFiles?: ((files: File[]) => void) | undefined;
   setImageDataList?: ((dataList: string[]) => void) | undefined;
   handleInputChange?: ((event: React.ChangeEvent<HTMLTextAreaElement>) => void) | undefined;
@@ -199,6 +201,21 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <ClientOnly>
           {() => (
             <div className={props.isModelSettingsCollapsed ? 'hidden' : ''}>
+              <div className="mb-2 flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
+                <label htmlFor="bolt-auto-model">AI-modellválasztás</label>
+                <select
+                  id="bolt-auto-model"
+                  value={props.autoModelMode ?? 'manual'}
+                  onChange={(event) => props.setAutoModelMode?.(event.target.value as 'manual' | 'economy' | 'balanced' | 'quality')}
+                  className="rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-2 py-1 text-bolt-elements-textPrimary"
+                  title="Automatikus választás jelenleg OpenRouterrel működik"
+                >
+                  <option value="manual">Kézi</option>
+                  <option value="economy">Automatikus – Takarékos</option>
+                  <option value="balanced">Automatikus – Kiegyensúlyozott</option>
+                  <option value="quality">Automatikus – Minőség</option>
+                </select>
+              </div>
               <ModelSelector
                 key={props.provider?.name}
                 model={props.model}
