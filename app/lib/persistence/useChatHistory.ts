@@ -474,7 +474,12 @@ ${value.content}
         return;
       }
 
-      const entries = Object.entries(validSnapshot.files);
+      // Vite's .vite directory is a disposable dependency cache. Restoring it
+      // can fail when transient deps_temp_* folders are missing after a reload.
+      const entries = Object.entries(validSnapshot.files).filter(([path]) => {
+        const normalized = path.replace(/\\/g, '/');
+        return !normalized.split('/').includes('.vite');
+      });
 
       const getContainerPath = (filePath: string) => {
         const workdirPrefix = `${container.workdir}/`;
@@ -502,6 +507,17 @@ ${value.content}
 
       for (const [filePath, value] of entries) {
         if (value?.type === 'file') {
+          const relativePath = getContainerPath(filePath);
+          const parent = relativePath.slice(0, relativePath.lastIndexOf('/'));
+
+          if (parent) {
+            await container.fs.mkdir(parent, { recursive: true });
+          }
+
+          if (!isCurrentLoad()) {
+            return;
+          }
+
           if (value.isBinary) {
             const binaryContent = Uint8Array.from(atob(value.content), (character) => character.charCodeAt(0));
             await container.fs.writeFile(getContainerPath(filePath), binaryContent);
