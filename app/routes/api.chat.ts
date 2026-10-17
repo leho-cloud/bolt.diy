@@ -121,10 +121,17 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
      * onChunk rather than by iterating the stream alongside the UI merge.
      */
     const observeChunk = ({ chunk }: { chunk: unknown }) => {
-      const part = chunk as { type?: string };
+      const part = chunk as { type?: string; error?: unknown };
 
       if (part.type === 'error') {
-        logger.error('Streaming provider error');
+        // Capture the SDK's original error before UI-stream conversion can
+        // wrap it as a generic Error. The mapper logs only safe classifications
+        // and never includes request/response bodies or API credentials.
+        if (part.error !== undefined) {
+          toSafeStreamErrorMessage(part.error);
+        } else {
+          logger.error('Streaming provider error (source=chunk, missing error detail)');
+        }
       }
     };
 
