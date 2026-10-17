@@ -369,8 +369,12 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
         const recovery = createAgentStreamRecovery(notifyRetry);
 
-        const mapStreamError = (error: unknown) =>
-          toSafeStreamErrorMessage(recoveringAgent ? recovery.getError(error) : error);
+        const mapStreamError = (error: unknown) => {
+          logger.error(
+            `AI stream failure boundary: chunks=${chunkStats.chunks} text=${chunkStats.text} tools=${chunkStats.tools} finish=${chunkStats.finish} recovery=${recoveringAgent}`,
+          );
+          return toSafeStreamErrorMessage(recoveringAgent ? recovery.getError(error) : error);
+        };
 
         const options: Omit<StreamingOptions, 'messages'> = {
           supabaseConnection: supabase,
