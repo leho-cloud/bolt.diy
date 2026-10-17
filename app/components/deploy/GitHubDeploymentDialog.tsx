@@ -45,7 +45,14 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         headers: { 'Content-Type': 'application/json', 'x-publish-key': publishKey },
         body: JSON.stringify({ repository: createdRepoUrl, slug }),
       });
-      const result = (await response.json()) as { error?: string; domain?: string };
+      const responseText = await response.text();
+      let result: { error?: string; domain?: string };
+
+      try {
+        result = JSON.parse(responseText) as { error?: string; domain?: string };
+      } catch {
+        throw new Error(`A közzétételi API nem JSON-választ adott (HTTP ${response.status}). Ellenőrizd a telepített verziót és az API-útvonalat.`);
+      }
 
       if (!response.ok || !result.domain) {
         throw new Error(result.error || 'Nem sikerült a közzététel.');
