@@ -171,7 +171,9 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       if (!progress.plan) {
         return {
           ...instructions,
-          toolChoice: { type: 'tool' as const, toolName: 'agent_plan' as const },
+          // Expose only the planning tool, but avoid a forced named-tool
+          // selection that some OpenRouter routes cannot fulfill reliably.
+          toolChoice: 'auto' as const,
           activeTools: ['agent_plan' as const],
         };
       }
