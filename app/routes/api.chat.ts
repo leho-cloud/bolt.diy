@@ -120,10 +120,18 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
      * v7 exposes one stream per streamText call, so progress is observed through
      * onChunk rather than by iterating the stream alongside the UI merge.
      */
+    const chunkStats = { chunks: 0, text: 0, tools: 0, finish: 0 };
     const observeChunk = ({ chunk }: { chunk: unknown }) => {
       const part = chunk as { type?: string; error?: unknown };
+      chunkStats.chunks++;
+      if (part.type === 'text-delta') chunkStats.text++;
+      if (part.type === 'tool-call') chunkStats.tools++;
+      if (part.type === 'finish') chunkStats.finish++;
 
       if (part.type === 'error') {
+        logger.error(
+          `AI stream checkpoint: chunks=${chunkStats.chunks} text=${chunkStats.text} tools=${chunkStats.tools} finish=${chunkStats.finish} mode=${chatMode}`,
+        );
         // Capture the SDK's original error before UI-stream conversion can
         // wrap it as a generic Error. The mapper logs only safe classifications
         // and never includes request/response bodies or API credentials.
