@@ -59,9 +59,9 @@ html[data-animated-transitions='false'] *::after {
 
 :root {
   --gradient-opacity: 0.8;
-  --primary-color: rgba(158, 117, 240, var(--gradient-opacity));
-  --secondary-color: rgba(138, 43, 226, var(--gradient-opacity));
-  --accent-color: rgba(128, 59, 239, var(--gradient-opacity));
+  --primary-color: rgba(227, 24, 55, var(--gradient-opacity));
+  --secondary-color: rgba(167, 24, 46, var(--gradient-opacity));
+  --accent-color: rgba(227, 24, 55, var(--gradient-opacity));
   // --primary-color: rgba(147, 112, 219, var(--gradient-opacity));
   // --secondary-color: rgba(138, 43, 226, var(--gradient-opacity));
   // --accent-color: rgba(180, 170, 220, var(--gradient-opacity));
@@ -107,4 +107,28 @@ html[data-animated-transitions='false'] *::after {
   &:hover {
     scrollbar-color: var(--modern-scrollbar-thumb-backgroundHover) transparent;
   }
+}
+
+/* TZSVTAV AI Builder — brand accent tokens, preserving the existing theme structure. */
+:root[data-theme='dark'] {
+  --bolt-elements-borderColorActive: #e31837;
+  --bolt-elements-button-primary-text: #ff4964;
+  --bolt-elements-item-contentAccent: #ff4964;
+  --bolt-elements-item-backgroundAccent: rgba(227, 24, 55, 0.15);
+  --bolt-elements-loader-progress: #e31837;
+  --bolt-elements-messages-linkColor: #ff4964;
+  --bolt-elements-sidebar-buttonBackgroundDefault: rgba(227, 24, 55, 0.12);
+  --bolt-elements-sidebar-buttonBackgroundHover: rgba(227, 24, 55, 0.2);
+  --bolt-elements-sidebar-buttonText: #ff4964;
+}
+:root[data-theme='light'] {
+  --bolt-elements-borderColorActive: #d51632;
+  --bolt-elements-button-primary-text: #c8102e;
+  --bolt-elements-item-contentAccent: #c8102e;
+  --bolt-elements-item-backgroundAccent: rgba(227, 24, 55, 0.08);
+  --bolt-elements-loader-progress: #e31837;
+  --bolt-elements-messages-linkColor: #c8102e;
+  --bolt-elements-sidebar-buttonBackgroundDefault: rgba(227, 24, 55, 0.07);
+  --bolt-elements-sidebar-buttonBackgroundHover: rgba(227, 24, 55, 0.12);
+  --bolt-elements-sidebar-buttonText: #c8102e;
 }
