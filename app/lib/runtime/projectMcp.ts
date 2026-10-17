@@ -878,10 +878,24 @@ export async function createProjectMcpBridge() {
 
       assertProjectCurrent();
 
-      const result = await client.callTool({ name, arguments: args }, undefined, { signal: options?.signal });
-      assertProjectCurrent();
+      // Report stalled project operations without logging prompts, file contents or credentials.
+      // Diagnostic only: do not cancel an in-flight write, which could leave project state inconsistent.
+      const startedAt = Date.now();
+      const stallWarning = setTimeout(() => {
+        console.warn('[Bolt project watchdog] Tool still running after 90s', {
+          tool: name,
+          elapsedMs: Date.now() - startedAt,
+        });
+      }, 90_000);
 
-      return result;
+      try {
+        const result = await client.callTool({ name, arguments: args }, undefined, { signal: options?.signal });
+        assertProjectCurrent();
+
+        return result;
+      } finally {
+        clearTimeout(stallWarning);
+      }
     },
     async close() {
       closed = true;
