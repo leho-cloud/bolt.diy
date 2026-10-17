@@ -30,6 +30,37 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdRepoUrl, setCreatedRepoUrl] = useState('');
+  const [publishKey, setPublishKey] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedDomain, setPublishedDomain] = useState('');
+  const [publishError, setPublishError] = useState('');
+  const publishToCoolify = async () => {
+    const slug = sanitizeRepoName(repoName).slice(0, 48).replace(/-+$/, '');
+    setIsPublishing(true);
+    setPublishError('');
+
+    try {
+      const response = await fetch('/api/coolify-publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-publish-key': publishKey },
+        body: JSON.stringify({ repository: createdRepoUrl, slug }),
+      });
+      const result = (await response.json()) as { error?: string; domain?: string };
+
+      if (!response.ok || !result.domain) {
+        throw new Error(result.error || 'Nem sikerült a közzététel.');
+      }
+
+      setPublishedDomain(result.domain);
+      toast.success('Coolify telepítés elindítva.');
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : 'Közzétételi hiba.');
+    } finally {
+      setIsPublishing(false);
+      setPublishKey('');
+    }
+  };
+
   const [pushedFiles, setPushedFiles] = useState<{ path: string; size: number }[]>([]);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const currentChatId = useStore(chatId);
@@ -630,6 +661,40 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       </motion.button>
                     </div>
                   </div>
+
+                  <section className="rounded-lg border border-[#e31837]/40 bg-[#e31837]/5 p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-bolt-elements-textPrimary">Közzététel saját szerverre (Coolify)</h4>
+                    <p className="text-xs text-bolt-elements-textSecondary">
+                      A projekt címe: {sanitizeRepoName(repoName).slice(0, 48).replace(/-+$/, '')}.builder.tzsvtav.com
+                    </p>
+                    {publishedDomain ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-500">Telepítés elindítva. A weboldal a build és DNS-beállítás után lesz elérhető.</p>
+                        <a href={publishedDomain} target="_blank" rel="noopener noreferrer" className="text-sm underline text-[#e31837]">{publishedDomain}</a>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="password"
+                          value={publishKey}
+                          onChange={(event) => setPublishKey(event.target.value)}
+                          placeholder="Közzétételi rendszergazdai kulcs"
+                          autoComplete="off"
+                          className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-sm text-bolt-elements-textPrimary"
+                        />
+                        {publishError && <p role="alert" className="text-xs text-red-500">{publishError}</p>}
+                        <button
+                          type="button"
+                          disabled={isPublishing || !publishKey.trim() || isPrivate}
+                          onClick={() => void publishToCoolify()}
+                          className="rounded-md bg-[#e31837] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                        >
+                          {isPublishing ? 'Közzététel folyamatban…' : 'Közzététel a TZSVTAV szerverére'}
+                        </button>
+                        {isPrivate && <p className="text-xs text-bolt-elements-textSecondary">Ehhez nyilvános GitHub-tároló szükséges.</p>}
+                      </>
+                    )}
+                  </section>
 
                   <div className="bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg p-4 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                     <p className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark mb-2 flex items-center gap-2">
