@@ -54,6 +54,8 @@ interface BaseChatProps {
   input?: string;
   model?: string;
   setModel?: (model: string) => void;
+  autoModelMode?: 'manual' | 'economy' | 'balanced' | 'quality';
+  setAutoModelMode?: (mode: 'manual' | 'economy' | 'balanced' | 'quality') => void;
   provider?: ProviderInfo;
   setProvider?: (provider: ProviderInfo) => void;
   providerList?: ProviderInfo[];
@@ -96,6 +98,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       onStreamingChange,
       model,
       setModel,
+      autoModelMode,
+      setAutoModelMode,
       provider,
       setProvider,
       providerList,
