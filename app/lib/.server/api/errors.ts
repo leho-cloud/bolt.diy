@@ -142,9 +142,40 @@ export function toSafeStreamErrorMessage(error: unknown): string {
       ? error.isRetryable
       : 'unknown';
 
-  // Log only safe metadata: never log response bodies, request payloads or API credentials.
+  // Classify the error without ever logging free-form provider messages, URLs,
+  // request/response bodies, personal prompts or credentials.
+  const diagnosticReason =
+    /unsupported|unrecognized|unknown (?:tool|model)|not supported/.test(normalizedMessage)
+      ? 'unsupported'
+      : /parameter|schema|validation|invalid request/.test(normalizedMessage)
+        ? 'invalid-parameters'
+        : /tool.call|tool choice|tool input|tool execution/.test(normalizedMessage)
+          ? 'tool-call'
+          : /timeout|timed out|abort/.test(normalizedMessage)
+            ? 'timeout-or-abort'
+            : /unauthorized|api key|authentication/.test(normalizedMessage)
+              ? 'authentication'
+              : /rate.limit|too many requests/.test(normalizedMessage)
+                ? 'rate-limit'
+                : /certificate|tls|ssl/.test(normalizedMessage)
+                  ? 'tls'
+                  : /fetch failed|network|connection|socket/.test(normalizedMessage)
+                    ? 'network'
+                    : 'unclassified';
+
+  // The caller sometimes wraps the underlying API error in a generic Error.
+  const cause = error instanceof Error ? error.cause : undefined;
+  const causeType = cause instanceof Error && /^[a-zA-Z][a-zA-Z0-9_]{0,60}$/.test(cause.name)
+    ? cause.name
+    : 'none';
+  const causeStatus =
+    cause && typeof cause === 'object' && 'statusCode' in cause &&
+    typeof cause.statusCode === 'number' && Number.isInteger(cause.statusCode)
+      ? cause.statusCode
+      : 'unknown';
+
   logger.error(
-    `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable})`,
+    `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable}, reason=${diagnosticReason}, causeType=${causeType}, causeStatus=${causeStatus})`,
   );
 
   if ((error instanceof Error && error.name === 'TimeoutError') || /timeout|timed\s*out/.test(normalizedMessage)) {
