@@ -148,7 +148,7 @@ describe('agent plan and completion tools', () => {
           },
         ],
       }),
-    ).toEqual({ toolChoice: 'required' });
+    ).toEqual({ toolChoice: 'auto' });
   });
 
   it('allows a final answer after successful completion within the real SDK loop', async () => {
@@ -192,7 +192,7 @@ describe('agent plan and completion tools', () => {
       stopWhen: isStepCount(4),
     });
     expect(result.text).toBe('Updated the button. Checks passed.');
-    expect(model.doGenerateCalls.map((call) => call.toolChoice)).toEqual([{ type: 'required' }, { type: 'none' }]);
+    expect(model.doGenerateCalls.map((call) => call.toolChoice)).toEqual([{ type: 'auto' }, { type: 'none' }]);
     expect(result.steps[0].toolResults[0].output).toMatchObject({ completed: true });
     expect(result.steps).toHaveLength(2);
     expect(model.doGenerateCalls[1].prompt[0]).toMatchObject({
