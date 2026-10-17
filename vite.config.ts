@@ -17,6 +17,11 @@ dotenv.config({ path: ['.env.local', '.env'], quiet: true });
 
 export default defineConfig((config) => {
   return {
+    // Allow only the Coolify-assigned hostname for the Vite preview server.
+    // Do not use allowedHosts: true; it would permit arbitrary Host headers.
+    preview: {
+      allowedHosts: ['xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io'],
+    },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
 
