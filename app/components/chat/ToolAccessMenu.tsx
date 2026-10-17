@@ -3,8 +3,8 @@ import { useToolAccessStore, type ToolAccessMode } from '~/lib/stores/toolAccess
 import { classNames } from '~/utils/classNames';
 
 const MODES: Array<{ id: ToolAccessMode; label: string; description: string }> = [
-  { id: 'ask-for-all', label: 'Ask For All', description: 'Ask before running each tool' },
-  { id: 'full-access', label: 'Full Access', description: 'Run tools without asking each time' },
+  { id: 'ask-for-all', label: 'Engedélykérés', description: 'Minden eszközművelet előtt jóváhagyást kér' },
+  { id: 'full-access', label: 'Automatikus végrehajtás', description: 'Eszközök futtatása külön jóváhagyás nélkül' },
 ];
 
 export function ToolAccessMenu() {
@@ -17,7 +17,7 @@ export function ToolAccessMenu() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          title="Choose tool access mode"
+          title="Eszközhozzáférés kiválasztása"
           aria-label={`Tool access: ${selectedMode.label}`}
           className={classNames(
             'inline-flex items-center gap-1 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-3 px-2 py-1 text-xs transition-colors',
