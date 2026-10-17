@@ -157,7 +157,7 @@ export const ChatImpl = memo(
     const [agentMode, setAgentMode] = useState(() => Cookies.get('agentMode') === 'true');
     const [autoModelMode, setAutoModelMode] = useState<'manual' | 'economy' | 'balanced' | 'quality'>(() => {
       const saved = typeof window !== 'undefined' ? window.localStorage.getItem('bolt_auto_model_mode') : null;
-      return saved === 'economy' || saved === 'balanced' || saved === 'quality' ? saved : 'manual';
+      return saved === 'manual' || saved === 'economy' || saved === 'balanced' || saved === 'quality' ? saved : 'balanced';
     });
     const changeAutoModelMode = (next: 'manual' | 'economy' | 'balanced' | 'quality') => {
       setAutoModelMode(next);
@@ -963,7 +963,7 @@ export const ChatImpl = memo(
 
       // Rule-based routing avoids an extra paid model classification call.
       const autoEnabled = autoModelMode !== 'manual' && provider.name === 'OpenRouter';
-      const broadTask = /(?:teljes|komplett|alkalmaz[aá]s|rendszer|architekt[uú]r|refaktor|from scratch|full app|entire app|whole project)/i.test(messageContent);
+      const broadTask = /(?:teljes|komplett|alkalmaz[aá]s|weboldal|webapp|rendszer|architekt[uú]r|refaktor|from scratch|full app|entire app|whole project)/i.test(messageContent);
       const mediumTask = /(?:hib[aá]|jav[ií]t|k[oó]d|f[uü]ggv[eé]ny|komponens|typescript|javascript|api|sz[aá]m[ií]t[aá]s|funkci[oó])/i.test(messageContent);
       const taskModel = !autoEnabled || autoModelMode === 'quality' || (autoModelMode === 'balanced' && broadTask)
         ? model
