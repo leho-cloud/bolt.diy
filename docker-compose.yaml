@@ -26,12 +26,19 @@ services:
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
       - TOGETHER_API_BASE_URL=${TOGETHER_API_BASE_URL}
       - AWS_BEDROCK_CONFIG=${AWS_BEDROCK_CONFIG}
+      # Pass TZSVTAV publish settings into the actual application container.
+      - COOLIFY_API_URL=${COOLIFY_API_URL:-}
+      - COOLIFY_API_TOKEN=${COOLIFY_API_TOKEN:-}
+      - COOLIFY_PROJECT_UUID=${COOLIFY_PROJECT_UUID:-}
+      - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
+      - COOLIFY_PUBLISH_KEY=${COOLIFY_PUBLISH_KEY:-}
+      - COOLIFY_ENVIRONMENT_NAME=${COOLIFY_ENVIRONMENT_NAME:-production}
       - VITE_LOG_LEVEL=${VITE_LOG_LEVEL:-debug}
       - DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX:-32768}
       - RUNNING_IN_DOCKER=true
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-    command: pnpm run dockerstart
+    command: node scripts/start-with-coolify-env.mjs
     profiles:
       - production
 
@@ -63,6 +70,13 @@ services:
       - TOGETHER_API_KEY=${TOGETHER_API_KEY}
       - TOGETHER_API_BASE_URL=${TOGETHER_API_BASE_URL}
       - AWS_BEDROCK_CONFIG=${AWS_BEDROCK_CONFIG}
+      # Pass TZSVTAV publish settings into the actual application container.
+      - COOLIFY_API_URL=${COOLIFY_API_URL:-}
+      - COOLIFY_API_TOKEN=${COOLIFY_API_TOKEN:-}
+      - COOLIFY_PROJECT_UUID=${COOLIFY_PROJECT_UUID:-}
+      - COOLIFY_SERVER_UUID=${COOLIFY_SERVER_UUID:-}
+      - COOLIFY_PUBLISH_KEY=${COOLIFY_PUBLISH_KEY:-}
+      - COOLIFY_ENVIRONMENT_NAME=${COOLIFY_ENVIRONMENT_NAME:-production}
       - VITE_LOG_LEVEL=${VITE_LOG_LEVEL:-debug}
       - DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX:-32768}
       - RUNNING_IN_DOCKER=true
