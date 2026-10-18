@@ -6,7 +6,7 @@ import { toSafeStreamErrorMessage } from '~/lib/.server/api/errors';
 import { STARTER_BUILD_FLAG } from '~/lib/common/starterBuild';
 
 describe('starter response stream', () => {
-  it('reports a clear failure when a model ignores required tools and returns only a build promise', async () => {
+  it('allows a provider-compatible text response without pretending a planning tool ran', async () => {
     const model = new MockLanguageModelV4({
       doStream: async () => ({
         stream: new ReadableStream({
@@ -48,8 +48,7 @@ describe('starter response stream', () => {
     }
     expect(model.doStreamCalls[0].toolChoice).toEqual({ type: 'auto' });
     expect(model.doStreamCalls[0].tools?.map((tool) => ('name' in tool ? tool.name : ''))).toEqual(['agent_plan']);
-    expect(chunks).toContainEqual(
-      expect.objectContaining({ type: 'error', errorText: expect.stringContaining('required tool call') }),
-    );
+    expect(chunks).not.toContainEqual(expect.objectContaining({ type: 'tool-input-available' }));
+    expect(chunks).toContainEqual(expect.objectContaining({ type: 'text-delta' }));
   });
 });
