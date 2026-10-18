@@ -687,6 +687,7 @@ export function useDataOperations({
         }
 
         const importedIds = new Set(validatedChats.map((chat: { id: string }) => String(chat.id)));
+
         const validatedSnapshots = Object.entries((snapshots ?? {}) as Record<string, unknown>).map(
           ([id, snapshot]) => {
             if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
