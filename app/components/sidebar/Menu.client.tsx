@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/react';
-import { motion, type Variants } from 'framer-motion';
-import { useNavigate } from 'react-router';
 import type { UIMessage } from 'ai';
+import { motion, type Variants } from 'framer-motion';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { toast } from 'react-toastify';
 import { HistoryItem } from './HistoryItem';
 import { binDates } from './date-binning';
@@ -21,7 +21,15 @@ import { DocumentationPanel } from '~/components/ui/DocumentationPanel';
 import { SettingsButton, HelpButton } from '~/components/ui/SettingsButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
-import { db, deleteById, getAll, chatId, createChatWithNextId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
+import {
+  db,
+  deleteById,
+  getAll,
+  chatId,
+  createChatWithNextId,
+  type ChatHistoryItem,
+  useChatHistory,
+} from '~/lib/persistence';
 import { createMessage } from '~/lib/persistence/messageMigration';
 import { DEFAULT_AVATAR, profileStore } from '~/lib/stores/profile';
 import { classNames } from '~/utils/classNames';
@@ -199,9 +207,12 @@ export const Menu = () => {
       if (errors.length === 0) {
         toast.success(`${deletedCount} beszélgetés sikeresen törölve`);
       } else {
-        toast.warning(`${deletedCount} / ${itemsToDeleteIds.length} beszélgetés törölve. Sikertelen: ${errors.length}.`, {
-          autoClose: 5000,
-        });
+        toast.warning(
+          `${deletedCount} / ${itemsToDeleteIds.length} beszélgetés törölve. Sikertelen: ${errors.length}.`,
+          {
+            autoClose: 5000,
+          },
+        );
       }
 
       // Reload the list after all deletions
@@ -342,19 +353,27 @@ export const Menu = () => {
 
   const createProject = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     const name = projectName.trim();
-    if (!name || savingProject) return;
+
+    if (!name || savingProject) {
+      return;
+    }
+
     if (!db) {
       toast.error('A böngésző projektadatbázisa nem érhető el.');
       return;
     }
+
     setSavingProject(true);
+
     try {
       // The initial message makes the existing chat/history loader recognize this as a project.
       const welcome = createMessage({
         role: 'assistant',
         text: 'Projekt létrehozva: ' + name + '. Írd le, milyen alkalmazást szeretnél készíteni.',
       }) as UIMessage;
+
       const project = await createChatWithNextId(db, [welcome], undefined, name, undefined, true);
       setCreatingProject(false);
       setProjectName('');
@@ -429,8 +448,13 @@ export const Menu = () => {
               Új projekt létrehozása
             </button>
             {creatingProject && (
-              <form onSubmit={createProject} className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 space-y-2">
-                <label htmlFor="bolt-new-project-name" className="text-sm text-bolt-elements-textPrimary">Projekt neve</label>
+              <form
+                onSubmit={createProject}
+                className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 space-y-2"
+              >
+                <label htmlFor="bolt-new-project-name" className="text-sm text-bolt-elements-textPrimary">
+                  Projekt neve
+                </label>
                 <input
                   id="bolt-new-project-name"
                   autoFocus
@@ -442,10 +466,24 @@ export const Menu = () => {
                   className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-bolt-elements-textPrimary"
                 />
                 <div className="flex gap-2">
-                  <button disabled={savingProject || !projectName.trim()} type="submit" className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50">Létrehozás</button>
-                  <button type="button" onClick={() => setCreatingProject(false)} className="rounded-md px-3 py-2 text-bolt-elements-textSecondary">Mégse</button>
+                  <button
+                    disabled={savingProject || !projectName.trim()}
+                    type="submit"
+                    className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50"
+                  >
+                    Létrehozás
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingProject(false)}
+                    className="rounded-md px-3 py-2 text-bolt-elements-textSecondary"
+                  >
+                    Mégse
+                  </button>
                 </div>
-                <p className="text-xs text-bolt-elements-textTertiary">A projekt ezen a böngészőn mentődik el, és innen később újranyitható.</p>
+                <p className="text-xs text-bolt-elements-textTertiary">
+                  A projekt ezen a böngészőn mentődik el, és innen később újranyitható.
+                </p>
               </form>
             )}
             <div className="flex gap-2">
@@ -568,7 +606,9 @@ export const Menu = () => {
                 {dialogContent?.type === 'bulkDelete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Kijelölt beszélgetések törlése?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">
+                          Kijelölt beszélgetések törlése?
+                        </DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
                           Törlésre kijelölve: {dialogContent.items.length}{' '}
