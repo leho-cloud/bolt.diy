@@ -197,9 +197,9 @@ export const Menu = () => {
 
       // Show appropriate toast message
       if (errors.length === 0) {
-        toast.success(`${deletedCount} chat${deletedCount === 1 ? '' : 's'} deleted successfully`);
+        toast.success(`${deletedCount} beszélgetés sikeresen törölve`);
       } else {
-        toast.warning(`Deleted ${deletedCount} of ${itemsToDeleteIds.length} chats. ${errors.length} failed.`, {
+        toast.warning(`${deletedCount} / ${itemsToDeleteIds.length} beszélgetés törölve. Sikertelen: ${errors.length}.`, {
           autoClose: 5000,
         });
       }
@@ -537,15 +537,15 @@ export const Menu = () => {
                 {dialogContent?.type === 'delete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Delete Chat?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">Beszélgetés törlése?</DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
-                          You are about to delete{' '}
+                          A következő beszélgetést szeretnéd törölni:{' '}
                           <span className="font-medium text-bolt-elements-textPrimary">
                             {dialogContent.item.description}
                           </span>
                         </p>
-                        <p className="mt-2">Are you sure you want to delete this chat?</p>
+                        <p className="mt-2">Biztosan törölni szeretnéd ezt a beszélgetést?</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
@@ -568,11 +568,11 @@ export const Menu = () => {
                 {dialogContent?.type === 'bulkDelete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Delete Selected Chats?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">Kijelölt beszélgetések törlése?</DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
-                          You are about to delete {dialogContent.items.length}{' '}
-                          {dialogContent.items.length === 1 ? 'beszélgetést' : 'beszélgetést'}:
+                          Törlésre kijelölve: {dialogContent.items.length}{' '}
+                          {dialogContent.items.length === 1 ? 'beszélgetés' : 'beszélgetés'}:
                         </p>
                         <div className="mt-2 max-h-32 overflow-auto border border-bolt-elements-borderColor rounded-md bg-bolt-elements-background-depth-2 p-2">
                           <ul className="list-disc pl-5 space-y-1">
@@ -583,7 +583,7 @@ export const Menu = () => {
                             ))}
                           </ul>
                         </div>
-                        <p className="mt-3">Are you sure you want to delete these chats?</p>
+                        <p className="mt-3">Biztosan törölni szeretnéd ezeket a beszélgetéseket?</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
@@ -632,7 +632,7 @@ export const Menu = () => {
             'hover:bg-bolt-elements-background-depth-2',
             'transition-colors',
           )}
-          aria-label="Open sidebar"
+          aria-label="Oldalsáv megnyitása"
         >
           <div className="i-ph:caret-right text-gray-500 dark:text-gray-400" />
         </button>
