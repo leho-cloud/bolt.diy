@@ -878,9 +878,12 @@ export async function createProjectMcpBridge() {
 
       assertProjectCurrent();
 
-      // Report stalled project operations without logging prompts, file contents or credentials.
-      // Diagnostic only: do not cancel an in-flight write, which could leave project state inconsistent.
+      /*
+       * Report stalled project operations without logging prompts, file contents or credentials.
+       * Diagnostic only: do not cancel an in-flight write, which could leave project state inconsistent.
+       */
       const startedAt = Date.now();
+
       const stallWarning = setTimeout(() => {
         console.warn('[Bolt project watchdog] Tool still running after 90s', {
           tool: name,

@@ -365,10 +365,11 @@ export async function streamText(props: {
     ...forwardedOptions
   } = filteredOptions as StreamingOptions & Record<string, unknown>;
 
-  // Do not force OpenRouter's require_parameters routing. Its strict filter can
-  // reject otherwise usable routes for tool-enabled models when a provider does
-  // not advertise every optional parameter. Preserve explicit user settings.
-
+  /*
+   * Do not force OpenRouter's require_parameters routing. Its strict filter can
+   * reject otherwise usable routes for tool-enabled models when a provider does
+   * not advertise every optional parameter. Preserve explicit user settings.
+   */
 
   const selectedModel = provider.getModelInstance({
     model: modelDetails.name,

@@ -171,8 +171,11 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       if (!progress.plan) {
         return {
           ...instructions,
-          // Expose only the planning tool, but avoid a forced named-tool
-          // selection that some OpenRouter routes cannot fulfill reliably.
+
+          /*
+           * Expose only the planning tool, but avoid a forced named-tool
+           * selection that some OpenRouter routes cannot fulfill reliably.
+           */
           toolChoice: 'auto' as const,
           activeTools: ['agent_plan' as const],
         };
@@ -196,10 +199,13 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
 
       return {
         ...instructions,
-        // Some OpenRouter routes return a normal text completion even when the
-        // request forces tool_choice=required. The SDK then rejects the entire
-        // response and no project edit can be applied. Keep tool instructions
-        // and completion evidence checks, but allow a compatible 'auto' choice.
+
+        /*
+         * Some OpenRouter routes return a normal text completion even when the
+         * request forces tool_choice=required. The SDK then rejects the entire
+         * response and no project edit can be applied. Keep tool instructions
+         * and completion evidence checks, but allow a compatible 'auto' choice.
+         */
         toolChoice: 'auto' as const,
         ...(taskToolNames
           ? {
