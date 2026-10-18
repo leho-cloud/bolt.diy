@@ -59,6 +59,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         headers: { 'Content-Type': 'application/json', 'x-publish-key': publishKey },
         body: JSON.stringify({ repository: createdRepoUrl, slug }),
       });
+
       const responseText = await response.text();
 
       let result: { error?: string; domain?: string };
@@ -741,7 +742,8 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                           Kulcs megjegyzése ezen a böngészőn
                         </label>
                         <p className="text-xs text-bolt-elements-textSecondary">
-                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott számítógépen ne használd.
+                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott számítógépen
+                          ne használd.
                         </p>
                         {rememberPublishKey && publishKey && (
                           <button
