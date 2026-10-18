@@ -7,7 +7,10 @@ import { FirstRunOnboarding } from '~/components/onboarding/FirstRunOnboarding';
 import BackgroundRays from '~/components/ui/BackgroundRays';
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'TZSVTAV AI Builder' }, { name: 'description', content: 'TZSVTAV AI Builder – magyar nyelvű AI alkalmazásfejlesztő' }];
+  return [
+    { title: 'TZSVTAV AI Builder' },
+    { name: 'description', content: 'TZSVTAV AI Builder – magyar nyelvű AI alkalmazásfejlesztő' },
+  ];
 };
 
 export const loader = () => Response.json({});

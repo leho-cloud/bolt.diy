@@ -30,20 +30,23 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdRepoUrl, setCreatedRepoUrl] = useState('');
+
   const [publishKey, setPublishKey] = useState(() =>
     typeof window !== 'undefined' ? window.localStorage.getItem('tzsvtav_coolify_publish_key') || '' : '',
   );
-  const [rememberPublishKey, setRememberPublishKey] = useState(() =>
-    typeof window !== 'undefined' && !!window.localStorage.getItem('tzsvtav_coolify_publish_key'),
+  const [rememberPublishKey, setRememberPublishKey] = useState(
+    () => typeof window !== 'undefined' && !!window.localStorage.getItem('tzsvtav_coolify_publish_key'),
   );
   const removeSavedPublishKey = () => {
     window.localStorage.removeItem('tzsvtav_coolify_publish_key');
     setRememberPublishKey(false);
     setPublishKey('');
   };
+
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedDomain, setPublishedDomain] = useState('');
   const [publishError, setPublishError] = useState('');
+
   const publishToCoolify = async () => {
     const slug = sanitizeRepoName(repoName).slice(0, 48).replace(/-+$/, '');
     setIsPublishing(true);
@@ -55,13 +58,17 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
         headers: { 'Content-Type': 'application/json', 'x-publish-key': publishKey },
         body: JSON.stringify({ repository: createdRepoUrl, slug }),
       });
+
       const responseText = await response.text();
+
       let result: { error?: string; domain?: string };
 
       try {
         result = JSON.parse(responseText) as { error?: string; domain?: string };
       } catch {
-        throw new Error(`A közzétételi API nem JSON-választ adott (HTTP ${response.status}). Ellenőrizd a telepített verziót és az API-útvonalat.`);
+        throw new Error(
+          `A közzétételi API nem JSON-választ adott (HTTP ${response.status}). Ellenőrizd a telepített verziót és az API-útvonalat.`,
+        );
       }
 
       if (!response.ok || !result.domain) {
@@ -80,6 +87,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       setPublishError(error instanceof Error ? error.message : 'Közzétételi hiba.');
     } finally {
       setIsPublishing(false);
+
       if (!rememberPublishKey) {
         setPublishKey('');
       }
@@ -688,14 +696,25 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                   </div>
 
                   <section className="rounded-lg border border-[#e31837]/40 bg-[#e31837]/5 p-4 space-y-3">
-                    <h4 className="text-sm font-semibold text-bolt-elements-textPrimary">Közzététel saját szerverre (Coolify)</h4>
+                    <h4 className="text-sm font-semibold text-bolt-elements-textPrimary">
+                      Közzététel saját szerverre (Coolify)
+                    </h4>
                     <p className="text-xs text-bolt-elements-textSecondary">
                       A projekt címe: {sanitizeRepoName(repoName).slice(0, 48).replace(/-+$/, '')}.builder.tzsvtav.com
                     </p>
                     {publishedDomain ? (
                       <div className="space-y-2">
-                        <p className="text-sm text-green-500">Telepítés elindítva. A weboldal a build és DNS-beállítás után lesz elérhető.</p>
-                        <a href={publishedDomain} target="_blank" rel="noopener noreferrer" className="text-sm underline text-[#e31837]">{publishedDomain}</a>
+                        <p className="text-sm text-green-500">
+                          Telepítés elindítva. A weboldal a build és DNS-beállítás után lesz elérhető.
+                        </p>
+                        <a
+                          href={publishedDomain}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm underline text-[#e31837]"
+                        >
+                          {publishedDomain}
+                        </a>
                       </div>
                     ) : (
                       <>
@@ -713,6 +732,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                             checked={rememberPublishKey}
                             onChange={(event) => {
                               setRememberPublishKey(event.target.checked);
+
                               if (!event.target.checked) {
                                 window.localStorage.removeItem('tzsvtav_coolify_publish_key');
                               }
@@ -721,14 +741,23 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                           Kulcs megjegyzése ezen a böngészőn
                         </label>
                         <p className="text-xs text-bolt-elements-textSecondary">
-                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott számítógépen ne használd.
+                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott
+                          számítógépen ne használd.
                         </p>
                         {rememberPublishKey && publishKey && (
-                          <button type="button" onClick={removeSavedPublishKey} className="text-xs underline text-bolt-elements-textSecondary">
+                          <button
+                            type="button"
+                            onClick={removeSavedPublishKey}
+                            className="text-xs underline text-bolt-elements-textSecondary"
+                          >
                             Mentett kulcs törlése
                           </button>
                         )}
-                        {publishError && <p role="alert" className="text-xs text-red-500">{publishError}</p>}
+                        {publishError && (
+                          <p role="alert" className="text-xs text-red-500">
+                            {publishError}
+                          </p>
+                        )}
                         <button
                           type="button"
                           disabled={isPublishing || !publishKey.trim() || isPrivate}
@@ -737,7 +766,11 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                         >
                           {isPublishing ? 'Közzététel folyamatban…' : 'Közzététel a TZSVTAV szerverére'}
                         </button>
-                        {isPrivate && <p className="text-xs text-bolt-elements-textSecondary">Ehhez nyilvános GitHub-tároló szükséges.</p>}
+                        {isPrivate && (
+                          <p className="text-xs text-bolt-elements-textSecondary">
+                            Ehhez nyilvános GitHub-tároló szükséges.
+                          </p>
+                        )}
                       </>
                     )}
                   </section>
