@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loader } from '../routes/api.github-template';
+import { loader } from '~/routes/api.github-template';
 import { getTemplates } from './selectStarterTemplate';
 
 vi.mock('./constants', () => ({
