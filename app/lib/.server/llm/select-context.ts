@@ -84,9 +84,11 @@ export async function selectContext(props: {
     return !ig.ignores(relPath);
   });
 
-  // A new or empty project has no candidate files to select. Calling the model
-  // to choose from an empty list wastes tokens, and returning an empty context
-  // is valid: the assistant can create the first file normally.
+  /*
+   * A new or empty project has no candidate files to select. Calling the model
+   * to choose from an empty list wastes tokens, and returning an empty context
+   * is valid: the assistant can create the first file normally.
+   */
   if (filePaths.length === 0) {
     logger.info('No eligible project files; skipping AI context selection');
     return {};
@@ -231,8 +233,10 @@ export async function selectContext(props: {
   const totalFiles = Object.keys(filteredFiles).length;
   logger.info(`Total files: ${totalFiles}`);
 
-  // Selecting zero files is valid for a new file or a request unrelated to
-  // existing files. It must not abort the actual build request.
+  /*
+   * Selecting zero files is valid for a new file or a request unrelated to
+   * existing files. It must not abort the actual build request.
+   */
   return filteredFiles;
 
   // generateText({
