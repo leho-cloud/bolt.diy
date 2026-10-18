@@ -1,9 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { UIMessage } from 'ai';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedSnapshot, invalidateChatCache } from './chatCache';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCachedMessages, getCachedSnapshot, invalidateChatCache } from './chatCache';
+import { getMessagesByIdRaw, getSnapshot } from './db';
 
-const { resetWorkbench, waitForExecutionQueue, setMessages, setSnapshot } = vi.hoisted(() => ({
+const { resetWorkbench, waitForExecutionQueue, setMessages, setSnapshot, writeFile, mkdir } = vi.hoisted(() => ({
+  writeFile: vi.fn(async () => undefined),
+  mkdir: vi.fn(async () => undefined),
   resetWorkbench: vi.fn(async (): Promise<void> => undefined),
   waitForExecutionQueue: vi.fn(async () => undefined),
   setMessages: vi.fn(async () => undefined),
@@ -25,12 +28,9 @@ vi.mock('~/lib/stores/workbench', () => ({
   },
 }));
 
-/*
- * The chat workbench never boots a container under test, so the promise stays
- * pending on purpose.
- */
+// Use an in-memory filesystem boundary to verify snapshot restoration.
 vi.mock('~/lib/webcontainer', () => ({
-  webcontainer: new Promise(() => undefined),
+  webcontainer: Promise.resolve({ workdir: '/home/project', fs: { writeFile, mkdir } }),
   webcontainerContext: { loaded: false },
 }));
 
@@ -43,6 +43,7 @@ vi.mock('./db', () => ({
   createChatFromMessages: vi.fn(async () => 'imported'),
   getMessagesByIdRaw: vi.fn(async () => undefined),
   getMessagesByUrlIdRaw: vi.fn(async () => undefined),
+  getSnapshot: vi.fn(async () => undefined),
 }));
 
 /*
@@ -118,10 +119,14 @@ async function importHook() {
 
 describe('useChatHistory chat switching', () => {
   beforeEach(() => {
+    writeFile.mockClear();
+    mkdir.mockClear();
     resetWorkbench.mockClear();
     waitForExecutionQueue.mockClear();
     setMessages.mockClear();
     setSnapshot.mockClear();
+    vi.mocked(getMessagesByIdRaw).mockReset();
+    vi.mocked(getSnapshot).mockReset();
     vi.mocked(getCachedSnapshot).mockClear();
     navigate.mockClear();
     routeId = 'chat-a';
@@ -147,6 +152,10 @@ describe('useChatHistory chat switching', () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should reset the workbench and the container when another chat is opened', async () => {
     const useChatHistory = await importHook();
     const { rerender, result } = renderHook(() => useChatHistory());
@@ -167,6 +176,42 @@ describe('useChatHistory chat switching', () => {
 
     await waitFor(() => expect(getCachedSnapshot).toHaveBeenCalledWith({}, '1'));
   });
+
+  it.each([false, true])(
+    'restores a first-message snapshot without hiding the project (preserve=%s)',
+    async (preserve) => {
+      const message = {
+        id: 'only-message',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Saved project' }],
+      } as UIMessage;
+      vi.mocked(getCachedMessages).mockResolvedValueOnce({
+        id: '1',
+        urlId: 'chat-a',
+        description: 'Saved project',
+        timestamp: '2026-10-18T13:00:00.000Z',
+        messages: [message],
+      });
+      vi.mocked(getCachedSnapshot).mockResolvedValueOnce({
+        chatIndex: message.id,
+        preserveMessagesOnRestore: preserve,
+        files: {
+          '/home/project/src/main.ts': { type: 'file', content: 'saved source', isBinary: false },
+          '/home/project/index.html': { type: 'file', content: '<h1>Saved</h1>', isBinary: false },
+        },
+      });
+
+      const useChatHistory = await importHook();
+      const { result } = renderHook(() => useChatHistory());
+
+      await waitFor(() => expect(result.current.ready).toBe(true));
+      expect(result.current.initialMessages).toEqual([message]);
+      expect(mkdir).toHaveBeenCalledTimes(1);
+      expect(mkdir).toHaveBeenCalledWith('src', { recursive: true });
+      expect(writeFile).toHaveBeenCalledWith('index.html', '<h1>Saved</h1>', { encoding: 'utf8' });
+      expect(writeFile).toHaveBeenCalledWith('src/main.ts', 'saved source', { encoding: 'utf8' });
+    },
+  );
 
   it('should not reset the workbench when only the query string changes', async () => {
     const useChatHistory = await importHook();
@@ -495,5 +540,69 @@ describe('useChatHistory chat switching', () => {
     });
     expect(result.current.chatChanged).toBe(false);
     expect(result.current.initialMessages).toEqual([]);
+  });
+
+  it('exports one complete, importable project archive with its file snapshot', async () => {
+    const chat = {
+      id: '1',
+      urlId: 'chat-a',
+      description: 'Mentett projekt',
+      messages: [{ id: 'message-1', role: 'assistant', parts: [{ type: 'text', text: 'Kész.' }] }],
+      timestamp: '2026-10-18T10:00:00.000Z',
+      metadata: null,
+    };
+
+    const snapshot = { chatIndex: 'complete', files: { 'index.html': { type: 'file', content: 'hello' } } };
+    vi.mocked(getMessagesByIdRaw).mockResolvedValue(chat as any);
+    vi.mocked(getSnapshot).mockResolvedValue(snapshot as any);
+
+    let exportedBlob: Blob | undefined;
+
+    const previousCreateObjectURL = URL.createObjectURL;
+    const previousRevokeObjectURL = URL.revokeObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn((blob: Blob) => {
+        exportedBlob = blob;
+        return 'blob:project-export';
+      }),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    const useChatHistory = await importHook();
+    const { result } = renderHook(() => useChatHistory({ loadHistory: false }));
+
+    await act(async () => {
+      await result.current.exportChat('1');
+    });
+
+    expect(exportedBlob).toBeDefined();
+
+    const archive = JSON.parse(await exportedBlob!.text());
+    expect(archive.formatVersion).toBe(2);
+    expect(archive.chats).toEqual([chat]);
+    expect(archive.snapshots['1']).toEqual(snapshot);
+
+    if (previousCreateObjectURL) {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: previousCreateObjectURL,
+      });
+    } else {
+      delete (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+    }
+
+    if (previousRevokeObjectURL) {
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: previousRevokeObjectURL,
+      });
+    } else {
+      delete (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
+    }
   });
 });

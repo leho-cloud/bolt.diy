@@ -121,20 +121,34 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
      * onChunk rather than by iterating the stream alongside the UI merge.
      */
     const chunkStats = { chunks: 0, text: 0, tools: 0, finish: 0 };
+
     const observeChunk = ({ chunk }: { chunk: unknown }) => {
       const part = chunk as { type?: string; error?: unknown };
       chunkStats.chunks++;
-      if (part.type === 'text-delta') chunkStats.text++;
-      if (part.type === 'tool-call') chunkStats.tools++;
-      if (part.type === 'finish') chunkStats.finish++;
+
+      if (part.type === 'text-delta') {
+        chunkStats.text++;
+      }
+
+      if (part.type === 'tool-call') {
+        chunkStats.tools++;
+      }
+
+      if (part.type === 'finish') {
+        chunkStats.finish++;
+      }
 
       if (part.type === 'error') {
         logger.error(
           `AI stream checkpoint: chunks=${chunkStats.chunks} text=${chunkStats.text} tools=${chunkStats.tools} finish=${chunkStats.finish} mode=${chatMode}`,
         );
-        // Capture the SDK's original error before UI-stream conversion can
-        // wrap it as a generic Error. The mapper logs only safe classifications
-        // and never includes request/response bodies or API credentials.
+
+        /*
+         * Capture the SDK's original error before UI-stream conversion can
+         * wrap it as a generic Error. The mapper logs only safe classifications
+         * and never includes request/response bodies or API credentials.
+         */
+
         if (part.error !== undefined) {
           toSafeStreamErrorMessage(part.error);
         } else {
@@ -403,9 +417,13 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
            * hard per-request ceiling even if the user's general step setting is higher.
            */
           stopWhen: isStepCount(agentLoopEnabled ? Math.min(maxLLMSteps ?? 12, 12) : (maxLLMSteps ?? 1)),
-          // A browser-backed project tool may legitimately need more than 45s
-          // between model chunks. Keep bounded per-step and total budgets
-          // for build requests rather than aborting an in-progress file edit.
+
+          /*
+           * A browser-backed project tool may legitimately need more than 45s
+           * between model chunks. Keep bounded per-step and total budgets
+           * for build requests rather than aborting an in-progress file edit.
+           */
+
           timeout: recoveringAgent
             ? { stepMs: 660_000, totalMs: 900_000 }
             : chatMode === 'build'

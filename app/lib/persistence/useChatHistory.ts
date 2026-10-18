@@ -12,6 +12,7 @@ import {
   duplicateChat,
   createChatFromMessages,
   createChatWithNextId,
+  getSnapshot,
   setSnapshot,
   type IChatMetadata,
 } from './db';
@@ -213,7 +214,11 @@ export function useChatHistory({ loadHistory = true }: { loadHistory?: boolean }
               archivedMessages = storedMessages.messages.slice(0, startingIdx + 1);
             }
 
-            if (startingIdx > 0 && validSnapshot.preserveMessagesOnRestore) {
+            /*
+             * A snapshot can already cover the first (and only) message. Keep
+             * that message visible while restoring its files directly.
+             */
+            if (startingIdx >= 0 && (startingIdx === 0 || validSnapshot.preserveMessagesOnRestore)) {
               archivedMessages = [];
               await restoreSnapshot(validSnapshot, isCurrentLoad);
 
@@ -450,6 +455,7 @@ ${value.content}
       // localStorage.setItem(`snapshot:${id}`, JSON.stringify(snapshot)); // Remove localStorage usage
       try {
         await setSnapshot(db, chatRecordId, snapshot);
+        invalidateChatCache(chatRecordId);
       } catch (error) {
         console.error('Failed to save snapshot:', error);
         toast.error('Failed to save chat snapshot.');
@@ -474,8 +480,10 @@ ${value.content}
         return;
       }
 
-      // Vite's .vite directory is a disposable dependency cache. Restoring it
-      // can fail when transient deps_temp_* folders are missing after a reload.
+      /*
+       * Vite's .vite directory is a disposable dependency cache. Restoring it
+       * can fail when transient deps_temp_* folders are missing after a reload.
+       */
       const entries = Object.entries(validSnapshot.files).filter(([path]) => {
         const normalized = path.replace(/\\/g, '/');
         return !normalized.split('/').includes('.vite');
@@ -508,7 +516,8 @@ ${value.content}
       for (const [filePath, value] of entries) {
         if (value?.type === 'file') {
           const relativePath = getContainerPath(filePath);
-          const parent = relativePath.slice(0, relativePath.lastIndexOf('/'));
+          const lastSlash = relativePath.lastIndexOf('/');
+          const parent = lastSlash >= 0 ? relativePath.slice(0, lastSlash) : '';
 
           if (parent) {
             await container.fs.mkdir(parent, { recursive: true });
@@ -761,9 +770,22 @@ ${value.content}
        */
       const chat = (await getMessagesByIdRaw(db, id)) || (await getMessagesByUrlIdRaw(db, id));
 
+      if (!chat) {
+        toast.error('A beszélgetés nem található.');
+        return;
+      }
+
+      const snapshot = await getSnapshot(db, chat.id);
+
       const chatData = {
+        formatVersion: 2,
+        chats: [chat],
+        snapshots: snapshot ? { [chat.id]: snapshot } : {},
+        id: chat.id,
+        urlId: chat.urlId,
         messages: chat.messages,
         description: chat.description,
+        metadata: chat.metadata,
         exportDate: new Date().toISOString(),
       };
 

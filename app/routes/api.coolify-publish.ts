@@ -22,13 +22,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
     'COOLIFY_SERVER_UUID',
     'COOLIFY_PUBLISH_KEY',
   ] as const;
+
   const missingKeys = requiredKeys.filter((key) => !env[key]?.trim());
 
   if (missingKeys.length > 0) {
-    return Response.json(
-      { error: 'Hiányzó Coolify környezeti változók: ' + missingKeys.join(', ') },
-      { status: 503 },
-    );
+    return Response.json({ error: 'Hiányzó Coolify környezeti változók: ' + missingKeys.join(', ') }, { status: 503 });
   }
 
   const suppliedKey = request.headers.get('x-publish-key') || '';
@@ -58,7 +56,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const repo = `https://github.com/${match[1]}/${match[2]}`;
   const domain = `https://${slug}.builder.tzsvtav.com`;
   const base = COOLIFY_API_URL!.replace(/\/+$/, '').replace(/\/api\/v1$/, '') + '/api/v1';
-  const headers = { Authorization: `Bearer ${COOLIFY_API_TOKEN}`, 'Content-Type': 'application/json', Accept: 'application/json' };
+
+  const headers = {
+    Authorization: `Bearer ${COOLIFY_API_TOKEN}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+
   const coolify = async (endpoint: string, init: RequestInit = {}) => {
     const response = await fetch(base + endpoint, { ...init, headers, signal: AbortSignal.timeout(25000) });
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -71,13 +75,21 @@ export async function action({ request, context }: ActionFunctionArgs) {
   };
 
   try {
-    // The repository owner is allowlisted above. Let Coolify perform repository
-    // access checks during deployment instead of blocking on GitHub API rate
-    // limits or outbound network failures from the Worker.
+    /*
+     * The repository owner is allowlisted above. Let Coolify perform repository
+     * access checks during deployment instead of blocking on GitHub API rate
+     * limits or outbound network failures from the Worker.
+     */
     const gitBranch = 'main';
 
     const applicationsData = await coolify('/applications');
-    const applications = Array.isArray(applicationsData) ? applicationsData : (Array.isArray(applicationsData.data) ? applicationsData.data : []);
+
+    const applications = Array.isArray(applicationsData)
+      ? applicationsData
+      : Array.isArray(applicationsData.data)
+        ? applicationsData.data
+        : [];
+
     const existing = applications.find((item: unknown) => {
       const app = item as { uuid?: string; fqdn?: string; domains?: string; git_repository?: string };
       return (app.fqdn || app.domains || '').split(',').includes(domain);
@@ -117,6 +129,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
     return Response.json({ success: true, domain, applicationUuid: uuid, status: 'queued', deployment: deployResult });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : 'Ismeretlen telepítési hiba.' }, { status: 502 });
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Ismeretlen telepítési hiba.' },
+      { status: 502 },
+    );
   }
 }

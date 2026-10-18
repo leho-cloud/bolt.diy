@@ -206,7 +206,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 <select
                   id="bolt-auto-model"
                   value={props.autoModelMode ?? 'manual'}
-                  onChange={(event) => props.setAutoModelMode?.(event.target.value as 'manual' | 'economy' | 'balanced' | 'quality')}
+                  onChange={(event) =>
+                    props.setAutoModelMode?.(event.target.value as 'manual' | 'economy' | 'balanced' | 'quality')
+                  }
                   className="rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-2 py-1 text-bolt-elements-textPrimary"
                   title="Automatikus választás jelenleg OpenRouterrel működik"
                 >

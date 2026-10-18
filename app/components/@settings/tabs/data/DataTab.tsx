@@ -25,7 +25,7 @@ function useBoltHistoryDB() {
         setDb(database || null);
         setIsLoading(false);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error initializing database'));
+        setError(err instanceof Error ? err : new Error('Ismeretlen hiba az adatbázis indításakor'));
         setIsLoading(false);
       }
     };
@@ -54,10 +54,10 @@ function createChatItem(chat: Chat): ChatItem {
     id: chat.id,
 
     // Use description as title if available, or format a short ID
-    label: (chat as ExtendedChat).title || chat.description || `Chat ${chat.id.slice(0, 8)}`,
+    label: (chat as ExtendedChat).title || chat.description || `Beszélgetés ${chat.id.slice(0, 8)}`,
 
     // Format the description with message count and timestamp
-    description: `${chat.messages.length} messages - Last updated: ${new Date((chat as ExtendedChat).updatedAt || Date.parse(chat.timestamp)).toLocaleString()}`,
+    description: `${chat.messages.length} üzenet · Utolsó módosítás: ${new Date((chat as ExtendedChat).updatedAt || Date.parse(chat.timestamp)).toLocaleString('hu-HU')}`,
   };
 }
 
@@ -89,13 +89,13 @@ export function DataTab() {
 
   // State for settings categories and available chats
   const [settingsCategories] = useState<SettingsCategory[]>([
-    { id: 'core', label: 'Core Settings', description: 'User profile and main settings' },
-    { id: 'providers', label: 'Providers', description: 'API keys and provider configurations' },
-    { id: 'features', label: 'Features', description: 'Feature flags and settings' },
-    { id: 'ui', label: 'UI', description: 'UI configuration and preferences' },
-    { id: 'connections', label: 'Connections', description: 'External service connections' },
-    { id: 'debug', label: 'Debug', description: 'Debug settings and logs' },
-    { id: 'updates', label: 'Updates', description: 'Update settings and notifications' },
+    { id: 'core', label: 'Alapbeállítások', description: 'Felhasználói profil és fő beállítások' },
+    { id: 'providers', label: 'Szolgáltatók', description: 'API-kulcsok és szolgáltatói beállítások' },
+    { id: 'features', label: 'Funkciók', description: 'Funkciókapcsolók és beállítások' },
+    { id: 'ui', label: 'Felület', description: 'Felületbeállítások és megjelenés' },
+    { id: 'connections', label: 'Kapcsolatok', description: 'Külső szolgáltatások kapcsolatai' },
+    { id: 'debug', label: 'Hibakeresés', description: 'Hibakeresési beállítások és naplók' },
+    { id: 'updates', label: 'Frissítések', description: 'Frissítési beállítások és értesítések' },
   ]);
 
   const [availableChats, setAvailableChats] = useState<ExtendedChat[]>([]);
@@ -107,6 +107,8 @@ export function DataTab() {
     isImporting,
     isResetting,
     isDownloadingTemplate,
+    canUndo,
+    handleUndo,
     handleExportSettings,
     handleExportSelectedSettings,
     handleExportAllChats,
@@ -161,7 +163,9 @@ export function DataTab() {
         })
         .catch((error) => {
           console.error('Error loading chats:', error);
-          toast.error('Failed to load chats: ' + (error instanceof Error ? error.message : 'Unknown error'));
+          toast.error(
+            'Nem sikerült betölteni a beszélgetéseket: ' + (error instanceof Error ? error.message : 'ismeretlen hiba'),
+          );
         });
     }
   }, [db]);
@@ -210,12 +214,21 @@ export function DataTab() {
   const handleDeleteAllAPIKeys = useCallback(() => {
     Cookies.remove('apiKeys', { path: '/' });
     setShowDeleteAPIKeysConfirm(false);
-    toast.success('All saved API keys were deleted');
+    toast.success('Minden mentett API-kulcs törölve.');
     window.location.reload();
   }, []);
 
   return (
     <div className="space-y-12">
+      {canUndo && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-bolt-elements-textPrimary">Az utolsó művelet visszavonható.</p>
+          <Button variant="outline" size="sm" onClick={handleUndo}>
+            Utolsó művelet visszavonása
+          </Button>
+        </div>
+      )}
+
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileInputChange} className="hidden" />
       <input
@@ -237,10 +250,10 @@ export function DataTab() {
       <ConfirmationDialog
         isOpen={showResetInlineConfirm}
         onClose={() => setShowResetInlineConfirm(false)}
-        title="Reset All Settings?"
-        description="This will reset all your settings to their default values. This action cannot be undone."
-        confirmLabel="Reset Settings"
-        cancelLabel="Cancel"
+        title="Visszaállítod az összes beállítást?"
+        description="Minden beállítás visszaáll az alapértékére. Ez a művelet nem vonható vissza."
+        confirmLabel="Beállítások visszaállítása"
+        cancelLabel="Mégse"
         variant="destructive"
         isLoading={isResetting}
         onConfirm={handleResetSettings}
@@ -250,10 +263,10 @@ export function DataTab() {
       <ConfirmationDialog
         isOpen={showDeleteInlineConfirm}
         onClose={() => setShowDeleteInlineConfirm(false)}
-        title="Delete All Chats?"
-        description="This will permanently delete all your chat history. This action cannot be undone."
-        confirmLabel="Delete All"
-        cancelLabel="Cancel"
+        title="Törlöd az összes beszélgetést?"
+        description="Az összes beszélgetési előzmény véglegesen törlődik. Ez a művelet nem vonható vissza."
+        confirmLabel="Összes törlése"
+        cancelLabel="Mégse"
         variant="destructive"
         isLoading={isDeleting}
         onConfirm={handleResetChatsWithState}
@@ -262,10 +275,10 @@ export function DataTab() {
       <ConfirmationDialog
         isOpen={showDeleteAPIKeysConfirm}
         onClose={() => setShowDeleteAPIKeysConfirm(false)}
-        title="Delete All API Keys?"
-        description="This permanently removes API keys saved in this browser. Keys provided through environment variables are not affected."
-        confirmLabel="Delete All API Keys"
-        cancelLabel="Cancel"
+        title="Törlöd az összes API-kulcsot?"
+        description="A böngészőben mentett API-kulcsok véglegesen törlődnek. A környezeti változókból megadott kulcsok nem változnak."
+        confirmLabel="Összes API-kulcs törlése"
+        cancelLabel="Mégse"
         variant="destructive"
         onConfirm={handleDeleteAllAPIKeys}
       />
@@ -274,35 +287,35 @@ export function DataTab() {
       <SelectionDialog
         isOpen={showSettingsSelection}
         onClose={() => setShowSettingsSelection(false)}
-        title="Select Settings to Export"
+        title="Válaszd ki az exportálandó beállításokat"
         items={settingsCategories}
         onConfirm={(selectedIds) => {
           handleExportSelectedSettings(selectedIds);
           setShowSettingsSelection(false);
         }}
-        confirmLabel="Export Selected"
+        confirmLabel="Kijelöltek exportálása"
       />
 
       {/* Chats Selection Dialog */}
       <SelectionDialog
         isOpen={showChatsSelection}
         onClose={() => setShowChatsSelection(false)}
-        title="Select Chats to Export"
+        title="Válaszd ki az exportálandó beszélgetéseket"
         items={chatItems}
         onConfirm={(selectedIds) => {
           handleExportSelectedChats(selectedIds);
           setShowChatsSelection(false);
         }}
-        confirmLabel="Export Selected"
+        confirmLabel="Kijelöltek exportálása"
       />
 
       {/* Chats Section */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">Chats</h2>
+        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">Beszélgetések</h2>
         {dbLoading ? (
           <div className="flex items-center justify-center p-4">
             <div className="i-ph-spinner-gap-bold animate-spin w-6 h-6 mr-2" />
-            <span>Loading chats database...</span>
+            <span>Beszélgetési adatbázis betöltése…</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -313,10 +326,10 @@ export function DataTab() {
                     <div className="i-ph-download-duotone w-5 h-5" />
                   </motion.div>
                   <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                    Export All Chats
+                    Összes beszélgetés exportálása
                   </CardTitle>
                 </div>
-                <CardDescription>Export all your chats to a JSON file.</CardDescription>
+                <CardDescription>Az összes beszélgetés exportálása JSON-fájlba.</CardDescription>
               </CardHeader>
               <CardFooter>
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -324,7 +337,7 @@ export function DataTab() {
                     onClick={async () => {
                       try {
                         if (!db) {
-                          toast.error('Database not available');
+                          toast.error('Az adatbázis nem érhető el.');
                           return;
                         }
 
@@ -335,7 +348,7 @@ export function DataTab() {
                         });
 
                         if (availableChats.length === 0) {
-                          toast.warning('No chats available to export');
+                          toast.warning('Nincs exportálható beszélgetés.');
                           return;
                         }
 
@@ -343,7 +356,7 @@ export function DataTab() {
                       } catch (error) {
                         console.error('Error exporting chats:', error);
                         toast.error(
-                          `Failed to export chats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                          `Nem sikerült exportálni a beszélgetéseket: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
                         );
                       }
                     }}
@@ -358,12 +371,12 @@ export function DataTab() {
                     {isExporting ? (
                       <>
                         <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                        Exporting...
+                        Exportálás…
                       </>
                     ) : availableChats.length === 0 ? (
-                      'No Chats to Export'
+                      'Nincs exportálható beszélgetés'
                     ) : (
-                      'Export All'
+                      'Összes exportálása'
                     )}
                   </Button>
                 </motion.div>
@@ -377,10 +390,10 @@ export function DataTab() {
                     <div className="i-ph:list-checks w-5 h-5" />
                   </motion.div>
                   <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                    Export Selected Chats
+                    Kijelölt beszélgetések exportálása
                   </CardTitle>
                 </div>
-                <CardDescription>Choose specific chats to export.</CardDescription>
+                <CardDescription>Válaszd ki az exportálandó beszélgetéseket.</CardDescription>
               </CardHeader>
               <CardFooter>
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -397,10 +410,10 @@ export function DataTab() {
                     {isExporting ? (
                       <>
                         <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                        Exporting...
+                        Exportálás…
                       </>
                     ) : (
-                      'Select Chats'
+                      'Beszélgetések kiválasztása'
                     )}
                   </Button>
                 </motion.div>
@@ -414,10 +427,10 @@ export function DataTab() {
                     <div className="i-ph-upload-duotone w-5 h-5" />
                   </motion.div>
                   <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                    Import Chats
+                    Beszélgetések importálása
                   </CardTitle>
                 </div>
-                <CardDescription>Import chats from a JSON file.</CardDescription>
+                <CardDescription>Beszélgetések importálása JSON-fájlból.</CardDescription>
               </CardHeader>
               <CardFooter>
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -434,10 +447,10 @@ export function DataTab() {
                     {isImporting ? (
                       <>
                         <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                        Importing...
+                        Importálás…
                       </>
                     ) : (
-                      'Import Chats'
+                      'Beszélgetések importálása'
                     )}
                   </Button>
                 </motion.div>
@@ -449,7 +462,7 @@ export function DataTab() {
 
       {/* Settings Section */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">Settings</h2>
+        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">Beállítások</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="bg-bolt-elements-background-depth-2 transition-colors hover:bg-bolt-elements-background-depth-3">
             <CardHeader>
@@ -458,10 +471,10 @@ export function DataTab() {
                   <div className="i-ph-download-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Export All Settings
+                  Összes beállítás exportálása
                 </CardTitle>
               </div>
-              <CardDescription>Export all your settings to a JSON file.</CardDescription>
+              <CardDescription>Az összes beállítás exportálása JSON-fájlba.</CardDescription>
             </CardHeader>
             <CardFooter>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -478,10 +491,10 @@ export function DataTab() {
                   {isExporting ? (
                     <>
                       <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Exporting...
+                      Exportálás…
                     </>
                   ) : (
-                    'Export All'
+                    'Összes exportálása'
                   )}
                 </Button>
               </motion.div>
@@ -495,10 +508,10 @@ export function DataTab() {
                   <div className="i-ph:funnel-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Export Selected Settings
+                  Kijelölt beállítások exportálása
                 </CardTitle>
               </div>
-              <CardDescription>Choose specific settings to export.</CardDescription>
+              <CardDescription>Válaszd ki az exportálandó beállításokat.</CardDescription>
             </CardHeader>
             <CardFooter>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -515,10 +528,10 @@ export function DataTab() {
                   {isExporting ? (
                     <>
                       <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Exporting...
+                      Exportálás…
                     </>
                   ) : (
-                    'Select Settings'
+                    'Beállítások kiválasztása'
                   )}
                 </Button>
               </motion.div>
@@ -532,10 +545,10 @@ export function DataTab() {
                   <div className="i-ph-upload-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Import Settings
+                  Beállítások importálása
                 </CardTitle>
               </div>
-              <CardDescription>Import settings from a JSON file.</CardDescription>
+              <CardDescription>Beállítások importálása JSON-fájlból.</CardDescription>
             </CardHeader>
             <CardFooter>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -552,10 +565,10 @@ export function DataTab() {
                   {isImporting ? (
                     <>
                       <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Importing...
+                      Importálás…
                     </>
                   ) : (
-                    'Import Settings'
+                    'Beállítások importálása'
                   )}
                 </Button>
               </motion.div>
@@ -566,7 +579,7 @@ export function DataTab() {
 
       {/* API Keys Section */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">API Keys</h2>
+        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">API-kulcsok</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="bg-bolt-elements-background-depth-2 transition-colors hover:bg-bolt-elements-background-depth-3">
             <CardHeader>
@@ -575,10 +588,10 @@ export function DataTab() {
                   <div className="i-ph-file-text-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Download Template
+                  Sablon letöltése
                 </CardTitle>
               </div>
-              <CardDescription>Download a template file for your API keys.</CardDescription>
+              <CardDescription>Minta JSON-fájl letöltése az API-kulcsokhoz.</CardDescription>
             </CardHeader>
             <CardFooter>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -595,10 +608,10 @@ export function DataTab() {
                   {isDownloadingTemplate ? (
                     <>
                       <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Downloading...
+                      Letöltés…
                     </>
                   ) : (
-                    'Download'
+                    'Letöltés'
                   )}
                 </Button>
               </motion.div>
@@ -612,10 +625,10 @@ export function DataTab() {
                   <div className="i-ph-upload-duotone w-5 h-5" />
                 </motion.div>
                 <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Import API Keys
+                  API-kulcsok importálása
                 </CardTitle>
               </div>
-              <CardDescription>Import API keys from a JSON file.</CardDescription>
+              <CardDescription>API-kulcsok importálása JSON-fájlból.</CardDescription>
             </CardHeader>
             <CardFooter>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
@@ -632,10 +645,10 @@ export function DataTab() {
                   {isImportingKeys ? (
                     <>
                       <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Importing...
+                      Importálás…
                     </>
                   ) : (
-                    'Import Keys'
+                    'Kulcsok importálása'
                   )}
                 </Button>
               </motion.div>
@@ -646,15 +659,15 @@ export function DataTab() {
 
       {/* Danger Section */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 text-red-500 dark:text-red-400">Danger</h2>
+        <h2 className="text-xl font-semibold mb-4 text-red-500 dark:text-red-400">Veszélyes műveletek</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="border-red-500/30 bg-bolt-elements-background-depth-2">
             <CardHeader>
               <div className="flex items-center mb-2">
                 <div className="i-ph-trash-duotone w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
-                <CardTitle className="text-lg">Delete All Chats</CardTitle>
+                <CardTitle className="text-lg">Összes beszélgetés törlése</CardTitle>
               </div>
-              <CardDescription>Permanently delete all your chat history.</CardDescription>
+              <CardDescription>Az összes beszélgetési előzmény végleges törlése.</CardDescription>
             </CardHeader>
             <CardFooter>
               <Button
@@ -664,7 +677,7 @@ export function DataTab() {
                 size="sm"
                 className="w-full justify-center"
               >
-                {isDeleting ? 'Deleting...' : 'Delete All Chats'}
+                {isDeleting ? 'Törlés…' : 'Összes beszélgetés törlése'}
               </Button>
             </CardFooter>
           </Card>
@@ -673,9 +686,9 @@ export function DataTab() {
             <CardHeader>
               <div className="flex items-center mb-2">
                 <div className="i-ph-arrow-counter-clockwise-duotone w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
-                <CardTitle className="text-lg">Reset All Settings</CardTitle>
+                <CardTitle className="text-lg">Összes beállítás visszaállítása</CardTitle>
               </div>
-              <CardDescription>Restore all settings to their default values.</CardDescription>
+              <CardDescription>Minden beállítás visszaállítása az alapértékére.</CardDescription>
             </CardHeader>
             <CardFooter>
               <Button
@@ -685,7 +698,7 @@ export function DataTab() {
                 size="sm"
                 className="w-full justify-center"
               >
-                {isResetting ? 'Resetting...' : 'Reset All Settings'}
+                {isResetting ? 'Visszaállítás…' : 'Összes beállítás visszaállítása'}
               </Button>
             </CardFooter>
           </Card>
@@ -694,10 +707,10 @@ export function DataTab() {
             <CardHeader>
               <div className="flex items-center mb-2">
                 <div className="i-ph-key-duotone w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
-                <CardTitle className="text-lg">Delete All API Keys</CardTitle>
+                <CardTitle className="text-lg">Összes API-kulcs törlése</CardTitle>
               </div>
               <CardDescription>
-                Remove API keys saved in this browser. Environment keys are not affected.
+                A böngészőben mentett API-kulcsok törlése. A környezeti kulcsok nem változnak.
               </CardDescription>
             </CardHeader>
             <CardFooter>
@@ -707,7 +720,7 @@ export function DataTab() {
                 size="sm"
                 className="w-full justify-center"
               >
-                Delete All API Keys
+                Összes API-kulcs törlése
               </Button>
             </CardFooter>
           </Card>

@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/react';
-import { motion, type Variants } from 'framer-motion';
-import { useNavigate } from 'react-router';
 import type { UIMessage } from 'ai';
+import { motion, type Variants } from 'framer-motion';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { toast } from 'react-toastify';
 import { HistoryItem } from './HistoryItem';
 import { binDates } from './date-binning';
@@ -21,7 +21,15 @@ import { DocumentationPanel } from '~/components/ui/DocumentationPanel';
 import { SettingsButton, HelpButton } from '~/components/ui/SettingsButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
-import { db, deleteById, getAll, chatId, createChatWithNextId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
+import {
+  db,
+  deleteById,
+  getAll,
+  chatId,
+  createChatWithNextId,
+  type ChatHistoryItem,
+  useChatHistory,
+} from '~/lib/persistence';
 import { createMessage } from '~/lib/persistence/messageMigration';
 import { DEFAULT_AVATAR, profileStore } from '~/lib/stores/profile';
 import { classNames } from '~/utils/classNames';
@@ -66,8 +74,8 @@ function CurrentDateTime() {
     <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800/50">
       <div className="h-4 w-4 i-ph:clock opacity-80" />
       <div className="flex gap-2">
-        <span>{dateTime.toLocaleDateString()}</span>
-        <span>{dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <span>{dateTime.toLocaleDateString('hu-HU')}</span>
+        <span>{dateTime.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </div>
   );
@@ -107,19 +115,10 @@ export const Menu = () => {
   const deleteChat = useCallback(
     async (id: string): Promise<void> => {
       if (!db) {
-        throw new Error('Database not available');
+        throw new Error('Az adatbázis nem érhető el.');
       }
 
-      // Delete chat snapshot from localStorage
-      try {
-        const snapshotKey = `snapshot:${id}`;
-        localStorage.removeItem(snapshotKey);
-        console.log('Removed snapshot for chat:', id);
-      } catch (snapshotError) {
-        console.error(`Error deleting snapshot for chat ${id}:`, snapshotError);
-      }
-
-      // Delete the chat from the database
+      // The IndexedDB helper removes the chat and its snapshot atomically.
       await deleteById(db, id);
       console.log('Successfully deleted chat:', id);
     },
@@ -136,7 +135,7 @@ export const Menu = () => {
 
       deleteChat(item.id)
         .then(() => {
-          toast.success('Chat deleted successfully', {
+          toast.success('A beszélgetés törölve.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -152,7 +151,7 @@ export const Menu = () => {
         })
         .catch((error) => {
           console.error('Failed to delete chat:', error);
-          toast.error('Failed to delete conversation', {
+          toast.error('A beszélgetést nem sikerült törölni.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -197,11 +196,14 @@ export const Menu = () => {
 
       // Show appropriate toast message
       if (errors.length === 0) {
-        toast.success(`${deletedCount} chat${deletedCount === 1 ? '' : 's'} deleted successfully`);
+        toast.success(`${deletedCount} beszélgetés sikeresen törölve`);
       } else {
-        toast.warning(`Deleted ${deletedCount} of ${itemsToDeleteIds.length} chats. ${errors.length} failed.`, {
-          autoClose: 5000,
-        });
+        toast.warning(
+          `${deletedCount} / ${itemsToDeleteIds.length} beszélgetés törölve. Sikertelen: ${errors.length}.`,
+          {
+            autoClose: 5000,
+          },
+        );
       }
 
       // Reload the list after all deletions
@@ -244,14 +246,14 @@ export const Menu = () => {
 
   const handleBulkDeleteClick = useCallback(() => {
     if (selectedItems.length === 0) {
-      toast.info('Select at least one chat to delete');
+      toast.info('A törléshez jelölj ki legalább egy beszélgetést');
       return;
     }
 
     const selectedChats = list.filter((item) => selectedItems.includes(item.id));
 
     if (selectedChats.length === 0) {
-      toast.error('Could not find selected chats');
+      toast.error('A kijelölt beszélgetések nem találhatók');
       return;
     }
 
@@ -342,19 +344,27 @@ export const Menu = () => {
 
   const createProject = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     const name = projectName.trim();
-    if (!name || savingProject) return;
+
+    if (!name || savingProject) {
+      return;
+    }
+
     if (!db) {
       toast.error('A böngésző projektadatbázisa nem érhető el.');
       return;
     }
+
     setSavingProject(true);
+
     try {
       // The initial message makes the existing chat/history loader recognize this as a project.
       const welcome = createMessage({
         role: 'assistant',
         text: 'Projekt létrehozva: ' + name + '. Írd le, milyen alkalmazást szeretnél készíteni.',
       }) as UIMessage;
+
       const project = await createChatWithNextId(db, [welcome], undefined, name, undefined, true);
       setCreatingProject(false);
       setProjectName('');
@@ -404,12 +414,12 @@ export const Menu = () => {
           <div className="flex items-center gap-3">
             <HelpButton onClick={() => setIsDocumentationOpen(true)} />
             <span className="font-medium text-sm text-bolt-elements-textPrimary truncate">
-              {profile?.username || 'Guest User'}
+              {profile?.username || 'Vendég'}
             </span>
             <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary rounded-full shrink-0">
               <img
                 src={profile?.avatar || DEFAULT_AVATAR}
-                alt={profile?.username || 'User'}
+                alt={profile?.username || 'Felhasználó'}
                 className="w-full h-full object-cover"
                 loading="eager"
                 decoding="sync"
@@ -429,8 +439,13 @@ export const Menu = () => {
               Új projekt létrehozása
             </button>
             {creatingProject && (
-              <form onSubmit={createProject} className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 space-y-2">
-                <label htmlFor="bolt-new-project-name" className="text-sm text-bolt-elements-textPrimary">Projekt neve</label>
+              <form
+                onSubmit={createProject}
+                className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 space-y-2"
+              >
+                <label htmlFor="bolt-new-project-name" className="text-sm text-bolt-elements-textPrimary">
+                  Projekt neve
+                </label>
                 <input
                   id="bolt-new-project-name"
                   autoFocus
@@ -442,10 +457,24 @@ export const Menu = () => {
                   className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-bolt-elements-textPrimary"
                 />
                 <div className="flex gap-2">
-                  <button disabled={savingProject || !projectName.trim()} type="submit" className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50">Létrehozás</button>
-                  <button type="button" onClick={() => setCreatingProject(false)} className="rounded-md px-3 py-2 text-bolt-elements-textSecondary">Mégse</button>
+                  <button
+                    disabled={savingProject || !projectName.trim()}
+                    type="submit"
+                    className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50"
+                  >
+                    Létrehozás
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingProject(false)}
+                    className="rounded-md px-3 py-2 text-bolt-elements-textSecondary"
+                  >
+                    Mégse
+                  </button>
                 </div>
-                <p className="text-xs text-bolt-elements-textTertiary">A projekt ezen a böngészőn mentődik el, és innen később újranyitható.</p>
+                <p className="text-xs text-bolt-elements-textTertiary">
+                  A projekt ezen a böngészőn mentődik el, és innen később újranyitható.
+                </p>
               </form>
             )}
             <div className="flex gap-2">
@@ -464,7 +493,7 @@ export const Menu = () => {
                     ? 'bg-purple-600 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
                 )}
-                aria-label={selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+                aria-label={selectionMode ? 'Kijelölési mód bezárása' : 'Kijelölési mód bekapcsolása'}
               >
                 <span className={selectionMode ? 'i-ph:x h-4 w-4' : 'i-ph:check-square h-4 w-4'} />
               </button>
@@ -487,7 +516,9 @@ export const Menu = () => {
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
-                  {selectedItems.length === filteredList.length ? 'Deselect all' : 'Select all'}
+                  {filteredList.length > 0 && filteredList.every((item) => selectedItems.includes(item.id))
+                    ? 'Kijelölés törlése'
+                    : 'Összes kijelölése'}
                 </Button>
                 <Button
                   variant="destructive"
@@ -495,7 +526,7 @@ export const Menu = () => {
                   onClick={handleBulkDeleteClick}
                   disabled={selectedItems.length === 0}
                 >
-                  Delete selected
+                  Kijelöltek törlése
                 </Button>
               </div>
             )}
@@ -537,20 +568,20 @@ export const Menu = () => {
                 {dialogContent?.type === 'delete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Delete Chat?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">Beszélgetés törlése?</DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
-                          You are about to delete{' '}
+                          A következő beszélgetést szeretnéd törölni:{' '}
                           <span className="font-medium text-bolt-elements-textPrimary">
                             {dialogContent.item.description}
                           </span>
                         </p>
-                        <p className="mt-2">Are you sure you want to delete this chat?</p>
+                        <p className="mt-2">Biztosan törölni szeretnéd ezt a beszélgetést?</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
+                        Mégse
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -560,7 +591,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Delete
+                        Törlés
                       </DialogButton>
                     </div>
                   </>
@@ -568,12 +599,11 @@ export const Menu = () => {
                 {dialogContent?.type === 'bulkDelete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Delete Selected Chats?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">
+                        Kijelölt beszélgetések törlése?
+                      </DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
-                        <p>
-                          You are about to delete {dialogContent.items.length}{' '}
-                          {dialogContent.items.length === 1 ? 'chat' : 'chats'}:
-                        </p>
+                        <p>Törlésre kijelölve: {dialogContent.items.length} beszélgetés:</p>
                         <div className="mt-2 max-h-32 overflow-auto border border-bolt-elements-borderColor rounded-md bg-bolt-elements-background-depth-2 p-2">
                           <ul className="list-disc pl-5 space-y-1">
                             {dialogContent.items.map((item) => (
@@ -583,12 +613,12 @@ export const Menu = () => {
                             ))}
                           </ul>
                         </div>
-                        <p className="mt-3">Are you sure you want to delete these chats?</p>
+                        <p className="mt-3">Biztosan törölni szeretnéd ezeket a beszélgetéseket?</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
+                        Mégse
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -603,7 +633,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Delete
+                        Törlés
                       </DialogButton>
                     </div>
                   </>
@@ -632,7 +662,7 @@ export const Menu = () => {
             'hover:bg-bolt-elements-background-depth-2',
             'transition-colors',
           )}
-          aria-label="Open sidebar"
+          aria-label="Oldalsáv megnyitása"
         >
           <div className="i-ph:caret-right text-gray-500 dark:text-gray-400" />
         </button>

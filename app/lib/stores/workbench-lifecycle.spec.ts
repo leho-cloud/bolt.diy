@@ -8,6 +8,12 @@ vi.mock('~/lib/webcontainer', () => ({ webcontainer: Promise.resolve({ workdir: 
 vi.mock('./files', () => ({
   FilesStore: class {
     files = map({});
+    getFile() {
+      return undefined;
+    }
+    createFile() {
+      return Promise.resolve();
+    }
     reset() {
       return Promise.resolve();
     }
