@@ -607,8 +607,8 @@ export const Menu = () => {
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
                       <DialogTitle className="text-bolt-elements-textPrimary">
-                          Kijelölt beszélgetések törlése?
-                        </DialogTitle>
+                        Kijelölt beszélgetések törlése?
+                      </DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
                           Törlésre kijelölve: {dialogContent.items.length}{' '}
