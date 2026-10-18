@@ -244,14 +244,14 @@ export const Menu = () => {
 
   const handleBulkDeleteClick = useCallback(() => {
     if (selectedItems.length === 0) {
-      toast.info('Select at least one chat to delete');
+      toast.info('A törléshez jelölj ki legalább egy beszélgetést');
       return;
     }
 
     const selectedChats = list.filter((item) => selectedItems.includes(item.id));
 
     if (selectedChats.length === 0) {
-      toast.error('Could not find selected chats');
+      toast.error('A kijelölt beszélgetések nem találhatók');
       return;
     }
 
@@ -404,7 +404,7 @@ export const Menu = () => {
           <div className="flex items-center gap-3">
             <HelpButton onClick={() => setIsDocumentationOpen(true)} />
             <span className="font-medium text-sm text-bolt-elements-textPrimary truncate">
-              {profile?.username || 'Guest User'}
+              {profile?.username || 'Vendég'}
             </span>
             <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary rounded-full shrink-0">
               <img
@@ -464,7 +464,7 @@ export const Menu = () => {
                     ? 'bg-purple-600 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
                 )}
-                aria-label={selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+                aria-label={selectionMode ? 'Kijelölési mód bezárása' : 'Kijelölési mód bekapcsolása'}
               >
                 <span className={selectionMode ? 'i-ph:x h-4 w-4' : 'i-ph:check-square h-4 w-4'} />
               </button>
@@ -487,7 +487,7 @@ export const Menu = () => {
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
-                  {selectedItems.length === filteredList.length ? 'Deselect all' : 'Select all'}
+                  {selectedItems.length === filteredList.length ? 'Kijelölés törlése' : 'Összes kijelölése'}
                 </Button>
                 <Button
                   variant="destructive"
@@ -572,7 +572,7 @@ export const Menu = () => {
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
                           You are about to delete {dialogContent.items.length}{' '}
-                          {dialogContent.items.length === 1 ? 'chat' : 'chats'}:
+                          {dialogContent.items.length === 1 ? 'beszélgetést' : 'beszélgetést'}:
                         </p>
                         <div className="mt-2 max-h-32 overflow-auto border border-bolt-elements-borderColor rounded-md bg-bolt-elements-background-depth-2 p-2">
                           <ul className="list-disc pl-5 space-y-1">
