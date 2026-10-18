@@ -742,8 +742,8 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                           Kulcs megjegyzése ezen a böngészőn
                         </label>
                         <p className="text-xs text-bolt-elements-textSecondary">
-                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott számítógépen
-                          ne használd.
+                          A kulcsot csak sikeres közzétételkor mentjük a böngésző helyi tárhelyére. Megosztott
+                          számítógépen ne használd.
                         </p>
                         {rememberPublishKey && publishKey && (
                           <button
