@@ -3,6 +3,33 @@ import { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useIndexedDB } from '~/lib/hooks/useIndexedDB';
 import { ImportExportService } from '~/lib/services/importExportService';
+import { invalidateChatCache } from '~/lib/persistence/chatCache';
+
+/** Read only snapshots belonging to the exported chats, without using legacy localStorage. */
+async function readProjectSnapshots(db: IDBDatabase, chatIds: string[]): Promise<Record<string, unknown>> {
+  if (!db.objectStoreNames.contains('snapshots')) {
+    throw new Error('Project snapshots store is missing: cannot make a complete project export');
+  }
+
+  return new Promise((resolve, reject) => {
+    const result: Record<string, unknown> = {};
+    const transaction = db.transaction('snapshots', 'readonly');
+    const store = transaction.objectStore('snapshots');
+
+    for (const id of chatIds) {
+      const request = store.get(id);
+      request.onsuccess = () => {
+        if (request.result?.snapshot) {
+          result[id] = request.result.snapshot;
+        }
+      };
+    }
+
+    transaction.oncomplete = () => resolve(result);
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
 
 interface UseDataOperationsProps {
   /**
@@ -305,10 +332,13 @@ export function useDataOperations({
         }
       });
 
-      // Export data with direct chats
+      // Keep the corresponding source-file snapshots alongside chat history.
+      const snapshots = await readProjectSnapshots(db, directChats.map((chat) => String(chat.id)));
       const exportData = {
         chats: directChats,
+        snapshots,
         exportDate: new Date().toISOString(),
+        formatVersion: 2,
       };
 
       console.log(`Preparing to export ${exportData.chats.length} chats`);
@@ -418,10 +448,13 @@ export function useDataOperations({
 
         console.log(`Retrieved ${filteredChats.length} chats for export`);
 
-        // Create export data
+        // Preserve snapshots for exactly the selected projects.
+        const snapshots = await readProjectSnapshots(db, filteredChats.map((chat) => String(chat.id)));
         const exportData = {
           chats: filteredChats,
+          snapshots,
           exportDate: new Date().toISOString(),
+          formatVersion: 2,
         };
 
         // Step 2: Create blob
@@ -634,6 +667,32 @@ export function useDataOperations({
           };
         });
 
+        // Validate all snapshots before opening the write transaction.
+        const snapshots = importedData.snapshots;
+
+        if (snapshots !== undefined && (snapshots === null || typeof snapshots !== 'object' || Array.isArray(snapshots))) {
+          throw new Error('Invalid project snapshots format');
+        }
+
+        const importedIds = new Set(validatedChats.map((chat: { id: string }) => String(chat.id)));
+        const validatedSnapshots = Object.entries((snapshots ?? {}) as Record<string, unknown>).map(([id, snapshot]) => {
+          if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+            throw new Error('Invalid project snapshot reference');
+          }
+
+          const record = snapshot as Record<string, unknown>;
+
+          if (typeof record.chatIndex !== 'string' || !record.files || typeof record.files !== 'object' || Array.isArray(record.files)) {
+            throw new Error('Invalid project snapshot contents');
+          }
+
+          return { id, snapshot };
+        });
+
+        if (snapshots !== undefined && !db.objectStoreNames.contains('snapshots')) {
+          throw new Error('The project snapshots database is not available');
+        }
+
         // Step 4: Save current chats for potential undo
         showProgress('Preparing database transaction', 70);
 
@@ -643,8 +702,9 @@ export function useDataOperations({
         // Step 5: Import chats
         showProgress(`Importing ${validatedChats.length} chats`, 80);
 
-        const transaction = db.transaction(['chats'], 'readwrite');
+        const transaction = db.transaction(snapshots === undefined ? ['chats'] : ['chats', 'snapshots'], 'readwrite');
         const store = transaction.objectStore('chats');
+        const snapshotStore = snapshots === undefined ? null : transaction.objectStore('snapshots');
 
         let processed = 0;
 
@@ -660,10 +720,23 @@ export function useDataOperations({
           }
         }
 
-        await new Promise((resolve, reject) => {
-          transaction.oncomplete = resolve;
-          transaction.onerror = reject;
+        for (const entry of validatedSnapshots) {
+          snapshotStore?.put({ chatId: entry.id, snapshot: entry.snapshot });
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
         });
+
+        for (const chat of validatedChats) {
+          invalidateChatCache(String(chat.id));
+
+          if (chat.urlId) {
+            invalidateChatCache(String(chat.urlId));
+          }
+        }
 
         // Step 6: Complete
         showProgress('Completing import', 100);
