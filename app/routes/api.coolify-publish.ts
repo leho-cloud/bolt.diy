@@ -56,6 +56,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const repo = `https://github.com/${match[1]}/${match[2]}`;
   const domain = `https://${slug}.builder.tzsvtav.com`;
   const base = COOLIFY_API_URL!.replace(/\/+$/, '').replace(/\/api\/v1$/, '') + '/api/v1';
+
   const headers = {
     Authorization: `Bearer ${COOLIFY_API_TOKEN}`,
     'Content-Type': 'application/json',
@@ -82,6 +83,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     const gitBranch = 'main';
 
     const applicationsData = await coolify('/applications');
+
     const applications = Array.isArray(applicationsData)
       ? applicationsData
       : Array.isArray(applicationsData.data)
