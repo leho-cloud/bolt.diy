@@ -1,10 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { UIMessage } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedSnapshot, invalidateChatCache } from './chatCache';
+import { getCachedMessages, getCachedSnapshot, invalidateChatCache } from './chatCache';
 import { getMessagesByIdRaw, getSnapshot } from './db';
 
-const { resetWorkbench, waitForExecutionQueue, setMessages, setSnapshot } = vi.hoisted(() => ({
+const { resetWorkbench, waitForExecutionQueue, setMessages, setSnapshot, writeFile, mkdir } = vi.hoisted(() => ({
+  writeFile: vi.fn(async () => undefined),
+  mkdir: vi.fn(async () => undefined),
   resetWorkbench: vi.fn(async (): Promise<void> => undefined),
   waitForExecutionQueue: vi.fn(async () => undefined),
   setMessages: vi.fn(async () => undefined),
@@ -26,12 +28,9 @@ vi.mock('~/lib/stores/workbench', () => ({
   },
 }));
 
-/*
- * The chat workbench never boots a container under test, so the promise stays
- * pending on purpose.
- */
+// Use an in-memory filesystem boundary to verify snapshot restoration.
 vi.mock('~/lib/webcontainer', () => ({
-  webcontainer: new Promise(() => undefined),
+  webcontainer: Promise.resolve({ workdir: '/home/project', fs: { writeFile, mkdir } }),
   webcontainerContext: { loaded: false },
 }));
 
@@ -120,6 +119,8 @@ async function importHook() {
 
 describe('useChatHistory chat switching', () => {
   beforeEach(() => {
+    writeFile.mockClear();
+    mkdir.mockClear();
     resetWorkbench.mockClear();
     waitForExecutionQueue.mockClear();
     setMessages.mockClear();
@@ -175,6 +176,37 @@ describe('useChatHistory chat switching', () => {
 
     await waitFor(() => expect(getCachedSnapshot).toHaveBeenCalledWith({}, '1'));
   });
+
+  it.each([false, true])(
+    'restores a first-message snapshot without hiding the project (preserve=%s)',
+    async (preserve) => {
+      const message = {
+        id: 'only-message',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Saved project' }],
+      } as UIMessage;
+      vi.mocked(getCachedMessages).mockResolvedValueOnce({
+        id: '1',
+        urlId: 'chat-a',
+        description: 'Saved project',
+        timestamp: '2026-10-18T13:00:00.000Z',
+        messages: [message],
+      });
+      vi.mocked(getCachedSnapshot).mockResolvedValueOnce({
+        chatIndex: message.id,
+        preserveMessagesOnRestore: preserve,
+        files: { '/home/project/src/main.ts': { type: 'file', content: 'saved source', isBinary: false } },
+      });
+
+      const useChatHistory = await importHook();
+      const { result } = renderHook(() => useChatHistory());
+
+      await waitFor(() => expect(result.current.ready).toBe(true));
+      expect(result.current.initialMessages).toEqual([message]);
+      expect(mkdir).toHaveBeenCalledWith('src', { recursive: true });
+      expect(writeFile).toHaveBeenCalledWith('src/main.ts', 'saved source', { encoding: 'utf8' });
+    },
+  );
 
   it('should not reset the workbench when only the query string changes', async () => {
     const useChatHistory = await importHook();

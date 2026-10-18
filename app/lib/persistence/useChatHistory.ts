@@ -214,7 +214,11 @@ export function useChatHistory({ loadHistory = true }: { loadHistory?: boolean }
               archivedMessages = storedMessages.messages.slice(0, startingIdx + 1);
             }
 
-            if (startingIdx > 0 && validSnapshot.preserveMessagesOnRestore) {
+            /*
+             * A snapshot can already cover the first (and only) message. Keep
+             * that message visible while restoring its files directly.
+             */
+            if (startingIdx >= 0 && (startingIdx === 0 || validSnapshot.preserveMessagesOnRestore)) {
               archivedMessages = [];
               await restoreSnapshot(validSnapshot, isCurrentLoad);
 
