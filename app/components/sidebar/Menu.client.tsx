@@ -495,7 +495,7 @@ export const Menu = () => {
                   onClick={handleBulkDeleteClick}
                   disabled={selectedItems.length === 0}
                 >
-                  Delete selected
+                  Kijelöltek törlése
                 </Button>
               </div>
             )}
@@ -550,7 +550,7 @@ export const Menu = () => {
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
+                        Mégse
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -560,7 +560,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Delete
+                        Törlés
                       </DialogButton>
                     </div>
                   </>
@@ -588,7 +588,7 @@ export const Menu = () => {
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
+                        Mégse
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -603,7 +603,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Delete
+                        Törlés
                       </DialogButton>
                     </div>
                   </>
