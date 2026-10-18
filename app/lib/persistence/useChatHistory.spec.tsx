@@ -195,7 +195,10 @@ describe('useChatHistory chat switching', () => {
       vi.mocked(getCachedSnapshot).mockResolvedValueOnce({
         chatIndex: message.id,
         preserveMessagesOnRestore: preserve,
-        files: { '/home/project/src/main.ts': { type: 'file', content: 'saved source', isBinary: false } },
+        files: {
+          '/home/project/src/main.ts': { type: 'file', content: 'saved source', isBinary: false },
+          '/home/project/index.html': { type: 'file', content: '<h1>Saved</h1>', isBinary: false },
+        },
       });
 
       const useChatHistory = await importHook();
@@ -203,7 +206,9 @@ describe('useChatHistory chat switching', () => {
 
       await waitFor(() => expect(result.current.ready).toBe(true));
       expect(result.current.initialMessages).toEqual([message]);
+      expect(mkdir).toHaveBeenCalledTimes(1);
       expect(mkdir).toHaveBeenCalledWith('src', { recursive: true });
+      expect(writeFile).toHaveBeenCalledWith('index.html', '<h1>Saved</h1>', { encoding: 'utf8' });
       expect(writeFile).toHaveBeenCalledWith('src/main.ts', 'saved source', { encoding: 'utf8' });
     },
   );

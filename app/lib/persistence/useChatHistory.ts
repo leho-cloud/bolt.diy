@@ -516,7 +516,8 @@ ${value.content}
       for (const [filePath, value] of entries) {
         if (value?.type === 'file') {
           const relativePath = getContainerPath(filePath);
-          const parent = relativePath.slice(0, relativePath.lastIndexOf('/'));
+          const lastSlash = relativePath.lastIndexOf('/');
+          const parent = lastSlash >= 0 ? relativePath.slice(0, lastSlash) : '';
 
           if (parent) {
             await container.fs.mkdir(parent, { recursive: true });
