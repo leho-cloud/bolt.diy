@@ -202,7 +202,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
           {() => (
             <div className={props.isModelSettingsCollapsed ? 'hidden' : ''}>
               <div className="mb-2 flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
-                <label htmlFor="bolt-auto-model">AI-modellválasztás</label>
+                <label htmlFor="bolt-auto-model">AI-modellváltás</label>
                 <select
                   id="bolt-auto-model"
                   value={props.autoModelMode ?? 'manual'}
@@ -213,9 +213,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   title="Automatikus választás jelenleg OpenRouterrel működik"
                 >
                   <option value="manual">Kézi</option>
-                  <option value="economy">Automatikus – Takarékos</option>
-                  <option value="balanced">Automatikus – Kiegyensúlyozott</option>
-                  <option value="quality">Automatikus – Minőség</option>
+                  <option value="economy">Autó – Takarékos</option>
+                  <option value="balanced">Autó</option>
+                  <option value="quality">Autó – Minőség</option>
                 </select>
               </div>
               <ModelSelector
