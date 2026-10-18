@@ -11,6 +11,9 @@ vi.mock('./files', () => ({
     getFile() {
       return undefined;
     }
+    createFile() {
+      return Promise.resolve();
+    }
     reset() {
       return Promise.resolve();
     }
