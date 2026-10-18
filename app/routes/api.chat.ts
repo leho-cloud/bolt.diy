@@ -142,6 +142,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         logger.error(
           `AI stream checkpoint: chunks=${chunkStats.chunks} text=${chunkStats.text} tools=${chunkStats.tools} finish=${chunkStats.finish} mode=${chatMode}`,
         );
+
         /*
          * Capture the SDK's original error before UI-stream conversion can
          * wrap it as a generic Error. The mapper logs only safe classifications
@@ -416,6 +417,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
            * hard per-request ceiling even if the user's general step setting is higher.
            */
           stopWhen: isStepCount(agentLoopEnabled ? Math.min(maxLLMSteps ?? 12, 12) : (maxLLMSteps ?? 1)),
+
           /*
            * A browser-backed project tool may legitimately need more than 45s
            * between model chunks. Keep bounded per-step and total budgets
