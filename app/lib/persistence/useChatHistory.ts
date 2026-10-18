@@ -450,6 +450,7 @@ ${value.content}
       // localStorage.setItem(`snapshot:${id}`, JSON.stringify(snapshot)); // Remove localStorage usage
       try {
         await setSnapshot(db, chatRecordId, snapshot);
+        invalidateChatCache(chatRecordId);
       } catch (error) {
         console.error('Failed to save snapshot:', error);
         toast.error('Failed to save chat snapshot.');
