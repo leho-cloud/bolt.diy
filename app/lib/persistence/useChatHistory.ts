@@ -474,8 +474,10 @@ ${value.content}
         return;
       }
 
-      // Vite's .vite directory is a disposable dependency cache. Restoring it
-      // can fail when transient deps_temp_* folders are missing after a reload.
+      /*
+       * Vite's .vite directory is a disposable dependency cache. Restoring it
+       * can fail when transient deps_temp_* folders are missing after a reload.
+       */
       const entries = Object.entries(validSnapshot.files).filter(([path]) => {
         const normalized = path.replace(/\\/g, '/');
         return !normalized.split('/').includes('.vite');
