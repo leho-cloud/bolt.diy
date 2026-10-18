@@ -1,5 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type Variants } from 'framer-motion';
+import { useNavigate } from 'react-router';
+import type { UIMessage } from 'ai';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { HistoryItem } from './HistoryItem';
@@ -19,7 +21,8 @@ import { DocumentationPanel } from '~/components/ui/DocumentationPanel';
 import { SettingsButton, HelpButton } from '~/components/ui/SettingsButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
-import { db, deleteById, getAll, chatId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
+import { db, deleteById, getAll, chatId, createChatWithNextId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
+import { createMessage } from '~/lib/persistence/messageMigration';
 import { DEFAULT_AVATAR, profileStore } from '~/lib/stores/profile';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
@@ -72,6 +75,10 @@ function CurrentDateTime() {
 
 export const Menu = () => {
   const { duplicateCurrentChat, exportChat } = useChatHistory({ loadHistory: false });
+  const navigate = useNavigate();
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [savingProject, setSavingProject] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
   const [open, setOpen] = useState(false);
@@ -333,6 +340,35 @@ export const Menu = () => {
     loadEntries(); // Reload the list after duplication
   };
 
+  const createProject = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = projectName.trim();
+    if (!name || savingProject) return;
+    if (!db) {
+      toast.error('A böngésző projektadatbázisa nem érhető el.');
+      return;
+    }
+    setSavingProject(true);
+    try {
+      // The initial message makes the existing chat/history loader recognize this as a project.
+      const welcome = createMessage({
+        role: 'assistant',
+        text: 'Projekt létrehozva: ' + name + '. Írd le, milyen alkalmazást szeretnél készíteni.',
+      }) as UIMessage;
+      const project = await createChatWithNextId(db, [welcome], undefined, name, undefined, true);
+      setCreatingProject(false);
+      setProjectName('');
+      loadEntries();
+      setOpen(false);
+      navigate('/chat/' + project.urlId);
+      toast.success('Projekt létrehozva');
+    } catch (error) {
+      toast.error('A projekt létrehozása sikertelen: ' + (error instanceof Error ? error.message : 'ismeretlen hiba'));
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
   const handleSettingsClick = () => {
     setIsSettingsOpen(true);
     setOpen(false);
@@ -384,13 +420,41 @@ export const Menu = () => {
         <CurrentDateTime />
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
           <div className="p-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => setCreatingProject((value) => !value)}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 font-medium transition-colors"
+            >
+              <span className="i-ph:folder-plus h-5 w-5" />
+              Új projekt létrehozása
+            </button>
+            {creatingProject && (
+              <form onSubmit={createProject} className="rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 space-y-2">
+                <label htmlFor="bolt-new-project-name" className="text-sm text-bolt-elements-textPrimary">Projekt neve</label>
+                <input
+                  id="bolt-new-project-name"
+                  autoFocus
+                  required
+                  maxLength={80}
+                  value={projectName}
+                  onChange={(event) => setProjectName(event.target.value)}
+                  placeholder="Például: Új webalkalmazás"
+                  className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-bolt-elements-textPrimary"
+                />
+                <div className="flex gap-2">
+                  <button disabled={savingProject || !projectName.trim()} type="submit" className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50">Létrehozás</button>
+                  <button type="button" onClick={() => setCreatingProject(false)} className="rounded-md px-3 py-2 text-bolt-elements-textSecondary">Mégse</button>
+                </div>
+                <p className="text-xs text-bolt-elements-textTertiary">A projekt ezen a böngészőn mentődik el, és innen később újranyitható.</p>
+              </form>
+            )}
             <div className="flex gap-2">
               <a
                 href="/"
                 className="flex-1 flex gap-2 items-center bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg px-4 py-2 transition-colors"
               >
                 <span className="inline-block i-ph:plus-circle h-4 w-4" />
-                <span className="text-sm font-medium">Start new chat</span>
+                <span className="text-sm font-medium">Új beszélgetés</span>
               </a>
               <button
                 onClick={toggleSelectionMode}
@@ -412,14 +476,14 @@ export const Menu = () => {
               <input
                 className="w-full bg-bolt-elements-background-depth-2 relative pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive/50 text-sm text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary border border-bolt-elements-borderColor"
                 type="search"
-                placeholder="Search chats..."
+                placeholder="Keresés a projektek között..."
                 onChange={handleSearchChange}
-                aria-label="Search chats"
+                aria-label="Projektkeresés"
               />
             </div>
           </div>
           <div className="flex items-center justify-between text-sm px-4 py-2">
-            <div className="font-medium text-gray-600 dark:text-gray-400">Your Chats</div>
+            <div className="font-medium text-gray-600 dark:text-gray-400">Mentett projektek és beszélgetések</div>
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -439,7 +503,7 @@ export const Menu = () => {
           <div className="flex-1 overflow-auto modern-scrollbar px-3 pb-3">
             {filteredList.length === 0 && (
               <div className="px-4 text-gray-500 dark:text-gray-400 text-sm">
-                {list.length === 0 ? 'No previous conversations' : 'No matches found'}
+                {list.length === 0 ? 'Még nincs mentett projekt' : 'Nincs találat'}
               </div>
             )}
             <DialogRoot open={dialogContent !== null}>
