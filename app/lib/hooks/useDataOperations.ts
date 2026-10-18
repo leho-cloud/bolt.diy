@@ -2,8 +2,8 @@ import { generateId } from 'ai';
 import { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useIndexedDB } from '~/lib/hooks/useIndexedDB';
-import { ImportExportService } from '~/lib/services/importExportService';
 import { invalidateChatCache } from '~/lib/persistence/chatCache';
+import { ImportExportService } from '~/lib/services/importExportService';
 
 /** Read only snapshots belonging to the exported chats, without using legacy localStorage. */
 async function readProjectSnapshots(db: IDBDatabase, chatIds: string[]): Promise<Record<string, unknown>> {
@@ -18,6 +18,7 @@ async function readProjectSnapshots(db: IDBDatabase, chatIds: string[]): Promise
 
     for (const id of chatIds) {
       const request = store.get(id);
+
       request.onsuccess = () => {
         if (request.result?.snapshot) {
           result[id] = request.result.snapshot;
@@ -333,7 +334,11 @@ export function useDataOperations({
       });
 
       // Keep the corresponding source-file snapshots alongside chat history.
-      const snapshots = await readProjectSnapshots(db, directChats.map((chat) => String(chat.id)));
+      const snapshots = await readProjectSnapshots(
+        db,
+        directChats.map((chat) => String(chat.id)),
+      );
+
       const exportData = {
         chats: directChats,
         snapshots,
@@ -449,7 +454,11 @@ export function useDataOperations({
         console.log(`Retrieved ${filteredChats.length} chats for export`);
 
         // Preserve snapshots for exactly the selected projects.
-        const snapshots = await readProjectSnapshots(db, filteredChats.map((chat) => String(chat.id)));
+        const snapshots = await readProjectSnapshots(
+          db,
+          filteredChats.map((chat) => String(chat.id)),
+        );
+
         const exportData = {
           chats: filteredChats,
           snapshots,
@@ -670,24 +679,34 @@ export function useDataOperations({
         // Validate all snapshots before opening the write transaction.
         const snapshots = importedData.snapshots;
 
-        if (snapshots !== undefined && (snapshots === null || typeof snapshots !== 'object' || Array.isArray(snapshots))) {
+        if (
+          snapshots !== undefined &&
+          (snapshots === null || typeof snapshots !== 'object' || Array.isArray(snapshots))
+        ) {
           throw new Error('Invalid project snapshots format');
         }
 
         const importedIds = new Set(validatedChats.map((chat: { id: string }) => String(chat.id)));
-        const validatedSnapshots = Object.entries((snapshots ?? {}) as Record<string, unknown>).map(([id, snapshot]) => {
-          if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-            throw new Error('Invalid project snapshot reference');
-          }
+        const validatedSnapshots = Object.entries((snapshots ?? {}) as Record<string, unknown>).map(
+          ([id, snapshot]) => {
+            if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+              throw new Error('Invalid project snapshot reference');
+            }
 
-          const record = snapshot as Record<string, unknown>;
+            const record = snapshot as Record<string, unknown>;
 
-          if (typeof record.chatIndex !== 'string' || !record.files || typeof record.files !== 'object' || Array.isArray(record.files)) {
-            throw new Error('Invalid project snapshot contents');
-          }
+            if (
+              typeof record.chatIndex !== 'string' ||
+              !record.files ||
+              typeof record.files !== 'object' ||
+              Array.isArray(record.files)
+            ) {
+              throw new Error('Invalid project snapshot contents');
+            }
 
-          return { id, snapshot };
-        });
+            return { id, snapshot };
+          },
+        );
 
         if (snapshots !== undefined && !db.objectStoreNames.contains('snapshots')) {
           throw new Error('The project snapshots database is not available');
