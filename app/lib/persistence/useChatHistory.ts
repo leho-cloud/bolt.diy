@@ -12,6 +12,7 @@ import {
   duplicateChat,
   createChatFromMessages,
   createChatWithNextId,
+  getSnapshot,
   setSnapshot,
   type IChatMetadata,
 } from './db';
@@ -764,9 +765,22 @@ ${value.content}
        */
       const chat = (await getMessagesByIdRaw(db, id)) || (await getMessagesByUrlIdRaw(db, id));
 
+      if (!chat) {
+        toast.error('A beszélgetés nem található.');
+        return;
+      }
+
+      const snapshot = await getSnapshot(db, chat.id);
+
       const chatData = {
+        formatVersion: 2,
+        chats: [chat],
+        snapshots: snapshot ? { [chat.id]: snapshot } : {},
+        id: chat.id,
+        urlId: chat.urlId,
         messages: chat.messages,
         description: chat.description,
+        metadata: chat.metadata,
         exportDate: new Date().toISOString(),
       };
 

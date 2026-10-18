@@ -119,7 +119,7 @@ export function HistoryItem({
           >
             <div className="flex items-center gap-2.5 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
               <ChatActionButton
-                toolTipContent="Export"
+                toolTipContent="Exportálás"
                 icon="i-ph:download-simple h-4 w-4"
                 onClick={(event) => {
                   event.preventDefault();
@@ -128,7 +128,7 @@ export function HistoryItem({
               />
               {onDuplicate && (
                 <ChatActionButton
-                  toolTipContent="Duplicate"
+                  toolTipContent="Másolat készítése"
                   icon="i-ph:copy h-4 w-4"
                   onClick={(event) => {
                     event.preventDefault();
@@ -137,7 +137,7 @@ export function HistoryItem({
                 />
               )}
               <ChatActionButton
-                toolTipContent="Rename"
+                toolTipContent="Átnevezés"
                 icon="i-ph:pencil-fill h-4 w-4"
                 onClick={(event) => {
                   event.preventDefault();
@@ -145,7 +145,7 @@ export function HistoryItem({
                 }}
               />
               <ChatActionButton
-                toolTipContent="Delete"
+                toolTipContent="Törlés"
                 icon="i-ph:trash h-4 w-4"
                 className="hover:text-red-500 dark:hover:text-red-400"
                 onClick={handleDeleteClick}
@@ -180,6 +180,8 @@ const ChatActionButton = forwardRef(
           ref={ref}
           type="button"
           className={`text-gray-400 dark:text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors ${icon} ${className ? className : ''}`}
+          aria-label={toolTipContent}
+          title={toolTipContent}
           onClick={onClick}
         />
       </WithTooltip>

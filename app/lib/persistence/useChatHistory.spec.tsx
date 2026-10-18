@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { UIMessage } from 'ai';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedSnapshot, invalidateChatCache } from './chatCache';
+import { getMessagesByIdRaw, getSnapshot } from './db';
 
 const { resetWorkbench, waitForExecutionQueue, setMessages, setSnapshot } = vi.hoisted(() => ({
   resetWorkbench: vi.fn(async (): Promise<void> => undefined),
@@ -43,6 +44,7 @@ vi.mock('./db', () => ({
   createChatFromMessages: vi.fn(async () => 'imported'),
   getMessagesByIdRaw: vi.fn(async () => undefined),
   getMessagesByUrlIdRaw: vi.fn(async () => undefined),
+  getSnapshot: vi.fn(async () => undefined),
 }));
 
 /*
@@ -122,6 +124,8 @@ describe('useChatHistory chat switching', () => {
     waitForExecutionQueue.mockClear();
     setMessages.mockClear();
     setSnapshot.mockClear();
+    vi.mocked(getMessagesByIdRaw).mockReset();
+    vi.mocked(getSnapshot).mockReset();
     vi.mocked(getCachedSnapshot).mockClear();
     navigate.mockClear();
     routeId = 'chat-a';
@@ -145,6 +149,10 @@ describe('useChatHistory chat switching', () => {
         return request;
       },
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('should reset the workbench and the container when another chat is opened', async () => {
@@ -495,5 +503,69 @@ describe('useChatHistory chat switching', () => {
     });
     expect(result.current.chatChanged).toBe(false);
     expect(result.current.initialMessages).toEqual([]);
+  });
+
+  it('exports one complete, importable project archive with its file snapshot', async () => {
+    const chat = {
+      id: '1',
+      urlId: 'chat-a',
+      description: 'Mentett projekt',
+      messages: [{ id: 'message-1', role: 'assistant', parts: [{ type: 'text', text: 'Kész.' }] }],
+      timestamp: '2026-10-18T10:00:00.000Z',
+      metadata: null,
+    };
+
+    const snapshot = { chatIndex: 'complete', files: { 'index.html': { type: 'file', content: 'hello' } } };
+    vi.mocked(getMessagesByIdRaw).mockResolvedValue(chat as any);
+    vi.mocked(getSnapshot).mockResolvedValue(snapshot as any);
+
+    let exportedBlob: Blob | undefined;
+
+    const previousCreateObjectURL = URL.createObjectURL;
+    const previousRevokeObjectURL = URL.revokeObjectURL;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn((blob: Blob) => {
+        exportedBlob = blob;
+        return 'blob:project-export';
+      }),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    const useChatHistory = await importHook();
+    const { result } = renderHook(() => useChatHistory({ loadHistory: false }));
+
+    await act(async () => {
+      await result.current.exportChat('1');
+    });
+
+    expect(exportedBlob).toBeDefined();
+
+    const archive = JSON.parse(await exportedBlob!.text());
+    expect(archive.formatVersion).toBe(2);
+    expect(archive.chats).toEqual([chat]);
+    expect(archive.snapshots['1']).toEqual(snapshot);
+
+    if (previousCreateObjectURL) {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: previousCreateObjectURL,
+      });
+    } else {
+      delete (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+    }
+
+    if (previousRevokeObjectURL) {
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: previousRevokeObjectURL,
+      });
+    } else {
+      delete (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
+    }
   });
 });

@@ -10,7 +10,7 @@ export const SettingsButton = memo(({ onClick }: SettingsButtonProps) => {
       onClick={onClick}
       icon="i-ph:gear"
       size="xl"
-      title="Preferences"
+      title="Beállítások"
       data-testid="settings-button"
       className="text-[#666] hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive/10 transition-colors"
     />
@@ -27,7 +27,7 @@ export const HelpButton = memo(({ onClick }: HelpButtonProps) => {
       onClick={onClick}
       icon="i-ph:question"
       size="xl"
-      title="Help & Documentation"
+      title="Súgó és dokumentáció"
       data-testid="help-button"
       className="text-[#666] hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive/10 transition-colors"
     />

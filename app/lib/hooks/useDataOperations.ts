@@ -7,8 +7,8 @@ import { ImportExportService } from '~/lib/services/importExportService';
 
 /** Read only snapshots belonging to the exported chats, without using legacy localStorage. */
 async function readProjectSnapshots(db: IDBDatabase, chatIds: string[]): Promise<Record<string, unknown>> {
-  if (!db.objectStoreNames.contains('snapshots')) {
-    throw new Error('Project snapshots store is missing: cannot make a complete project export');
+  if (!db.objectStoreNames.contains('snapshots') || chatIds.length === 0) {
+    return {};
   }
 
   return new Promise((resolve, reject) => {
@@ -30,6 +30,70 @@ async function readProjectSnapshots(db: IDBDatabase, chatIds: string[]): Promise
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error);
   });
+}
+
+function assertSnapshotMap(value: unknown, importedIds: Set<string>): Array<{ id: string; snapshot: unknown }> {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Érvénytelen projektpillanatkép-formátum.');
+  }
+
+  return Object.entries(value as Record<string, unknown>).map(([id, snapshot]) => {
+    if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+      throw new Error('A projektpillanatkép nem tartozik az importált beszélgetésekhez.');
+    }
+
+    const record = snapshot as Record<string, unknown>;
+
+    if (
+      typeof record.chatIndex !== 'string' ||
+      !record.files ||
+      typeof record.files !== 'object' ||
+      Array.isArray(record.files)
+    ) {
+      throw new Error('A projektpillanatkép tartalma érvénytelen.');
+    }
+
+    return { id, snapshot };
+  });
+}
+
+async function restoreChatsAndSnapshots(
+  db: IDBDatabase,
+  backup: { chats: any[]; snapshots?: Record<string, unknown> },
+): Promise<void> {
+  const storeNames = db.objectStoreNames.contains('snapshots') ? ['chats', 'snapshots'] : ['chats'];
+  const transaction = db.transaction(storeNames, 'readwrite');
+  const chatStore = transaction.objectStore('chats');
+
+  for (const chat of backup.chats) {
+    chatStore.put(chat);
+  }
+
+  if (storeNames.includes('snapshots')) {
+    const snapshotStore = transaction.objectStore('snapshots');
+
+    for (const [id, snapshot] of Object.entries(backup.snapshots ?? {})) {
+      snapshotStore.put({ chatId: id, snapshot });
+    }
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+
+  for (const chat of backup.chats) {
+    invalidateChatCache(String(chat.id));
+
+    if (chat.urlId) {
+      invalidateChatCache(String(chat.urlId));
+    }
+  }
 }
 
 interface UseDataOperationsProps {
@@ -81,6 +145,13 @@ export function useDataOperations({
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [lastOperation, setLastOperation] = useState<{ type: string; data: any } | null>(null);
 
+  const canUndo = Boolean(
+    lastOperation &&
+    ['import-settings', 'import-chats', 'reset-settings', 'reset-chats', 'import-api-keys'].includes(
+      lastOperation.type,
+    ),
+  );
+
   /**
    * Show progress toast with percentage
    */
@@ -108,7 +179,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Preparing settings export...', {
+    toast.loading('Beállítások exportálásának előkészítése…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -116,19 +187,19 @@ export function useDataOperations({
 
     try {
       // Step 1: Export settings
-      showProgress('Exporting settings', 25);
+      showProgress('Beállítások exportálása', 25);
 
       const settingsData = await ImportExportService.exportSettings();
 
       // Step 2: Create blob
-      showProgress('Creating file', 50);
+      showProgress('Fájl létrehozása', 50);
 
       const blob = new Blob([JSON.stringify(settingsData, null, 2)], {
         type: 'application/json',
       });
 
       // Step 3: Download file
-      showProgress('Downloading file', 75);
+      showProgress('Fájl letöltése', 75);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -140,12 +211,12 @@ export function useDataOperations({
       URL.revokeObjectURL(url);
 
       // Step 4: Complete
-      showProgress('Completing export', 100);
+      showProgress('Exportálás befejezése', 100);
 
       // Dismiss progress toast before showing success toast
       toast.dismiss('progress-toast');
 
-      toast.success('Settings exported successfully', {
+      toast.success('A beállítások exportálása sikerült.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -158,10 +229,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to export settings: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült exportálni a beállításokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     } finally {
       setIsExporting(false);
       setProgressPercent(0);
@@ -176,7 +250,7 @@ export function useDataOperations({
   const handleExportSelectedSettings = useCallback(
     async (categoryIds: string[]) => {
       if (!categoryIds || categoryIds.length === 0) {
-        toast.error('No settings categories selected', {
+        toast.error('Nincs kiválasztott beállításcsoport.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -189,7 +263,7 @@ export function useDataOperations({
       // Dismiss any existing toast first
       toast.dismiss('progress-toast');
 
-      toast.loading(`Preparing export of ${categoryIds.length} settings categories...`, {
+      toast.loading(`${categoryIds.length} beállításcsoport exportálásának előkészítése…`, {
         position: 'bottom-right',
         autoClose: 3000,
         toastId: 'progress-toast',
@@ -197,12 +271,12 @@ export function useDataOperations({
 
       try {
         // Step 1: Export all settings
-        showProgress('Exporting settings', 20);
+        showProgress('Beállítások exportálása', 20);
 
         const allSettings = await ImportExportService.exportSettings();
 
         // Step 2: Filter settings by category
-        showProgress('Filtering selected categories', 40);
+        showProgress('Kiválasztott csoportok szűrése', 40);
 
         const filteredSettings: Record<string, any> = {
           exportDate: allSettings.exportDate,
@@ -216,14 +290,14 @@ export function useDataOperations({
         });
 
         // Step 3: Create blob
-        showProgress('Creating file', 60);
+        showProgress('Fájl létrehozása', 60);
 
         const blob = new Blob([JSON.stringify(filteredSettings, null, 2)], {
           type: 'application/json',
         });
 
         // Step 4: Download file
-        showProgress('Downloading file', 80);
+        showProgress('Fájl letöltése', 80);
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -235,12 +309,12 @@ export function useDataOperations({
         URL.revokeObjectURL(url);
 
         // Step 5: Complete
-        showProgress('Completing export', 100);
+        showProgress('Exportálás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
 
-        toast.success(`${categoryIds.length} settings categories exported successfully`, {
+        toast.success(`${categoryIds.length} beállításcsoport exportálása sikerült.`, {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -256,10 +330,13 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error(`Failed to export settings: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-          position: 'bottom-right',
-          autoClose: 3000,
-        });
+        toast.error(
+          `Nem sikerült exportálni a beállításokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+          {
+            position: 'bottom-right',
+            autoClose: 3000,
+          },
+        );
       } finally {
         setIsExporting(false);
         setProgressPercent(0);
@@ -274,7 +351,7 @@ export function useDataOperations({
    */
   const handleExportAllChats = useCallback(async () => {
     if (!db) {
-      toast.error('Database not available', {
+      toast.error('Az adatbázis nem érhető el.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -293,7 +370,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Preparing chats export...', {
+    toast.loading('Beszélgetések exportálásának előkészítése…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -301,7 +378,7 @@ export function useDataOperations({
 
     try {
       // Step 1: Export chats
-      showProgress('Retrieving chats from database', 25);
+      showProgress('Beszélgetések lekérése az adatbázisból', 25);
 
       console.log('Database details:', {
         name: db.name,
@@ -349,14 +426,14 @@ export function useDataOperations({
       console.log(`Preparing to export ${exportData.chats.length} chats`);
 
       // Step 2: Create blob
-      showProgress('Creating file', 50);
+      showProgress('Fájl létrehozása', 50);
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json',
       });
 
       // Step 3: Download file
-      showProgress('Downloading file', 75);
+      showProgress('Fájl letöltése', 75);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -368,12 +445,12 @@ export function useDataOperations({
       URL.revokeObjectURL(url);
 
       // Step 4: Complete
-      showProgress('Completing export', 100);
+      showProgress('Exportálás befejezése', 100);
 
       // Dismiss progress toast before showing success toast
       toast.dismiss('progress-toast');
 
-      toast.success(`${exportData.chats.length} chats exported successfully`, {
+      toast.success(`${exportData.chats.length} beszélgetés exportálása sikerült.`, {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -386,10 +463,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to export chats: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült exportálni a beszélgetéseket: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     } finally {
       setIsExporting(false);
       setProgressPercent(0);
@@ -404,7 +484,7 @@ export function useDataOperations({
   const handleExportSelectedChats = useCallback(
     async (chatIds: string[]) => {
       if (!db) {
-        toast.error('Database not available', {
+        toast.error('Az adatbázis nem érhető el.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -412,7 +492,7 @@ export function useDataOperations({
       }
 
       if (!chatIds || chatIds.length === 0) {
-        toast.error('No chats selected', {
+        toast.error('Nincs kiválasztott beszélgetés.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -425,7 +505,7 @@ export function useDataOperations({
       // Dismiss any existing toast first
       toast.dismiss('progress-toast');
 
-      toast.loading(`Preparing export of ${chatIds.length} chats...`, {
+      toast.loading(`${chatIds.length} beszélgetés exportálásának előkészítése…`, {
         position: 'bottom-right',
         autoClose: 3000,
         toastId: 'progress-toast',
@@ -433,7 +513,7 @@ export function useDataOperations({
 
       try {
         // Step 1: Get chats from database
-        showProgress('Retrieving chats from database', 25);
+        showProgress('Beszélgetések lekérése az adatbázisból', 25);
 
         const transaction = db.transaction(['chats'], 'readonly');
         const store = transaction.objectStore('chats');
@@ -451,7 +531,7 @@ export function useDataOperations({
         const chats = await Promise.all(chatPromises);
         const filteredChats = chats.filter(Boolean); // Remove any null/undefined results
 
-        console.log(`Retrieved ${filteredChats.length} chats for export`);
+        console.log(`${filteredChats.length} beszélgetés exportálásra előkészítve`);
 
         // Preserve snapshots for exactly the selected projects.
         const snapshots = await readProjectSnapshots(
@@ -467,14 +547,14 @@ export function useDataOperations({
         };
 
         // Step 2: Create blob
-        showProgress('Creating file', 50);
+        showProgress('Fájl létrehozása', 50);
 
         const blob = new Blob([JSON.stringify(exportData, null, 2)], {
           type: 'application/json',
         });
 
         // Step 3: Download file
-        showProgress('Downloading file', 75);
+        showProgress('Fájl letöltése', 75);
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -486,12 +566,12 @@ export function useDataOperations({
         URL.revokeObjectURL(url);
 
         // Step 4: Complete
-        showProgress('Completing export', 100);
+        showProgress('Exportálás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
 
-        toast.success(`${filteredChats.length} chats exported successfully`, {
+        toast.success(`${filteredChats.length} beszélgetés exportálása sikerült.`, {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -504,10 +584,13 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error(`Failed to export selected chats: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-          position: 'bottom-right',
-          autoClose: 3000,
-        });
+        toast.error(
+          `Nem sikerült exportálni a kijelölt beszélgetéseket: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+          {
+            position: 'bottom-right',
+            autoClose: 3000,
+          },
+        );
       } finally {
         setIsExporting(false);
         setProgressPercent(0);
@@ -529,7 +612,7 @@ export function useDataOperations({
       // Dismiss any existing toast first
       toast.dismiss('progress-toast');
 
-      toast.loading(`Importing settings from ${file.name}...`, {
+      toast.loading(`Beállítások importálása ebből a fájlból: ${file.name}…`, {
         position: 'bottom-right',
         autoClose: 3000,
         toastId: 'progress-toast',
@@ -537,33 +620,33 @@ export function useDataOperations({
 
       try {
         // Step 1: Read file
-        showProgress('Reading file', 20);
+        showProgress('Fájl beolvasása', 20);
 
         const fileContent = await file.text();
 
         // Step 2: Parse JSON
-        showProgress('Parsing settings data', 40);
+        showProgress('Beállításfájl feldolgozása', 40);
 
         const importedData = JSON.parse(fileContent);
 
         // Step 3: Validate data
-        showProgress('Validating settings data', 60);
+        showProgress('Beállítások ellenőrzése', 60);
 
         // Save current settings for potential undo
         const currentSettings = await ImportExportService.exportSettings();
         setLastOperation({ type: 'import-settings', data: { previous: currentSettings } });
 
         // Step 4: Import settings
-        showProgress('Applying settings', 80);
+        showProgress('Beállítások alkalmazása', 80);
         await ImportExportService.importSettings(importedData);
 
         // Step 5: Complete
-        showProgress('Completing import', 100);
+        showProgress('Importálás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
 
-        toast.success('Settings imported successfully', {
+        toast.success('A beállítások importálása sikerült.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -577,10 +660,13 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error(`Failed to import settings: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-          position: 'bottom-right',
-          autoClose: 3000,
-        });
+        toast.error(
+          `Nem sikerült importálni a beállításokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+          {
+            position: 'bottom-right',
+            autoClose: 3000,
+          },
+        );
       } finally {
         setIsImporting(false);
         setProgressPercent(0);
@@ -597,7 +683,7 @@ export function useDataOperations({
   const handleImportChats = useCallback(
     async (file: File) => {
       if (!db) {
-        toast.error('Database not available', {
+        toast.error('Az adatbázis nem érhető el.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -610,7 +696,7 @@ export function useDataOperations({
       // Dismiss any existing toast first
       toast.dismiss('progress-toast');
 
-      toast.loading(`Importing chats from ${file.name}...`, {
+      toast.loading(`Beszélgetések importálása ebből a fájlból: ${file.name}…`, {
         position: 'bottom-right',
         autoClose: 3000,
         toastId: 'progress-toast',
@@ -618,31 +704,31 @@ export function useDataOperations({
 
       try {
         // Step 1: Read file
-        showProgress('Reading file', 20);
+        showProgress('Fájl beolvasása', 20);
 
         const fileContent = await file.text();
 
         // Step 2: Parse JSON and validate structure
-        showProgress('Parsing chat data', 40);
+        showProgress('Beszélgetésfájl feldolgozása', 40);
 
         const importedData = JSON.parse(fileContent);
 
         if (!importedData.chats || !Array.isArray(importedData.chats)) {
-          throw new Error('Invalid chat data format: missing or invalid chats array');
+          throw new Error('A beszélgetésfájl hibás: hiányzik vagy érvénytelen a beszélgetések listája.');
         }
 
         // Step 3: Validate each chat object
-        showProgress('Validating chat data', 60);
+        showProgress('Beszélgetések ellenőrzése', 60);
 
         const validatedChats = importedData.chats.map((chat: any) => {
           if (!chat.id || !Array.isArray(chat.messages)) {
-            throw new Error('Invalid chat format: missing required fields');
+            throw new Error('A beszélgetés adatai hiányosak vagy érvénytelenek.');
           }
 
           // Ensure each message has required fields
           const validatedMessages = chat.messages.map((msg: any) => {
             if (!msg || typeof msg !== 'object' || !msg.role) {
-              throw new Error('Invalid message format: missing required fields');
+              throw new Error('Az üzenet adatai hiányosak vagy érvénytelenek.');
             }
 
             /*
@@ -652,7 +738,7 @@ export function useDataOperations({
             const hasPayload = Boolean(msg.content) || (Array.isArray(msg.parts) && msg.parts.length > 0);
 
             if (!hasPayload) {
-              throw new Error('Invalid message format: missing required fields');
+              throw new Error('Az üzenet adatai hiányosak vagy érvénytelenek.');
             }
 
             /*
@@ -677,54 +763,35 @@ export function useDataOperations({
         });
 
         // Validate all snapshots before opening the write transaction.
+        const importedIds = new Set<string>(validatedChats.map((chat: { id: string }) => String(chat.id)));
         const snapshots = importedData.snapshots;
+        const validatedSnapshots = assertSnapshotMap(snapshots, importedIds);
 
-        if (
-          snapshots !== undefined &&
-          (snapshots === null || typeof snapshots !== 'object' || Array.isArray(snapshots))
-        ) {
-          throw new Error('Invalid project snapshots format');
-        }
+        const snapshotsChanged = snapshots !== undefined && db.objectStoreNames.contains('snapshots');
 
-        const importedIds = new Set(validatedChats.map((chat: { id: string }) => String(chat.id)));
-
-        const validatedSnapshots = Object.entries((snapshots ?? {}) as Record<string, unknown>).map(
-          ([id, snapshot]) => {
-            if (!importedIds.has(id) || !snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-              throw new Error('Invalid project snapshot reference');
-            }
-
-            const record = snapshot as Record<string, unknown>;
-
-            if (
-              typeof record.chatIndex !== 'string' ||
-              !record.files ||
-              typeof record.files !== 'object' ||
-              Array.isArray(record.files)
-            ) {
-              throw new Error('Invalid project snapshot contents');
-            }
-
-            return { id, snapshot };
-          },
-        );
-
-        if (snapshots !== undefined && !db.objectStoreNames.contains('snapshots')) {
-          throw new Error('The project snapshots database is not available');
+        if (validatedSnapshots.length > 0 && !snapshotsChanged) {
+          throw new Error('A projektek fájlmentése nem érhető el az adatbázisban.');
         }
 
         // Step 4: Save current chats for potential undo
-        showProgress('Preparing database transaction', 70);
+        showProgress('Adatbázis-művelet előkészítése', 70);
 
         const currentChats = await ImportExportService.exportAllChats(db);
-        setLastOperation({ type: 'import-chats', data: { previous: currentChats } });
+        setLastOperation({
+          type: 'import-chats',
+          data: {
+            previous: currentChats,
+            importedIds: validatedChats.map((chat: { id: string }) => String(chat.id)),
+            snapshotsChanged,
+          },
+        });
 
         // Step 5: Import chats
-        showProgress(`Importing ${validatedChats.length} chats`, 80);
+        showProgress(`${validatedChats.length} beszélgetés importálása`, 80);
 
-        const transaction = db.transaction(snapshots === undefined ? ['chats'] : ['chats', 'snapshots'], 'readwrite');
+        const transaction = db.transaction(snapshotsChanged ? ['chats', 'snapshots'] : ['chats'], 'readwrite');
         const store = transaction.objectStore('chats');
-        const snapshotStore = snapshots === undefined ? null : transaction.objectStore('snapshots');
+        const snapshotStore = snapshotsChanged ? transaction.objectStore('snapshots') : null;
 
         let processed = 0;
 
@@ -734,9 +801,15 @@ export function useDataOperations({
 
           if (processed % 5 === 0 || processed === validatedChats.length) {
             showProgress(
-              `Imported ${processed} of ${validatedChats.length} chats`,
+              `${processed}/${validatedChats.length} beszélgetés importálva`,
               80 + (processed / validatedChats.length) * 20,
             );
+          }
+        }
+
+        if (snapshotStore) {
+          for (const chat of validatedChats) {
+            snapshotStore.delete(String(chat.id));
           }
         }
 
@@ -759,12 +832,12 @@ export function useDataOperations({
         }
 
         // Step 6: Complete
-        showProgress('Completing import', 100);
+        showProgress('Importálás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
 
-        toast.success(`${validatedChats.length} chats imported successfully`, {
+        toast.success(`${validatedChats.length} beszélgetés importálása sikerült.`, {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -778,10 +851,13 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error(`Failed to import chats: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-          position: 'bottom-right',
-          autoClose: 3000,
-        });
+        toast.error(
+          `Nem sikerült importálni a beszélgetéseket: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+          {
+            position: 'bottom-right',
+            autoClose: 3000,
+          },
+        );
       } finally {
         setIsImporting(false);
         setProgressPercent(0);
@@ -803,7 +879,7 @@ export function useDataOperations({
       // Dismiss any existing toast first
       toast.dismiss('progress-toast');
 
-      toast.loading(`Importing API keys from ${file.name}...`, {
+      toast.loading(`API-kulcsok importálása ebből a fájlból: ${file.name}…`, {
         position: 'bottom-right',
         autoClose: 3000,
         toastId: 'progress-toast',
@@ -811,17 +887,17 @@ export function useDataOperations({
 
       try {
         // Step 1: Read file
-        showProgress('Reading file', 20);
+        showProgress('Fájl beolvasása', 20);
 
         const fileContent = await file.text();
 
         // Step 2: Parse JSON
-        showProgress('Parsing API keys data', 40);
+        showProgress('API-kulcsfájl feldolgozása', 40);
 
         const importedData = JSON.parse(fileContent);
 
         // Step 3: Validate data
-        showProgress('Validating API keys data', 60);
+        showProgress('API-kulcsok ellenőrzése', 60);
 
         // Get current API keys from cookies for potential undo
         const apiKeysStr = document.cookie.split(';').find((row) => row.trim().startsWith('apiKeys='));
@@ -829,14 +905,14 @@ export function useDataOperations({
         setLastOperation({ type: 'import-api-keys', data: { previous: currentApiKeys } });
 
         // Step 4: Import API keys
-        showProgress('Applying API keys', 80);
+        showProgress('API-kulcsok alkalmazása', 80);
 
         const newKeys = ImportExportService.importAPIKeys(importedData);
         const apiKeysJson = JSON.stringify(newKeys);
         document.cookie = `apiKeys=${apiKeysJson}; path=/; max-age=31536000`;
 
         // Step 5: Complete
-        showProgress('Completing import', 100);
+        showProgress('Importálás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
@@ -849,8 +925,8 @@ export function useDataOperations({
         ).length;
 
         toast.success(
-          `${keyCount} API keys imported successfully (${newKeyCount} new/updated)\n` +
-            'Note: Keys are stored in browser cookies. For server-side usage, add them to your .env.local file.',
+          `${keyCount} API-kulcs importálása sikerült (${newKeyCount} új vagy frissített).\n` +
+            'Megjegyzés: a kulcsokat a böngésző tárolja. Szerveroldali használathoz add meg őket a .env.local fájlban.',
           { position: 'bottom-right', autoClose: 5000 },
         );
 
@@ -863,10 +939,13 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error(`Failed to import API keys: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-          position: 'bottom-right',
-          autoClose: 3000,
-        });
+        toast.error(
+          `Nem sikerült importálni az API-kulcsokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+          {
+            position: 'bottom-right',
+            autoClose: 3000,
+          },
+        );
       } finally {
         setIsImporting(false);
         setProgressPercent(0);
@@ -886,7 +965,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Resetting settings...', {
+    toast.loading('Beállítások visszaállítása…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -895,22 +974,22 @@ export function useDataOperations({
     try {
       if (db) {
         // Step 1: Save current settings for potential undo
-        showProgress('Backing up current settings', 25);
+        showProgress('Jelenlegi beállítások mentése', 25);
 
         const currentSettings = await ImportExportService.exportSettings();
         setLastOperation({ type: 'reset-settings', data: { previous: currentSettings } });
 
         // Step 2: Reset settings
-        showProgress('Resetting settings to defaults', 50);
-        await ImportExportService.resetAllSettings(db);
+        showProgress('Beállítások visszaállítása az alapértékekre', 50);
+        await ImportExportService.resetAllSettings();
 
         // Step 3: Complete
-        showProgress('Completing reset', 100);
+        showProgress('Visszaállítás befejezése', 100);
 
         // Dismiss progress toast before showing success toast
         toast.dismiss('progress-toast');
 
-        toast.success('Settings reset successfully', {
+        toast.success('A beállítások visszaállítása sikerült.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -922,7 +1001,7 @@ export function useDataOperations({
         // Dismiss progress toast before showing error toast
         toast.dismiss('progress-toast');
 
-        toast.error('Database not available', {
+        toast.error('Az adatbázis nem érhető el.', {
           position: 'bottom-right',
           autoClose: 3000,
         });
@@ -933,10 +1012,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to reset settings: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült visszaállítani a beállításokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     } finally {
       setIsResetting(false);
       setProgressPercent(0);
@@ -949,7 +1031,7 @@ export function useDataOperations({
    */
   const handleResetChats = useCallback(async () => {
     if (!db) {
-      toast.error('Database not available', {
+      toast.error('Az adatbázis nem érhető el.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -962,7 +1044,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Deleting all chats...', {
+    toast.loading('Összes beszélgetés törlése…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -970,22 +1052,23 @@ export function useDataOperations({
 
     try {
       // Step 1: Save current chats for potential undo
-      showProgress('Backing up current chats', 25);
+      showProgress('Jelenlegi beszélgetések és projektek mentése', 25);
 
       const currentChats = await ImportExportService.exportAllChats(db);
       setLastOperation({ type: 'reset-chats', data: { previous: currentChats } });
 
       // Step 2: Delete chats
-      showProgress('Deleting chats from database', 50);
+      showProgress('Beszélgetések törlése az adatbázisból', 50);
       await ImportExportService.deleteAllChats(db);
+      invalidateChatCache();
 
       // Step 3: Complete
-      showProgress('Completing deletion', 100);
+      showProgress('Törlés befejezése', 100);
 
       // Dismiss progress toast before showing success toast
       toast.dismiss('progress-toast');
 
-      toast.success('All chats deleted successfully', {
+      toast.success('Az összes beszélgetés törölve.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -999,10 +1082,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to delete chats: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült törölni a beszélgetéseket: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     } finally {
       setIsResetting(false);
       setProgressPercent(0);
@@ -1020,7 +1106,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Creating API keys template...', {
+    toast.loading('API-kulcssablon létrehozása…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -1028,12 +1114,12 @@ export function useDataOperations({
 
     try {
       // Step 1: Create template
-      showProgress('Creating template', 50);
+      showProgress('Sablon létrehozása', 50);
 
       const templateData = ImportExportService.createAPIKeysTemplate();
 
       // Step 2: Download file
-      showProgress('Downloading template', 75);
+      showProgress('Sablon letöltése', 75);
 
       const blob = new Blob([JSON.stringify(templateData, null, 2)], {
         type: 'application/json',
@@ -1049,12 +1135,12 @@ export function useDataOperations({
       URL.revokeObjectURL(url);
 
       // Step 3: Complete
-      showProgress('Completing download', 100);
+      showProgress('Letöltés befejezése', 100);
 
       // Dismiss progress toast before showing success toast
       toast.dismiss('progress-toast');
 
-      toast.success('Template downloaded successfully', {
+      toast.success('A sablon letöltése sikerült.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -1064,7 +1150,7 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to download template: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+      toast.error(`Nem sikerült letölteni a sablont: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`, {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -1085,7 +1171,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Exporting API keys...', {
+    toast.loading('API-kulcsok exportálása…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -1093,26 +1179,26 @@ export function useDataOperations({
 
     try {
       // Step 1: Get API keys from all sources
-      showProgress('Retrieving API keys', 25);
+      showProgress('API-kulcsok lekérése', 25);
 
       // Create a fetch request to get API keys from server
       const response = await fetch('/api/export-api-keys');
 
       if (!response.ok) {
-        throw new Error('Failed to retrieve API keys from server');
+        throw new Error('Nem sikerült lekérni az API-kulcsokat a szerverről.');
       }
 
       const apiKeys = await response.json();
 
       // Step 2: Create blob
-      showProgress('Creating file', 50);
+      showProgress('Fájl létrehozása', 50);
 
       const blob = new Blob([JSON.stringify(apiKeys, null, 2)], {
         type: 'application/json',
       });
 
       // Step 3: Download file
-      showProgress('Downloading file', 75);
+      showProgress('Fájl letöltése', 75);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1124,12 +1210,12 @@ export function useDataOperations({
       URL.revokeObjectURL(url);
 
       // Step 4: Complete
-      showProgress('Completing export', 100);
+      showProgress('Exportálás befejezése', 100);
 
       // Dismiss progress toast before showing success toast
       toast.dismiss('progress-toast');
 
-      toast.success('API keys exported successfully', {
+      toast.success('Az API-kulcsok exportálása sikerült.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -1142,10 +1228,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to export API keys: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült exportálni az API-kulcsokat: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     } finally {
       setIsExporting(false);
       setProgressPercent(0);
@@ -1158,7 +1247,7 @@ export function useDataOperations({
    */
   const handleUndo = useCallback(async () => {
     if (!lastOperation || !db) {
-      toast.error('Nothing to undo', {
+      toast.error('Nincs visszavonható művelet.', {
         position: 'bottom-right',
         autoClose: 3000,
       });
@@ -1168,7 +1257,7 @@ export function useDataOperations({
     // Dismiss any existing toast first
     toast.dismiss('progress-toast');
 
-    toast.loading('Processing undo operation...', {
+    toast.loading('Művelet visszavonása…', {
       position: 'bottom-right',
       autoClose: 3000,
       toastId: 'progress-toast',
@@ -1183,7 +1272,7 @@ export function useDataOperations({
           // Dismiss progress toast before showing success toast
           toast.dismiss('progress-toast');
 
-          toast.success('Operation undone successfully', {
+          toast.success('A művelet visszavonása sikerült.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1196,26 +1285,50 @@ export function useDataOperations({
         }
 
         case 'import-chats': {
-          // Delete imported chats and restore previous state
-          await ImportExportService.deleteAllChats(db);
+          const previousById = new Map(
+            (lastOperation.data.previous.chats as any[]).map((chat) => [String(chat.id), chat]),
+          );
 
-          // Reimport previous chats
-          const transaction = db.transaction(['chats'], 'readwrite');
-          const store = transaction.objectStore('chats');
+          const affectedIds = lastOperation.data.importedIds as string[];
+          const hasSnapshots = db.objectStoreNames.contains('snapshots');
+          const stores = hasSnapshots ? ['chats', 'snapshots'] : ['chats'];
+          const transaction = db.transaction(stores, 'readwrite');
+          const chatStore = transaction.objectStore('chats');
+          const snapshotStore = hasSnapshots ? transaction.objectStore('snapshots') : null;
+          const previousSnapshots = lastOperation.data.previous.snapshots ?? {};
 
-          for (const chat of lastOperation.data.previous.chats) {
-            store.put(chat);
+          for (const id of affectedIds) {
+            const previousChat = previousById.get(id);
+
+            if (previousChat) {
+              chatStore.put(previousChat);
+            } else {
+              chatStore.delete(id);
+            }
+
+            if (lastOperation.data.snapshotsChanged && snapshotStore) {
+              snapshotStore.delete(id);
+
+              const previousSnapshot = previousSnapshots[id];
+
+              if (previousSnapshot) {
+                snapshotStore.put({ chatId: id, snapshot: previousSnapshot });
+              }
+            }
           }
 
-          await new Promise((resolve, reject) => {
-            transaction.oncomplete = resolve;
-            transaction.onerror = reject;
+          await new Promise<void>((resolve, reject) => {
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
           });
+
+          invalidateChatCache();
 
           // Dismiss progress toast before showing success toast
           toast.dismiss('progress-toast');
 
-          toast.success('Operation undone successfully', {
+          toast.success('A művelet visszavonása sikerült.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1234,7 +1347,7 @@ export function useDataOperations({
           // Dismiss progress toast before showing success toast
           toast.dismiss('progress-toast');
 
-          toast.success('Operation undone successfully', {
+          toast.success('A művelet visszavonása sikerült.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1247,23 +1360,12 @@ export function useDataOperations({
         }
 
         case 'reset-chats': {
-          // Restore previous chats
-          const chatTransaction = db.transaction(['chats'], 'readwrite');
-          const chatStore = chatTransaction.objectStore('chats');
-
-          for (const chat of lastOperation.data.previous.chats) {
-            chatStore.put(chat);
-          }
-
-          await new Promise((resolve, reject) => {
-            chatTransaction.oncomplete = resolve;
-            chatTransaction.onerror = reject;
-          });
+          await restoreChatsAndSnapshots(db, lastOperation.data.previous);
 
           // Dismiss progress toast before showing success toast
           toast.dismiss('progress-toast');
 
-          toast.success('Operation undone successfully', {
+          toast.success('A művelet visszavonása sikerült.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1285,7 +1387,7 @@ export function useDataOperations({
           // Dismiss progress toast before showing success toast
           toast.dismiss('progress-toast');
 
-          toast.success('Operation undone successfully', {
+          toast.success('A művelet visszavonása sikerült.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1301,7 +1403,7 @@ export function useDataOperations({
           // Dismiss progress toast before showing error toast
           toast.dismiss('progress-toast');
 
-          toast.error('Cannot undo this operation', {
+          toast.error('Ez a művelet nem vonható vissza.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -1315,10 +1417,13 @@ export function useDataOperations({
       // Dismiss progress toast before showing error toast
       toast.dismiss('progress-toast');
 
-      toast.error(`Failed to undo: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        position: 'bottom-right',
-        autoClose: 3000,
-      });
+      toast.error(
+        `Nem sikerült visszavonni a műveletet: ${error instanceof Error ? error.message : 'ismeretlen hiba'}`,
+        {
+          position: 'bottom-right',
+          autoClose: 3000,
+        },
+      );
     }
   }, [lastOperation, db, onReloadSettings, onReloadChats]);
 
@@ -1330,6 +1435,7 @@ export function useDataOperations({
     progressMessage,
     progressPercent,
     lastOperation,
+    canUndo,
     handleExportSettings,
     handleExportSelectedSettings,
     handleExportAllChats,

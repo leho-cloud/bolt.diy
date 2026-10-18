@@ -1,6 +1,6 @@
 import { type UIMessage } from 'ai';
 import Cookies from 'js-cookie';
-import { getAllChats, deleteChat } from '~/lib/persistence/chats';
+import { getAllChats } from '~/lib/persistence/chats';
 
 interface ExtendedMessage extends UIMessage {
   name?: string;
@@ -17,7 +17,9 @@ export class ImportExportService {
    * @param db The IndexedDB database instance
    * @returns A promise that resolves to the export data
    */
-  static async exportAllChats(db: IDBDatabase): Promise<{ chats: any[]; exportDate: string }> {
+  static async exportAllChats(
+    db: IDBDatabase,
+  ): Promise<{ chats: any[]; snapshots: Record<string, unknown>; exportDate: string }> {
     if (!db) {
       throw new Error('Database not initialized');
     }
@@ -40,10 +42,36 @@ export class ImportExportService {
         metadata: chat.metadata || null,
       }));
 
+      const snapshots = await new Promise<Record<string, unknown>>((resolve, reject) => {
+        if (!db.objectStoreNames?.contains?.('snapshots') || exportedChats.length === 0) {
+          resolve({});
+          return;
+        }
+
+        const result: Record<string, unknown> = {};
+        const transaction = db.transaction('snapshots', 'readonly');
+        const store = transaction.objectStore('snapshots');
+
+        for (const chat of exportedChats) {
+          const request = store.get(chat.id);
+
+          request.onsuccess = () => {
+            if (request.result?.snapshot) {
+              result[chat.id] = request.result.snapshot;
+            }
+          };
+        }
+
+        transaction.oncomplete = () => resolve(result);
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+
       console.log(`Successfully prepared ${exportedChats.length} chats for export`);
 
       return {
         chats: exportedChats,
+        snapshots,
         exportDate: new Date().toISOString(),
       };
     } catch (error) {
@@ -279,7 +307,7 @@ export class ImportExportService {
    * Reset all settings to default values
    * @param db The IndexedDB database instance
    */
-  static async resetAllSettings(db: IDBDatabase): Promise<void> {
+  static async resetAllSettings(): Promise<void> {
     // 1. Clear all localStorage items related to application settings
     const localStorageKeysToPreserve: string[] = ['debug_mode']; // Keys to preserve if needed
 
@@ -315,18 +343,10 @@ export class ImportExportService {
       }
     });
 
-    // 3. Clear all data from IndexedDB
-    if (!db) {
-      console.warn('Database not initialized, skipping IndexedDB reset');
-    } else {
-      // Get all chats and delete them
-      const chats = await getAllChats(db);
-
-      const deletePromises = chats.map((chat) => deleteChat(db, chat.id));
-      await Promise.all(deletePromises);
-    }
-
-    // 4. Clear any chat snapshots
+    /*
+     * Chat history and its IndexedDB project snapshots are independent of settings.
+     * Keep the legacy localStorage cleanup for older versions of the app.
+     */
     const snapshotKeys = Object.keys(localStorage).filter((key) => key.startsWith('snapshot:'));
     snapshotKeys.forEach((key) => {
       try {
@@ -350,10 +370,23 @@ export class ImportExportService {
       throw new Error('Database not initialized');
     }
 
-    // Get all chats and delete them one by one
-    const chats = await getAllChats(db);
-    const deletePromises = chats.map((chat) => deleteChat(db, chat.id));
-    await Promise.all(deletePromises);
+    /*
+     * Clear chats and source-file snapshots together so a reset cannot leave
+     * stale project files that reappear when a chat ID is reused.
+     */
+    const stores = db.objectStoreNames?.contains?.('snapshots') ? ['chats', 'snapshots'] : ['chats'];
+    const transaction = db.transaction(stores, 'readwrite');
+    transaction.objectStore('chats').clear();
+
+    if (stores.includes('snapshots')) {
+      transaction.objectStore('snapshots').clear();
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
   }
 
   // Private helper methods

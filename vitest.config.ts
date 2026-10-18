@@ -23,8 +23,8 @@
  * into DOM_TESTS rather than to widen the node setup.
  */
 
-import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
 
 /**
  * Tests that need a DOM.
@@ -68,6 +68,7 @@ const DOM_TESTS = [
   'tests/unit/performance-monitor.test.ts',
   'tests/unit/starter-template-import.test.tsx',
   'tests/unit/StaticComposer.test.tsx',
+  'tests/unit/project-data-roundtrip.test.tsx',
   'tests/unit/syntax-highlighter-client.test.ts',
 ];
 
@@ -112,6 +113,7 @@ export const NODE_PROJECT = {
     '**/tests/integration/**/*.{test,spec}.{ts,tsx,js,jsx}',
     '**/tests/performance/**/*.perf.test.{ts,tsx,js,jsx}',
   ],
+
   /*
    * Invert the DOM list. Vitest's `exclude` wins over `include`, so subtracting
    * here is what keeps `DOM_TESTS` out of this project.
@@ -148,14 +150,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'tests/',
-        '**/*.test.{ts,tsx}',
-        '**/*.spec.{ts,tsx}',
-        '**/types.ts',
-        '**/*.d.ts',
-      ],
+      exclude: ['node_modules/', 'tests/', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/types.ts', '**/*.d.ts'],
     },
   },
 });

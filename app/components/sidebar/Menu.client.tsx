@@ -74,8 +74,8 @@ function CurrentDateTime() {
     <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800/50">
       <div className="h-4 w-4 i-ph:clock opacity-80" />
       <div className="flex gap-2">
-        <span>{dateTime.toLocaleDateString()}</span>
-        <span>{dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <span>{dateTime.toLocaleDateString('hu-HU')}</span>
+        <span>{dateTime.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </div>
   );
@@ -115,19 +115,10 @@ export const Menu = () => {
   const deleteChat = useCallback(
     async (id: string): Promise<void> => {
       if (!db) {
-        throw new Error('Database not available');
+        throw new Error('Az adatbázis nem érhető el.');
       }
 
-      // Delete chat snapshot from localStorage
-      try {
-        const snapshotKey = `snapshot:${id}`;
-        localStorage.removeItem(snapshotKey);
-        console.log('Removed snapshot for chat:', id);
-      } catch (snapshotError) {
-        console.error(`Error deleting snapshot for chat ${id}:`, snapshotError);
-      }
-
-      // Delete the chat from the database
+      // The IndexedDB helper removes the chat and its snapshot atomically.
       await deleteById(db, id);
       console.log('Successfully deleted chat:', id);
     },
@@ -144,7 +135,7 @@ export const Menu = () => {
 
       deleteChat(item.id)
         .then(() => {
-          toast.success('Chat deleted successfully', {
+          toast.success('A beszélgetés törölve.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -160,7 +151,7 @@ export const Menu = () => {
         })
         .catch((error) => {
           console.error('Failed to delete chat:', error);
-          toast.error('Failed to delete conversation', {
+          toast.error('A beszélgetést nem sikerült törölni.', {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -428,7 +419,7 @@ export const Menu = () => {
             <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary rounded-full shrink-0">
               <img
                 src={profile?.avatar || DEFAULT_AVATAR}
-                alt={profile?.username || 'User'}
+                alt={profile?.username || 'Felhasználó'}
                 className="w-full h-full object-cover"
                 loading="eager"
                 decoding="sync"
@@ -525,7 +516,9 @@ export const Menu = () => {
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
-                  {selectedItems.length === filteredList.length ? 'Kijelölés törlése' : 'Összes kijelölése'}
+                  {filteredList.length > 0 && filteredList.every((item) => selectedItems.includes(item.id))
+                    ? 'Kijelölés törlése'
+                    : 'Összes kijelölése'}
                 </Button>
                 <Button
                   variant="destructive"
@@ -610,10 +603,7 @@ export const Menu = () => {
                         Kijelölt beszélgetések törlése?
                       </DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
-                        <p>
-                          Törlésre kijelölve: {dialogContent.items.length}{' '}
-                          {dialogContent.items.length === 1 ? 'beszélgetés' : 'beszélgetés'}:
-                        </p>
+                        <p>Törlésre kijelölve: {dialogContent.items.length} beszélgetés:</p>
                         <div className="mt-2 max-h-32 overflow-auto border border-bolt-elements-borderColor rounded-md bg-bolt-elements-background-depth-2 p-2">
                           <ul className="list-disc pl-5 space-y-1">
                             {dialogContent.items.map((item) => (
