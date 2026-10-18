@@ -20,7 +20,9 @@ export function Header() {
         <a href="/" className="text-2xl font-semibold text-accent flex items-center">
           {/* <span className="i-bolt:logo-text?mask w-[46px] inline-block" /> */}
           <span className="inline-flex items-center gap-2" aria-label="TZSVTAV AI Builder">
-            <span className="rounded-md bg-[#1e1e23] px-2 py-1 text-sm font-extrabold tracking-wide text-white ring-1 ring-[#4a4a50]"><span className="text-[#e31837]">TZSVT</span>AV</span>
+            <span className="rounded-md bg-[#1e1e23] px-2 py-1 text-sm font-extrabold tracking-wide text-white ring-1 ring-[#4a4a50]">
+              <span className="text-[#e31837]">TZSVT</span>AV
+            </span>
             <span className="text-sm font-semibold tracking-tight text-bolt-elements-textPrimary">AI Builder</span>
           </span>
         </a>
