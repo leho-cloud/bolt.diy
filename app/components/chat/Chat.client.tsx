@@ -966,6 +966,7 @@ export const ChatImpl = memo(
 
       // Rule-based routing avoids an extra paid model classification call.
       const autoEnabled = autoModelMode !== 'manual' && provider.name === 'OpenRouter';
+
       const broadTask =
         /(?:teljes|komplett|alkalmaz[aá]s|weboldal|webapp|rendszer|architekt[uú]r|refaktor|from scratch|full app|entire app|whole project)/i.test(
           messageContent,
