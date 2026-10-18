@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loader } from '../routes/api.github-template';
+import { loader } from '~/routes/api.github-template';
 import { getTemplates } from './selectStarterTemplate';
 
 vi.mock('./constants', () => ({
@@ -15,6 +15,7 @@ vi.mock('./constants', () => ({
 
 const repo = 'fixture/template';
 const apiUrl = `https://api.github.com/repos/${repo}`;
+
 const projectFiles = [
   { name: 'package.json', path: 'package.json', content: '{"name":"test-starter"}' },
   { name: '.gitignore', path: '.gitignore', content: 'node_modules/' },
@@ -22,6 +23,7 @@ const projectFiles = [
   { name: 'ci.yml', path: '.github/workflows/ci.yml', content: 'name: CI' },
   { name: '.gitkeep', path: '.gitkeep', content: '' },
 ];
+
 const metadataFiles = [
   { name: '.git', path: '.git', content: 'gitdir: /tmp/worktree' },
   { name: 'config', path: '.git/config', content: '[core]' },
