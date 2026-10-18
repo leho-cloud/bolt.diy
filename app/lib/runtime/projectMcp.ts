@@ -884,6 +884,7 @@ export async function createProjectMcpBridge() {
        */
 
       const startedAt = Date.now();
+
       const stallWarning = setTimeout(() => {
         console.warn('[Bolt project watchdog] Tool still running after 90s', {
           tool: name,
