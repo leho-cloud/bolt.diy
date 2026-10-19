@@ -22,15 +22,15 @@ A proxy feladata a HTTPS-tanúsítványok kiadása (Let's Encrypt), ehhez a 80/4
 2. Olvasd ki a Coolify **project UUID** és **server UUID** azonosítóit.
 3. A Coolifyban futó **TZSVTAV AI Builder** alkalmazás **Environment Variables** részébe állítsd be:
 
-| Változó | Érték |
-| --- | --- |
-| `COOLIFY_API_URL` | A saját Coolify szerver elérési címe, pl. `https://coolify.example.com` (a builder konténeréből is elérhető) |
-| `COOLIFY_API_TOKEN` | A Coolify API token |
-| `COOLIFY_PROJECT_UUID` | A publikálandó projektek célprojekt-azonosítója |
-| `COOLIFY_SERVER_UUID` | A célkiszolgáló UUID |
-| `COOLIFY_ENVIRONMENT_NAME` | `production` |
-| `COOLIFY_GITHUB_OWNER` | `leho-cloud` |
-| `COOLIFY_PUBLISH_KEY` | Erős, egyedi rendszergazdai jelszó, ezt a Publish gombnál kell megadni |
+| Változó                    | Érték                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `COOLIFY_API_URL`          | A saját Coolify szerver elérési címe, pl. `https://coolify.example.com` (a builder konténeréből is elérhető) |
+| `COOLIFY_API_TOKEN`        | A Coolify API token                                                                                          |
+| `COOLIFY_PROJECT_UUID`     | A publikálandó projektek célprojekt-azonosítója                                                              |
+| `COOLIFY_SERVER_UUID`      | A célkiszolgáló UUID                                                                                         |
+| `COOLIFY_ENVIRONMENT_NAME` | `production`                                                                                                 |
+| `COOLIFY_GITHUB_OWNER`     | `leho-cloud`                                                                                                 |
+| `COOLIFY_PUBLISH_KEY`      | Erős, egyedi rendszergazdai jelszó, ezt a Publish gombnál kell megadni                                       |
 
 4. Mentsd el a környezeti változókat, majd indítsd újra / telepítsd az AI Builder alkalmazást.
 
@@ -51,3 +51,17 @@ A közzétételi API nem aktív, amíg minden kötelező környezeti változó n
 **Alkalmazástípus:** a jelenlegi megoldás a nyilvános, GitHub-forrásból Nixpacks-szel épülő alkalmazásokat kezeli. Egyes projektekhez további build/start konfiguráció vagy külön backend/adatbázis szükséges. A megoldás nem biztosít automatikusan adatbázist, külső szolgáltatási kulcsot vagy futásidejű konfigurációt.
 
 **Biztonság:** a tároló a publikus GitHub-telepítéshez nyilvános lesz. Az alkalmazás titkait kizárólag Coolify környezeti változóiban helyezd el.
+
+## Fejlesztési javítás: forráság és domainvédelem
+
+Ez a kiegészítés a külön `dev/tzsvtav-publisher-guard-20261019` ágon készült; main és az éles telepítés változatlan.
+
+A POST kérés opcionális `branch` mezőt fogad. Ha hiányzik, a korábbi kliensekhez `main` az alapértelmezés; hibás mezőt nem cserélünk le automatikusan. Az új alkalmazás a megadott ágat kapja. Meglévő domainnél az API külön, csak olvasó alkalmazás-részletet kér le, és teljes tulajdonos/repó azonosságot, valamint pontos forráság-egyezést követel. HTTPS és SSH GitHub-cím, .git utótag és kis/nagybetű normalizálható; repónév-részlet soha nem elég. Hiányzó repó/ág, több azonos domain vagy hibás alkalmazáslista mellett nincs létrehozás vagy deploy.
+
+Az API nem állítja át csendben egy meglévő alkalmazás tárolóját vagy ágát. Eltéréskor 409 a válasz; az üzemeltetőnek előbb ellenőriznie kell a célalkalmazást. A domainütközés vizsgálata ugyanannak a hostnak HTTP/HTTPS és záróperjeles alakját is figyelembe veszi. A szolgáltatói átirányítást a hívás nem követi; a nyers szolgáltatói hiba nem kerül a válaszba.
+
+A sikeres válaszban `branch` és `status: queued` szerepel. Ez továbbra sem build-, HTTP- vagy TLS-siker. Bizonytalan hiba után nincs automatikus újrapróbálás: előbb a Coolify állapotát kell ellenőrizni.
+
+Ez nem oldja meg a privát repók hozzáférését vagy egy commitra rögzített kiadás teljes folyamatát. Nyilvános repó létrehozása és privát projekt nyilvánossá tétele nem történik. A Műhely még nem hívja ezt a végpontot; az éles bekötés előtt a futó végpont, a privát hozzáférés, a buildbeállítás és a telepítési állapotkövetés külön ellenőrzendő.
+
+Ellenőrzés Node 24 alatt: `node --test scripts/check-coolify-publish.mjs`. A teszt minden fetch hívást helyi szimulációval helyettesít; nem hív valódi Coolifyt, nem igényel szolgáltatói titkot, és nem telepít semmit. A külön Publisher contract munkafolyamat csak ezt futtatja a fejlesztési ágon, olvasási repójoggal. A meglévő PR-előnézeti telepítések miatt ehhez a szakaszhoz nem nyitunk automatikusan pull requestet.

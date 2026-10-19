@@ -37,20 +37,38 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: 'Érvénytelen közzétételi jogosultság.' }, { status: 403 });
   }
 
-  let body: { repository?: string; slug?: string };
+  let body: { repository?: string; slug?: string; branch?: string };
 
   try {
-    body = (await request.json()) as { repository?: string; slug?: string };
+    body = (await request.json()) as { repository?: string; slug?: string; branch?: string };
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new Error('Invalid request body');
+    }
   } catch {
     return Response.json({ error: 'Érvénytelen kérés.' }, { status: 400 });
   }
 
-  const slug = body.slug?.trim().toLowerCase() || '';
-  const match = /^https:\/\/github\.com\/([a-z0-9-]+)\/([a-z0-9._-]+)\/?$/i.exec(body.repository || '');
+  const slug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : '';
+  const gitBranch = body.branch === undefined ? 'main' : typeof body.branch === 'string' ? body.branch.trim() : '';
+  const validBranch =
+    /^[a-z0-9][a-z0-9._/-]{0,119}$/i.test(gitBranch) &&
+    !gitBranch.includes('..') &&
+    !gitBranch.includes('//') &&
+    gitBranch
+      .split('/')
+      .every((part) => part && !part.startsWith('.') && !part.endsWith('.') && !part.endsWith('.lock'));
+  const match = /^https:\/\/github\.com\/([a-z0-9-]+)\/([a-z0-9._-]+)\/?$/i.exec(
+    typeof body.repository === 'string' ? body.repository : '',
+  );
   const allowedOwner = (env.COOLIFY_GITHUB_OWNER || 'leho-cloud').toLowerCase();
 
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug) || !match || match[1].toLowerCase() !== allowedOwner) {
-    return Response.json({ error: 'Érvénytelen projektnév vagy GitHub-tároló.' }, { status: 400 });
+  if (
+    !validBranch ||
+    !/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/.test(slug) ||
+    !match ||
+    match[1].toLowerCase() !== allowedOwner
+  ) {
+    return Response.json({ error: 'Érvénytelen projektnév, GitHub-tároló vagy forráság.' }, { status: 400 });
   }
 
   const repo = `https://github.com/${match[1]}/${match[2]}`;
@@ -64,11 +82,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
   };
 
   const coolify = async (endpoint: string, init: RequestInit = {}) => {
-    const response = await fetch(base + endpoint, { ...init, headers, signal: AbortSignal.timeout(25000) });
+    const response = await fetch(base + endpoint, {
+      ...init,
+      headers,
+      redirect: 'error',
+      signal: AbortSignal.timeout(25000),
+    });
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (!response.ok) {
-      throw new Error(typeof payload.message === 'string' ? payload.message : `Coolify API hiba (${response.status})`);
+      throw new Error(`Coolify API hiba (HTTP ${response.status}).`);
     }
 
     return payload;
@@ -80,26 +103,69 @@ export async function action({ request, context }: ActionFunctionArgs) {
      * access checks during deployment instead of blocking on GitHub API rate
      * limits or outbound network failures from the Worker.
      */
-    const gitBranch = 'main';
-
     const applicationsData = await coolify('/applications');
 
     const applications = Array.isArray(applicationsData)
       ? applicationsData
       : Array.isArray(applicationsData.data)
         ? applicationsData.data
-        : [];
+        : null;
 
-    const existing = applications.find((item: unknown) => {
-      const app = item as { uuid?: string; fqdn?: string; domains?: string; git_repository?: string };
-      return (app.fqdn || app.domains || '').split(',').includes(domain);
-    }) as { uuid?: string; git_repository?: string } | undefined;
-
-    if (existing && existing.git_repository && !existing.git_repository.includes(`${match[1]}/${match[2]}`)) {
-      return Response.json({ error: 'Ez a domain már egy másik projekthez tartozik.' }, { status: 409 });
+    if (
+      !applications ||
+      applications.some((item: unknown) => !item || typeof item !== 'object' || Array.isArray(item))
+    ) {
+      throw new Error('A Coolify alkalmazáslistája nem ellenőrizhető.');
     }
 
-    let uuid = existing?.uuid;
+    const expectedHost = new URL(domain).hostname;
+    const canonicalRepo = (value: unknown) => {
+      if (typeof value !== 'string') return null;
+      const parts = /^(?:https:\/\/github\.com\/|git@github\.com:)([a-z0-9-]+)\/([a-z0-9._-]+?)\/?$/i.exec(
+        value.trim(),
+      );
+      return parts ? `${parts[1]}/${parts[2].replace(/\.git$/i, '')}`.toLowerCase() : null;
+    };
+    const collisions = applications.filter((item: unknown) => {
+      if (!item || typeof item !== 'object') return false;
+      const app = item as { fqdn?: string; domains?: string };
+      return [app.fqdn, app.domains].some(
+        (values) =>
+          typeof values === 'string' &&
+          values.split(',').some((value) => {
+            try {
+              const address = value.trim();
+              return new URL(/^[a-z]+:/i.test(address) ? address : 'https://' + address).hostname === expectedHost;
+            } catch {
+              return false;
+            }
+          }),
+      );
+    }) as { uuid?: string }[];
+
+    if (
+      collisions.length > 1 ||
+      (collisions.length === 1 &&
+        (typeof collisions[0].uuid !== 'string' || !/^[a-z0-9_-]{1,100}$/i.test(collisions[0].uuid)))
+    ) {
+      return Response.json({ error: 'A domainhez tartozó alkalmazás nem azonosítható egyértelműen.' }, { status: 409 });
+    }
+
+    let uuid = collisions[0]?.uuid;
+
+    if (uuid) {
+      const existing = await coolify(`/applications/${encodeURIComponent(uuid)}`);
+      if (
+        canonicalRepo(existing.git_repository) !== canonicalRepo(repo) ||
+        typeof existing.git_branch !== 'string' ||
+        existing.git_branch !== gitBranch
+      ) {
+        return Response.json(
+          { error: 'A domain meglévő alkalmazásának tárolója vagy forrásága nem egyezik, vagy nem ellenőrizhető.' },
+          { status: 409 },
+        );
+      }
+    }
 
     if (!uuid) {
       const created = await coolify('/applications/public', {
@@ -127,10 +193,17 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
     const deployResult = await coolify(`/deploy?uuid=${encodeURIComponent(uuid)}`, { method: 'POST' });
 
-    return Response.json({ success: true, domain, applicationUuid: uuid, status: 'queued', deployment: deployResult });
-  } catch (error) {
+    return Response.json({
+      success: true,
+      domain,
+      applicationUuid: uuid,
+      status: 'queued',
+      branch: gitBranch,
+      deployment: deployResult,
+    });
+  } catch {
     return Response.json(
-      { error: error instanceof Error ? error.message : 'Ismeretlen telepítési hiba.' },
+      { error: 'A közzététel nem igazolható. Ellenőrizd a Coolify állapotát; ne indítsd újra automatikusan.' },
       { status: 502 },
     );
   }
