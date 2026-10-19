@@ -53,3 +53,11 @@ test('inspection authenticates before reading, uses GET only and strips secrets'
  const response=await inspectCoolify(request('test-key'),{env,fetcher});assert.equal(response.status,200);const body=await response.text();assert.ok(!body.includes('SECRET'));assert.equal(calls,2);
  assert.equal((await inspectCoolify(new Request('https://publisher.example/api/coolify-inspect?application=../other',{headers:{'x-publish-key':'test-key'}}),{env,fetcher})).status,400);
 });
+
+test('inspection accepts UUID application binding without internal database id and rejects foreign deployment',async()=>{
+ const env={COOLIFY_API_URL:'https://coolify.example',COOLIFY_API_TOKEN:'PRIVATE',COOLIFY_PUBLISH_KEY:'test-key'};
+ for(const application_id of ['app123','other',undefined]){
+  const response=await inspectCoolify(new Request('https://publisher.example/api/coolify-inspect?application=app123&deployment=dep123',{headers:{'x-publish-key':'test-key'}}),{env,fetcher:async url=>Response.json(String(url).includes('/applications/')?{uuid:'app123'}:{application_id,deployment_uuid:'dep123',status:'finished'})});
+  assert.equal(response.status,application_id==='app123'?200:502);
+ }
+});
