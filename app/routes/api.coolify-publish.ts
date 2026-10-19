@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { ActionFunctionArgs } from 'react-router';
 
 /**
- * Publish a public GitHub repository to a dedicated TZSVTAV preview domain.
+ * Publish a legacy public source or a pinned private static release to a TZSVTAV domain.
  * Credentials are server-only. The endpoint is disabled until explicitly configured.
  */
 export async function action({ request, context }: ActionFunctionArgs) {
@@ -37,10 +37,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: 'Érvénytelen közzétételi jogosultság.' }, { status: 403 });
   }
 
-  let body: { repository?: string; slug?: string; branch?: string };
+  let body: { repository?: string; slug?: string; branch?: string; source?: string; commit?: string };
 
   try {
-    body = (await request.json()) as { repository?: string; slug?: string; branch?: string };
+    body = (await request.json()) as {
+      repository?: string;
+      slug?: string;
+      branch?: string;
+      source?: string;
+      commit?: string;
+    };
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       throw new Error('Invalid request body');
     }
@@ -50,6 +56,18 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const slug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : '';
   const gitBranch = body.branch === undefined ? 'main' : typeof body.branch === 'string' ? body.branch.trim() : '';
+  const pinnedPrivate = body.source === 'private-github-app';
+  const commit = typeof body.commit === 'string' ? body.commit : '';
+  if (
+    (body.source !== undefined && !pinnedPrivate) ||
+    (pinnedPrivate && (!/^[a-f0-9]{40}$/.test(commit) || !gitBranch.startsWith('dev/tzsvtav-release-'))) ||
+    (!pinnedPrivate && body.commit !== undefined)
+  ) {
+    return Response.json({ error: 'Invalid pinned source request.' }, { status: 400 });
+  }
+  if (pinnedPrivate && !/^[a-z0-9_-]{1,100}$/i.test(env.COOLIFY_GITHUB_APP_UUID || '')) {
+    return Response.json({ error: 'Private GitHub App connection is not configured.' }, { status: 503 });
+  }
   const validBranch =
     /^[a-z0-9][a-z0-9._/-]{0,119}$/i.test(gitBranch) &&
     !gitBranch.includes('..') &&
@@ -158,7 +176,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
       if (
         canonicalRepo(existing.git_repository) !== canonicalRepo(repo) ||
         typeof existing.git_branch !== 'string' ||
-        existing.git_branch !== gitBranch
+        existing.git_branch !== gitBranch ||
+        (pinnedPrivate &&
+          (existing.git_commit_sha !== commit ||
+            existing.build_pack !== 'static' ||
+            existing.is_static !== true ||
+            existing.is_auto_deploy_enabled !== false))
       ) {
         return Response.json(
           { error: 'A domain meglévő alkalmazásának tárolója vagy forrásága nem egyezik, vagy nem ellenőrizhető.' },
@@ -168,7 +191,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     }
 
     if (!uuid) {
-      const created = await coolify('/applications/public', {
+      const created = await coolify(pinnedPrivate ? '/applications/private-github-app' : '/applications/public', {
         method: 'POST',
         body: JSON.stringify({
           project_uuid: COOLIFY_PROJECT_UUID,
@@ -176,8 +199,20 @@ export async function action({ request, context }: ActionFunctionArgs) {
           environment_name: env.COOLIFY_ENVIRONMENT_NAME || 'production',
           git_repository: repo,
           git_branch: gitBranch,
-          build_pack: 'nixpacks',
-          ports_exposes: '3000',
+          build_pack: pinnedPrivate ? 'static' : 'nixpacks',
+          ports_exposes: pinnedPrivate ? '80' : '3000',
+          ...(pinnedPrivate
+            ? {
+                github_app_uuid: env.COOLIFY_GITHUB_APP_UUID,
+                git_commit_sha: commit,
+                is_static: true,
+                is_spa: false,
+                publish_directory: '/',
+                instant_deploy: false,
+                is_auto_deploy_enabled: false,
+                is_preview_deployments_enabled: false,
+              }
+            : {}),
           name: `TZSVTAV – ${slug}`,
           domains: domain,
           autogenerate_domain: false,
@@ -191,7 +226,41 @@ export async function action({ request, context }: ActionFunctionArgs) {
       throw new Error('A Coolify nem adott vissza alkalmazásazonosítót.');
     }
 
+    if (pinnedPrivate) {
+      const confirmed = await coolify(`/applications/${encodeURIComponent(uuid)}`);
+      if (
+        canonicalRepo(confirmed.git_repository) !== canonicalRepo(repo) ||
+        confirmed.git_branch !== gitBranch ||
+        confirmed.git_commit_sha !== commit ||
+        confirmed.build_pack !== 'static' ||
+        confirmed.is_static !== true ||
+        confirmed.is_auto_deploy_enabled !== false
+      ) {
+        return Response.json(
+          { error: 'Pinned private application configuration cannot be verified. Deployment was not requested.' },
+          { status: 409 },
+        );
+      }
+    }
+
     const deployResult = await coolify(`/deploy?uuid=${encodeURIComponent(uuid)}`, { method: 'POST' });
+
+    const privateDeployments = Array.isArray(deployResult.deployments)
+      ? deployResult.deployments
+          .map((item: unknown) => {
+            const row = item as { deployment_uuid?: unknown };
+            return typeof row?.deployment_uuid === 'string' && /^[a-z0-9_-]{1,100}$/i.test(row.deployment_uuid)
+              ? { deployment_uuid: row.deployment_uuid }
+              : null;
+          })
+          .filter(Boolean)
+      : [];
+    if (pinnedPrivate && privateDeployments.length !== 1) {
+      return Response.json(
+        { error: 'Deployment queue identifier is not verified. Check Coolify before retrying.' },
+        { status: 502 },
+      );
+    }
 
     return Response.json({
       success: true,
@@ -199,7 +268,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
       applicationUuid: uuid,
       status: 'queued',
       branch: gitBranch,
-      deployment: deployResult,
+      ...(pinnedPrivate ? { commit, source: 'private-github-app' } : {}),
+      deployment: pinnedPrivate ? { deployments: privateDeployments } : deployResult,
     });
   } catch {
     return Response.json(

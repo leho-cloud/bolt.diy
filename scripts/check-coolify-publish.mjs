@@ -17,6 +17,9 @@ async function run({
   detail = { git_repository: body.repository, git_branch: body.branch },
   fail = false,
   method = 'POST',
+  appUuid = 'github-app-test',
+  createdDetail,
+  deployments = [{ deployment_uuid: 'deployment-test' }],
 } = {}) {
   const previous = globalThis.fetch,
     calls = [];
@@ -28,8 +31,10 @@ async function run({
     if (fail) return new Response(JSON.stringify({ message: 'secret ' + env.COOLIFY_API_TOKEN }), { status: 500 });
     if (url.endsWith('/applications')) return Response.json(apps);
     if (url.endsWith('/applications/existing-app')) return Response.json(detail);
+    if (url.endsWith('/applications/new-app')) return Response.json(createdDetail || {});
+    if (url.endsWith('/applications/private-github-app')) return Response.json({ uuid: 'new-app' });
     if (url.endsWith('/applications/public')) return Response.json({ uuid: 'new-app' });
-    if (url.includes('/deploy?uuid=')) return Response.json({ deployments: [{ deployment_uuid: 'deployment-test' }] });
+    if (url.includes('/deploy?uuid=')) return Response.json({ deployments });
     throw Error('Unexpected test URL');
   };
   try {
@@ -38,7 +43,10 @@ async function run({
       headers: { 'Content-Type': 'application/json', 'x-publish-key': key },
       ...(method === 'POST' ? { body: JSON.stringify(input) } : {}),
     });
-    const response = await action({ request, context: { cloudflare: { env } } });
+    const response = await action({
+      request,
+      context: { cloudflare: { env: { ...env, COOLIFY_GITHUB_APP_UUID: appUuid } } },
+    });
     return { status: response.status, data: await response.json(), calls };
   } finally {
     globalThis.fetch = previous;
@@ -126,4 +134,89 @@ test('malformed application list and upstream errors fail closed without provide
   assert.equal(failed.status, 502);
   assert.doesNotMatch(JSON.stringify(failed.data), /contract-provider-token/);
   assert.equal(failed.calls.length, 1);
+});
+
+const pinned = { ...body, branch: 'dev/tzsvtav-release-test', source: 'private-github-app', commit: 'a'.repeat(40) };
+const pinnedDetail = {
+  git_repository: body.repository,
+  git_branch: pinned.branch,
+  git_commit_sha: pinned.commit,
+  build_pack: 'static',
+  is_static: true,
+  is_auto_deploy_enabled: false,
+};
+test('private source requires explicit pinned commit and configured GitHub App before any network operation', async () => {
+  for (const input of [
+    { ...pinned, commit: 'main' },
+    { ...pinned, branch: 'main' },
+    { ...body, commit: pinned.commit },
+    { ...pinned, source: 'other' },
+  ]) {
+    const result = await run({ input });
+    assert.equal(result.status, 400);
+    assert.equal(result.calls.length, 0);
+  }
+  const missing = await run({ input: pinned, appUuid: '' });
+  assert.equal(missing.status, 503);
+  assert.equal(missing.calls.length, 0);
+});
+test('private static application pins commit, disables automatic deployment and rechecks before queueing', async () => {
+  const result = await run({ input: pinned, createdDetail: pinnedDetail });
+  assert.equal(result.status, 200);
+  const created = result.calls.find((c) => c.url.endsWith('/applications/private-github-app')).body;
+  assert.equal(created.git_commit_sha, pinned.commit);
+  assert.equal(created.build_pack, 'static');
+  assert.equal(created.is_auto_deploy_enabled, false);
+  assert.equal(created.instant_deploy, false);
+  assert.equal(created.github_app_uuid, 'github-app-test');
+  assert.equal(
+    result.calls.some((c) => c.url.endsWith('/applications/public')),
+    false,
+  );
+  assert.equal(result.data.commit, pinned.commit);
+  assert.equal(result.data.status, 'queued');
+});
+test('private app with unverified or different pinned source cannot deploy and is never silently patched', async () => {
+  for (const overrides of [
+    { git_commit_sha: 'b'.repeat(40) },
+    { git_commit_sha: null },
+    { is_auto_deploy_enabled: true },
+    { build_pack: 'nixpacks' },
+  ]) {
+    const detail = { ...pinnedDetail, ...overrides };
+    const existing = await run({
+      input: pinned,
+      apps: [{ uuid: 'existing-app', fqdn: 'https://demo.builder.tzsvtav.com' }],
+      detail,
+    });
+    assert.equal(existing.status, 409);
+    assert.equal(
+      existing.calls.some((c) => c.method !== 'GET'),
+      false,
+    );
+    const created = await run({ input: pinned, createdDetail: detail });
+    assert.equal(created.status, 409);
+    assert.equal(
+      created.calls.some((c) => c.url.includes('/deploy?')),
+      false,
+    );
+  }
+});
+
+test('private queue response requires one verified identifier and does not leak provider extras', async () => {
+  for (const deployments of [
+    [],
+    [{ deployment_uuid: 'invalid/value' }],
+    [{ deployment_uuid: 'one' }, { deployment_uuid: 'two' }],
+  ]) {
+    const result = await run({ input: pinned, createdDetail: pinnedDetail, deployments });
+    assert.equal(result.status, 502);
+  }
+  const result = await run({
+    input: pinned,
+    createdDetail: pinnedDetail,
+    deployments: [{ deployment_uuid: 'valid-id', secret: 'provider-secret' }],
+  });
+  assert.equal(result.status, 200);
+  assert.equal(JSON.stringify(result.data).includes('provider-secret'), false);
 });

@@ -65,3 +65,13 @@ A sikeres válaszban `branch` és `status: queued` szerepel. Ez továbbra sem bu
 Ez nem oldja meg a privát repók hozzáférését vagy egy commitra rögzített kiadás teljes folyamatát. Nyilvános repó létrehozása és privát projekt nyilvánossá tétele nem történik. A Műhely még nem hívja ezt a végpontot; az éles bekötés előtt a futó végpont, a privát hozzáférés, a buildbeállítás és a telepítési állapotkövetés külön ellenőrzendő.
 
 Ellenőrzés Node 24 alatt: `node --test scripts/check-coolify-publish.mjs`. A teszt minden fetch hívást helyi szimulációval helyettesít; nem hív valódi Coolifyt, nem igényel szolgáltatói titkot, és nem telepít semmit. A külön Publisher contract munkafolyamat csak ezt futtatja a fejlesztési ágon, olvasási repójoggal. A meglévő PR-előnézeti telepítések miatt ehhez a szakaszhoz nem nyitunk automatikusan pull requestet.
+
+## Pinned private static source (development only)
+
+The optional request mode `source: private-github-app` requires a full lowercase 40-character `commit` and an explicit `dev/tzsvtav-release-...` branch. Server-side `COOLIFY_GITHUB_APP_UUID` selects the existing Coolify GitHub App integration. Missing configuration rejects the request before Coolify calls. The repository is never made public.
+
+A new application uses `/applications/private-github-app`, static build pack, port 80, root publish directory, the exact `git_commit_sha`, and disabled instant/automatic/preview deployment. Before queueing, an application detail read must confirm exact repository, branch, commit, static configuration and disabled auto deploy. Existing applications with different or unknown values return 409: they are not silently updated. Updating an existing site to a new commit remains a separate, explicit step.
+
+The response exposes only a validated deployment queue UUID in private mode. Missing or ambiguous queue identification is an error, not success. Queueing does not prove a successful build or live HTTP/TLS service. Tests mock all Coolify calls; no production deployment was performed. The installed Coolify version and actual GitHub App access still require live read-only checks before a separately authorized test deployment.
+
+Official API contract used: https://coolify.io/docs/api/endpoints/applications/create-private-github-app-application
