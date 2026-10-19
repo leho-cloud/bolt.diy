@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4320 TZSVTAV_PUBLISH_ENABLED=0
 COPY --chown=node:node app/routes/api.coolify-publish.ts ./app/routes/api.coolify-publish.ts
 COPY --chown=node:node scripts/tzsvtav-publisher-server.mjs ./scripts/tzsvtav-publisher-server.mjs
+COPY --chown=node:node scripts/coolify-inspect.mjs ./scripts/coolify-inspect.mjs
 USER node
 EXPOSE 4320
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD node -e "fetch('http://127.0.0.1:4320/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"

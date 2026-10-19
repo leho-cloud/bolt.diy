@@ -43,3 +43,13 @@ test('enabled adapter rejects browser requests, legacy sources and oversized bod
     assert.equal(calls(), 1);
   });
 });
+
+import {inspectCoolify} from './coolify-inspect.mjs';
+test('inspection authenticates before reading, uses GET only and strips secrets',async()=>{
+ const env={COOLIFY_API_URL:'https://coolify.example',COOLIFY_API_TOKEN:'PRIVATE',COOLIFY_PUBLISH_KEY:'test-key'};let calls=0;
+ const fetcher=async(url,options)=>{calls++;assert.equal(options.method,'GET');assert.equal(options.redirect,'error');return Response.json(String(url).includes('/applications/')?{id:7,uuid:'app123',git_commit_sha:'a'.repeat(40),settings:{is_auto_deploy_enabled:false,private_key:'SECRET'},private_key:'SECRET'}:{application_id:7,deployment_uuid:'dep123',commit:'a'.repeat(40),status:'finished',logs:'SECRET'});};
+ const request=key=>new Request('https://publisher.example/api/coolify-inspect?application=app123&deployment=dep123',{headers:{'x-publish-key':key}});
+ assert.equal((await inspectCoolify(request('wrong'),{env,fetcher})).status,403);assert.equal(calls,0);
+ const response=await inspectCoolify(request('test-key'),{env,fetcher});assert.equal(response.status,200);const body=await response.text();assert.ok(!body.includes('SECRET'));assert.equal(calls,2);
+ assert.equal((await inspectCoolify(new Request('https://publisher.example/api/coolify-inspect?application=../other',{headers:{'x-publish-key':'test-key'}}),{env,fetcher})).status,400);
+});
