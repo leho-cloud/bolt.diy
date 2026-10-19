@@ -61,3 +61,13 @@ test('inspection accepts UUID application binding without internal database id a
   assert.equal(response.status,application_id==='app123'?200:502);
  }
 });
+
+test('inspection binds hidden internal id using application-scoped deployment list',async()=>{
+ const env={COOLIFY_API_URL:'https://coolify.example',COOLIFY_API_TOKEN:'PRIVATE',COOLIFY_PUBLISH_KEY:'test-key'};
+ for(const included of [true,false]){
+  const response=await inspectCoolify(new Request('https://publisher.example/api/coolify-inspect?application=app123&deployment=dep123',{headers:{'x-publish-key':'test-key'}}),{env,fetcher:async url=>{
+   if(String(url).includes('/deployments/applications/'))return Response.json({deployments:included?[{deployment_uuid:'dep123',commit:'a'.repeat(40)}]:[]});
+   return Response.json(String(url).includes('/applications/')?{uuid:'app123'}:{application_id:7,deployment_uuid:'dep123',commit:'a'.repeat(40),status:'finished'});
+  }});assert.equal(response.status,included?200:502);if(included)assert.equal((await response.json()).deployment.application_id,'app123');
+ }
+});

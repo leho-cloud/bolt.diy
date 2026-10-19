@@ -14,7 +14,19 @@ export async function inspectCoolify(request,{env,fetcher=fetch}){
   const application=pick(app,['id','uuid','git_repository','git_branch','git_commit_sha','build_pack','is_static','is_auto_deploy_enabled','fqdn','status','environment_id']);
   application.settings=pick(app.settings,['is_static','is_auto_deploy_enabled','is_preview_deployments_enabled']);
   let deployment=null;
-  if(deploymentId){const dep=await get('deployments/'+deploymentId);if(dep.deployment_uuid!==deploymentId||!(dep.application_id===app.uuid||(app.id!==undefined&&String(dep.application_id)===String(app.id))))throw Error();deployment=pick(dep,['deployment_uuid','application_id','commit','status']);}
+  if(deploymentId){
+   const dep=await get('deployments/'+deploymentId);if(dep.deployment_uuid!==deploymentId)throw Error();
+   let bound=dep.application_id===app.uuid||(app.id!==undefined&&String(dep.application_id)===String(app.id));
+   if(!bound&&app.id===undefined){
+    const scoped=await get('deployments/applications/'+appId+'?take=20');
+    const rows=Array.isArray(scoped)?scoped:scoped.deployments;
+    if(!Array.isArray(rows))throw Error();
+    const matches=rows.filter(row=>row?.deployment_uuid===deploymentId&&row.commit===dep.commit);
+    bound=matches.length===1;
+   }
+   if(!bound)throw Error();
+   deployment={...pick(dep,['deployment_uuid','commit','status']),application_id:app.uuid};
+  }
   return Response.json({application,deployment});
  }catch{return Response.json({error:'Read result not verified'},{status:502});}
 }
