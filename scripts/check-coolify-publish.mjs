@@ -220,3 +220,13 @@ test('private queue response requires one verified identifier and does not leak 
   assert.equal(result.status, 200);
   assert.equal(JSON.stringify(result.data).includes('provider-secret'), false);
 });
+
+test('Coolify deployed response uses short repository and nested settings, conflicting values still stop',async()=>{
+ const {is_static,is_auto_deploy_enabled,...base}=pinnedDetail;
+ const detail={...base,git_repository:body.repository.replace('https://github.com/',''),settings:{is_static:true,is_auto_deploy_enabled:false}};
+ const created=await run({input:pinned,createdDetail:detail});assert.equal(created.status,200);
+ const reused=await run({input:pinned,apps:[{uuid:'existing-app',fqdn:'https://demo.builder.tzsvtav.com'}],detail});assert.equal(reused.status,200);
+ for(const extra of [{is_static:false},{is_auto_deploy_enabled:true},{settings:{is_static:true}},{git_repository:'other/site'}]){
+  const result=await run({input:pinned,createdDetail:{...detail,...extra}});assert.equal(result.status,409);assert.equal(result.calls.some(c=>c.url.includes('/deploy?')),false);
+ }
+});

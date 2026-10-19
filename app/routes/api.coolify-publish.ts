@@ -139,10 +139,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
     const expectedHost = new URL(domain).hostname;
     const canonicalRepo = (value: unknown) => {
       if (typeof value !== 'string') return null;
-      const parts = /^(?:https:\/\/github\.com\/|git@github\.com:)([a-z0-9-]+)\/([a-z0-9._-]+?)\/?$/i.exec(
+      const parts = /^(?:https:\/\/github\.com\/|git@github\.com:)?([a-z0-9-]+)\/([a-z0-9._-]+?)\/?$/i.exec(
         value.trim(),
       );
       return parts ? `${parts[1]}/${parts[2].replace(/\.git$/i, '')}`.toLowerCase() : null;
+    };
+    const setting = (app: Record<string, unknown>, name: string) => {
+      const nested = app.settings && typeof app.settings === 'object' ? (app.settings as Record<string, unknown>)[name] : undefined;
+      const flat = app[name];
+      if (nested !== undefined && flat !== undefined && nested !== flat) return undefined;
+      return nested ?? flat;
     };
     const collisions = applications.filter((item: unknown) => {
       if (!item || typeof item !== 'object') return false;
@@ -180,8 +186,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
         (pinnedPrivate &&
           (existing.git_commit_sha !== commit ||
             existing.build_pack !== 'static' ||
-            existing.is_static !== true ||
-            existing.is_auto_deploy_enabled !== false))
+            setting(existing, 'is_static') !== true ||
+            setting(existing, 'is_auto_deploy_enabled') !== false))
       ) {
         return Response.json(
           { error: 'A domain meglévő alkalmazásának tárolója vagy forrásága nem egyezik, vagy nem ellenőrizhető.' },
@@ -233,8 +239,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
         confirmed.git_branch !== gitBranch ||
         confirmed.git_commit_sha !== commit ||
         confirmed.build_pack !== 'static' ||
-        confirmed.is_static !== true ||
-        confirmed.is_auto_deploy_enabled !== false
+        setting(confirmed, 'is_static') !== true ||
+        setting(confirmed, 'is_auto_deploy_enabled') !== false
       ) {
         return Response.json(
           { error: 'Pinned private application configuration cannot be verified. Deployment was not requested.' },
