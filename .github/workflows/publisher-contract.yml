@@ -4,6 +4,9 @@ on:
   push:
     branches: [dev/tzsvtav-publisher-guard-20261019]
     paths:
+      - Dockerfile.publisher
+      - scripts/tzsvtav-publisher-server.mjs
+      - scripts/check-publisher-server.mjs
       - app/routes/api.coolify-publish.ts
       - scripts/check-coolify-publish.mjs
       - .github/workflows/publisher-contract.yml
@@ -21,4 +24,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test scripts/check-coolify-publish.mjs
+      - run: node --test scripts/check-coolify-publish.mjs scripts/check-publisher-server.mjs
+      - name: Build isolated publisher image (no deployment)
+        run: docker build -f Dockerfile.publisher -t tzsvtav-publisher-test .
+      - name: Check container with publishing disabled
+        run: |
+          docker run -d --name publisher-test --read-only --cap-drop ALL -p 127.0.0.1:4320:4320 tzsvtav-publisher-test
+          trap 'docker rm -f publisher-test' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:4320/health > /tmp/publisher-health.json; then break; fi
+            sleep 1
+          done
+          node -e "const h=require('/tmp/publisher-health.json');if(h.publishingEnabled!==false||h.privateOnly!==true)process.exit(1)"

@@ -75,3 +75,24 @@ A new application uses `/applications/private-github-app`, static build pack, po
 The response exposes only a validated deployment queue UUID in private mode. Missing or ambiguous queue identification is an error, not success. Queueing does not prove a successful build or live HTTP/TLS service. Tests mock all Coolify calls; no production deployment was performed. The installed Coolify version and actual GitHub App access still require live read-only checks before a separately authorized test deployment.
 
 Official API contract used: https://coolify.io/docs/api/endpoints/applications/create-private-github-app-application
+
+## Isolated publisher runtime (development only)
+
+`Dockerfile.publisher` packages only the existing publish route and a small Node 24 HTTP adapter. It does not introduce another Coolify deployment engine or require the full Bolt UI. It runs as the non-root node user on port 4320. No dependencies or credentials are copied into the image.
+
+`GET /health` exposes a minimal non-secret status. `POST /api/coolify-publish` defaults to HTTP 503 until `TZSVTAV_PUBLISH_ENABLED=1`. The adapter rejects browser Origin requests, non-JSON and oversized requests, and legacy non-private source mode. Authentication and pinned configuration checks remain in the existing route. Its publish key must be supplied server-to-server; the Műhely browser must never receive it.
+
+The publisher CI builds this Dockerfile and starts it with publishing disabled, a read-only filesystem and dropped Linux capabilities. It checks the real container health response without calling Coolify. This is CI verification, not a VPS deployment.
+
+### Concrete VPS trial proposal — not yet authorized or executed
+
+- Create one separate application named **TZSVTAV Publisher DEV**, in a development environment; leave all production applications unchanged.
+- Source: `leho-cloud/bolt.diy`, branch `dev/tzsvtav-publisher-guard-20261019`, pinned to the exact reviewed commit.
+- Build: Dockerfile at `/Dockerfile.publisher`; container port 4320; health path `/health`.
+- Keep `TZSVTAV_PUBLISH_ENABLED=0`. Supply no provider keys for this first health-only trial.
+- Proposed runtime limit: 256 MB RAM and 0.25 CPU. Verify host capacity and the installed Coolify limit fields before applying.
+- Initially use only an isolated Coolify-generated test address. It must carry no credentials or customer traffic. Domain/TLS setup and authenticated publishing are later steps.
+- Acceptance: container healthy, health reports publishing disabled, POST cannot deploy, production resource states unchanged.
+- Rollback: stop only the newly created development application. Do not delete or change existing resources, domains or data.
+
+Creating this application and running it on the existing VPS requires the user's separate explicit authorization. Health-only startup is not authorization to enable publishing or deploy the customer test site.
