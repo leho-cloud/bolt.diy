@@ -7,6 +7,10 @@ on:
       - Dockerfile.publisher
       - scripts/tzsvtav-publisher-server.mjs
       - scripts/check-publisher-server.mjs
+      - scripts/hestia-publish.mjs
+      - scripts/check-hestia-publish.mjs
+      - scripts/hestia/**
+      - scripts/rehearse-hestia.mjs
       - app/routes/api.coolify-publish.ts
       - scripts/check-coolify-publish.mjs
       - .github/workflows/publisher-contract.yml
@@ -24,7 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test scripts/check-coolify-publish.mjs scripts/check-publisher-server.mjs
+      - run: node --test scripts/check-coolify-publish.mjs scripts/check-publisher-server.mjs scripts/check-hestia-publish.mjs
+      - run: python3 -m unittest discover -s scripts/hestia -p 'test_*.py'
       - name: Build isolated publisher image (no deployment)
         run: docker build -f Dockerfile.publisher -t tzsvtav-publisher-test .
       - name: Check container with publishing disabled
