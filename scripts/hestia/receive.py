@@ -39,6 +39,14 @@ def apply(base, domain, data):
     current = releases / 'current'
     if not current.is_symlink() or public.readlink() != current: raise ValueError('Fixed webroot link required')
     if not public.resolve().is_relative_to(releases.resolve()): raise ValueError('Foreign current release')
+    previous = public.resolve().name
+    if data.get('operation') == 'inspect':
+        receipt = json.loads((public.resolve() / '.receipt.json').read_text())
+        if receipt.get('releaseId') != previous: raise ValueError('Current receipt mismatch')
+        return {'status': 'inspected', 'domain': domain, 'releaseId': previous, 'files': receipt['files']}
+    expected = data.get('expectedPreviousReleaseId')
+    if expected is not None and (not isinstance(expected, str) or not re.fullmatch('[a-f0-9]{64}', expected) or expected != previous):
+        raise ValueError('Current release changed; prepare a new plan')
     rid = data.get('releaseId', '')
     if not isinstance(rid, str) or not re.fullmatch('[a-f0-9]{64}', rid): raise ValueError('Invalid release')
     target = releases / rid
