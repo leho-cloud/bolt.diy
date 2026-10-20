@@ -14,3 +14,16 @@ test('activation requires exact target and release receipt; uncertain state neve
  let calls=0;const result=await publishHestia(request(),{env,receive:async()=>{calls++;return {status:'activated',domain,releaseId:body.releaseId,files:[]};}});assert.equal(result.status,domain==='test.example'?200:502);assert.equal(calls,1);
  }
 });
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+test('file-mounted credential authenticates without exposing it and fails closed if missing',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'hestia-credential-'));const file=join(directory,'key');
+ try{
+ await writeFile(file,env.HESTIA_PUBLISH_KEY+'\n',{mode:0o600});let calls=0;
+ const settings={...env,HESTIA_PUBLISH_KEY:'ignored',HESTIA_PUBLISH_KEY_FILE:file};
+ const receive=async()=>{calls++;return {status:'activated',domain:env.HESTIA_DOMAIN,releaseId:body.releaseId,files:[]};};
+ const response=await publishHestia(request(),{env:settings,receive});assert.equal(response.status,200);assert.ok(!(await response.text()).includes(env.HESTIA_PUBLISH_KEY));
+ assert.equal((await publishHestia(request(),{env:{...settings,HESTIA_PUBLISH_KEY_FILE:join(directory,'missing')},receive})).status,503);assert.equal(calls,1);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});

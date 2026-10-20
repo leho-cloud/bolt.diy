@@ -1,5 +1,6 @@
 import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {readFile,stat} from 'node:fs/promises';
 
 export function sshReceive(payload, env) {
   const target=env.HESTIA_SSH_TARGET||'';
@@ -18,7 +19,12 @@ export async function publishHestia(request,{env=process.env,receive=sshReceive}
   if(request.method!=='POST')return Response.json({error:'POST required'},{status:405});
   if(request.headers.has('origin'))return Response.json({error:'Server-to-server only'},{status:403});
   if(env.HESTIA_PUBLISH_ENABLED!=='1')return Response.json({error:'Hestia publishing disabled'},{status:503});
-  const actual=Buffer.from(request.headers.get('x-publish-key')||''), expected=Buffer.from(env.HESTIA_PUBLISH_KEY||'');
+  let key=env.HESTIA_PUBLISH_KEY||'';
+  if(env.HESTIA_PUBLISH_KEY_FILE){
+    try {const info=await stat(env.HESTIA_PUBLISH_KEY_FILE);if(!info.isFile()||info.size>256)throw Error();key=(await readFile(env.HESTIA_PUBLISH_KEY_FILE,'utf8')).trim();}
+    catch{return Response.json({error:'Hestia credential unavailable'},{status:503});}
+  }
+  const actual=Buffer.from(request.headers.get('x-publish-key')||''), expected=Buffer.from(key);
   if(expected.length<32||actual.length!==expected.length||!timingSafeEqual(actual,expected))return Response.json({error:'Forbidden'},{status:403});
   if(!request.headers.get('content-type')?.startsWith('application/json'))return Response.json({error:'JSON required'},{status:415});
   const chunks=[];let bytes=0;
