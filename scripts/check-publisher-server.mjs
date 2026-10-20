@@ -71,3 +71,14 @@ test('inspection binds hidden internal id using application-scoped deployment li
   }});assert.equal(response.status,included?200:502);if(included)assert.equal((await response.json()).deployment.application_id,'app123');
  }
 });
+
+import {inspectTarget} from './coolify-target.mjs';
+test('target preflight is authenticated, scoped and read-only, collisions never free',async()=>{
+ const env={COOLIFY_PUBLISH_KEY:'key',COOLIFY_API_URL:'https://coolify.example',COOLIFY_API_TOKEN:'PRIVATE',COOLIFY_ENVIRONMENT_NAME:'development',TZSVTAV_REQUIRE_NEW_DEVELOPMENT:'1'};
+ const request=key=>new Request('https://publisher.example/api/coolify-target?slug=proba',{headers:{'x-publish-key':key}});let calls=0;
+ const fetcher=async(_url,options)=>{calls++;assert.equal(options.method,'GET');return Response.json([{fqdn:'https://proba.builder.tzsvtav.com'}]);};
+ assert.equal((await inspectTarget(request('wrong'),{env,fetcher})).status,403);assert.equal(calls,0);
+ assert.equal((await inspectTarget(request('key'),{env:{...env,COOLIFY_ENVIRONMENT_NAME:'production'},fetcher})).status,503);assert.equal(calls,0);
+ assert.equal((await (await inspectTarget(request('key'),{env,fetcher})).json()).state,'occupied');
+ assert.equal((await (await inspectTarget(request('key'),{env,fetcher:async()=>Response.json([])})).json()).state,'free');
+});

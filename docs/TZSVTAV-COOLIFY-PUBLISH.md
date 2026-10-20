@@ -96,3 +96,11 @@ The publisher CI builds this Dockerfile and starts it with publishing disabled, 
 - Rollback: stop only the newly created development application. Do not delete or change existing resources, domains or data.
 
 Creating this application and running it on the existing VPS requires the user's separate explicit authorization. Health-only startup is not authorization to enable publishing or deploy the customer test site.
+
+## Új development-only mód (alapból inaktív)
+
+TZSVTAV_REQUIRE_NEW_DEVELOPMENT=1 mellett kizárólag COOLIFY_ENVIRONMENT_NAME=development használható. Meglévő azonos vagy illeszkedő wildcard-domainnél a kérés 409-cel leáll, nem használja újra és nem frissíti az alkalmazást. A korábbi mód változatlan marad, amíg az új kapcsolót az operátor be nem állítja.
+
+GET /api/coolify-target?slug=... a meglévő x-publish-key hitelesítéssel olvasható. Csak ebben az új módban adhat free/occupied és new-development scope választ. A műhely ezen felül a konkrét operátori engedélyhez tartozó IPv4 DNS-egyezést ellenőrzi. A célellenőrzés nem foglalja le a címet és nem indít telepítést.
+
+A fejlesztési ág frissítése nem telepíti ezt a változatot; a külön tesztpublikáló átállítása és aktiválása külön engedélyezett művelet. A teljes műhelyfolyamathoz friss, pontos reviewId-hoz kötött operátori engedély és tartós indításnapló szükséges.

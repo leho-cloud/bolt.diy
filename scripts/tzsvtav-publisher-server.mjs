@@ -1,3 +1,4 @@
+import {inspectTarget} from './coolify-target.mjs';
 import {inspectCoolify} from './coolify-inspect.mjs';
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -22,6 +23,10 @@ export function createPublisherServer({ env = process.env, handler = action } = 
           privateOnly: true,
         });
         return;
+      }
+      if(req.url?.startsWith('/api/coolify-target?')){
+        if(req.headers.origin){send(res,403,{error:'Server-to-server endpoint only.'});return;}
+        const result=await inspectTarget(new Request('http://publisher.internal'+req.url,{method:req.method,headers:{'x-publish-key':req.headers['x-publish-key']||''}}),{env});send(res,result.status,await result.json());return;
       }
       if (req.url?.startsWith('/api/coolify-inspect?')) {
         if(req.headers.origin){send(res,403,{error:'Server-to-server endpoint only.'});return;}

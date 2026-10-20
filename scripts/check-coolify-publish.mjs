@@ -19,6 +19,7 @@ async function run({
   method = 'POST',
   appUuid = 'github-app-test',
   createdDetail,
+  extraEnv = {},
   deployments = [{ deployment_uuid: 'deployment-test' }],
 } = {}) {
   const previous = globalThis.fetch,
@@ -45,7 +46,7 @@ async function run({
     });
     const response = await action({
       request,
-      context: { cloudflare: { env: { ...env, COOLIFY_GITHUB_APP_UUID: appUuid } } },
+      context: { cloudflare: { env: { ...env, COOLIFY_GITHUB_APP_UUID: appUuid, ...extraEnv } } },
     });
     return { status: response.status, data: await response.json(), calls };
   } finally {
@@ -229,4 +230,12 @@ test('Coolify deployed response uses short repository and nested settings, confl
  for(const extra of [{is_static:false},{is_auto_deploy_enabled:true},{settings:{is_static:true}},{git_repository:'other/site'}]){
   const result=await run({input:pinned,createdDetail:{...detail,...extra}});assert.equal(result.status,409);assert.equal(result.calls.some(c=>c.url.includes('/deploy?')),false);
  }
+});
+
+test('new-development scope forbids existing applications and production before any deployment',async()=>{
+ const extraEnv={TZSVTAV_REQUIRE_NEW_DEVELOPMENT:'1',COOLIFY_ENVIRONMENT_NAME:'development'};
+ const existing=await run({input:pinned,apps:[{uuid:'existing-app',fqdn:'https://demo.builder.tzsvtav.com'}],detail:pinnedDetail,extraEnv});assert.equal(existing.status,409);assert.equal(existing.calls.some(c=>c.method!=='GET'),false);
+ const wildcard=await run({input:pinned,apps:[{uuid:'wildcard-app',fqdn:'https://*.builder.tzsvtav.com'}],extraEnv});assert.equal(wildcard.status,409);assert.equal(wildcard.calls.some(c=>c.method!=='GET'),false);
+ const wrong=await run({input:pinned,extraEnv:{...extraEnv,COOLIFY_ENVIRONMENT_NAME:'production'}});assert.equal(wrong.status,503);assert.equal(wrong.calls.length,0);
+ const fresh=await run({input:pinned,createdDetail:pinnedDetail,extraEnv});assert.equal(fresh.status,200);assert.equal(fresh.calls.find(c=>c.url.endsWith('/applications/private-github-app')).body.environment_name,'development');
 });

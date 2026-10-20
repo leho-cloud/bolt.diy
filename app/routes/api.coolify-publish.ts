@@ -29,6 +29,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: 'Hiányzó Coolify környezeti változók: ' + missingKeys.join(', ') }, { status: 503 });
   }
 
+  if(env.TZSVTAV_REQUIRE_NEW_DEVELOPMENT==='1'&&env.COOLIFY_ENVIRONMENT_NAME!=='development')return Response.json({error:'Development scope required.'},{status:503});
   const suppliedKey = request.headers.get('x-publish-key') || '';
   const expected = Buffer.from(COOLIFY_PUBLISH_KEY!);
   const supplied = Buffer.from(suppliedKey);
@@ -159,7 +160,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
           values.split(',').some((value) => {
             try {
               const address = value.trim();
-              return new URL(/^[a-z]+:/i.test(address) ? address : 'https://' + address).hostname === expectedHost;
+              const hostname=new URL(/^[a-z]+:/i.test(address) ? address : 'https://' + address).hostname;
+              return hostname===expectedHost||(env.TZSVTAV_REQUIRE_NEW_DEVELOPMENT==='1'&&hostname.startsWith('*.')&&expectedHost.endsWith(hostname.slice(1)));
             } catch {
               return false;
             }
@@ -175,6 +177,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       return Response.json({ error: 'A domainhez tartozó alkalmazás nem azonosítható egyértelműen.' }, { status: 409 });
     }
 
+    if(env.TZSVTAV_REQUIRE_NEW_DEVELOPMENT==='1'&&collisions.length)return Response.json({error:'Existing application cannot be modified in new-development scope.'},{status:409});
     let uuid = collisions[0]?.uuid;
 
     if (uuid) {
