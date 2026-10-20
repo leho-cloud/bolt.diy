@@ -1,3 +1,13 @@
+## 2026-10-20 – két elkülönített kiadástár elfogadási tesztje
+
+A helyi fogadóprogram tesztje két külön könyvtárat és két külön domaint használ. Igazolt: A publikálása és visszaállítása B összes mentett fájlját változatlanul hagyja; B kizárólagos kiadásazonosítójára A nem állíthat vissza; kliens domain/base/sshTarget mezője nem írja felül a szerveroldali célkötést; idegen ügyfélre mutató current és kiadástár-symlink tiltott. Ezek valódi fájlrendszeres adaptertesztek, nem két valódi operációsrendszer-fiókkal futó telepítési próbák. A VPS-en külön korábbi olvasásos próbák igazolták a két tesztügyfél írási elkülönítését.
+
+Összesen 7 Python-teszt sikeres. Futtatás: `python3 -m unittest discover -s scripts/hestia -p 'test_*.py'`. CI ugyanezt automatikusan futtatja. A telepített fogadóprogram nem változott, távoli újratelepítés nem szükséges.
+
+Fontos korlát: a Publisher DEV és a Műhely továbbra is egyetlen jóváhagyott tesztcélhoz kötött. A többcélos ügyfél-közzétételhez szerveroldali célnyilvántartás, projektenkénti célkötés, célonként külön hitelesítés és egy második külön engedélyezett élő cél szükséges. A helyi teszt nem jelenti ezek elkészültét. A későbbi általánosítás nem fogadhat kliensből SSH-címet, fájlrendszerutat vagy kiadói kulcsot.
+
+Az alábbi korábbi állapotbejegyzések történetiek: a Műhelyből indított két kiadás és visszaállítás, a külső mentési másolat és az új admin 2FA azóta igazolt a privát AI Builder repó bizonyítékaiban.
+
 # 11. mérföldkő – külön Hestia céladapter
 
 A meglévő publikáló HTTP-szerver új `/api/hestia-publish` útvonala; a Coolify útvonal változatlan. Nem külön publikáló szolgáltatás. A távoli Publisher DEV már 1ef557edcd7f46e1bcb25399b8b59edaadc295af commiton fut, deployment mwf9ji8zpaznjry8rjr1vo3p successful/healthy. A felhasználó külön jóváhagyta az egyetlen tesztwebhelyre korlátozott kulcsot; a távoli kiadás és visszaállítás is igazolt. A Műhely jóváhagyott projektverzióinak bekötése még szükséges. Nem általános ügyfélpublikálás.
