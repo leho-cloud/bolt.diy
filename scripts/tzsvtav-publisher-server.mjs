@@ -1,3 +1,4 @@
+import {publishHostingTarget} from './hosting-targets.mjs';
 import {inspectTarget} from './coolify-target.mjs';
 import {inspectCoolify} from './coolify-inspect.mjs';
 import http from 'node:http';
@@ -17,6 +18,8 @@ export function createPublisherServer({ env = process.env, handler = action } = 
   };
   return http.createServer({ requestTimeout: 15000, headersTimeout: 10000, maxHeaderSize: 8192 }, async (req, res) => {
     try {
+      const hosting=/^\/api\/hosting-publish\/([a-z][a-z0-9-]{2,39})$/.exec(req.url||'');
+      if(hosting){const request=new Request('http://publisher.internal'+req.url,{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Readable.toWeb(req),duplex:'half'}:{})});const response=await publishHostingTarget(request,hosting[1],{env});send(res,response.status,await response.json());return;}
       if (req.url === '/api/hestia-publish') {
         const request = new Request('http://publisher.internal/api/hestia-publish', {
           method: req.method, headers: req.headers,
@@ -29,6 +32,7 @@ export function createPublisherServer({ env = process.env, handler = action } = 
         send(res, 200, {
           service: 'tzsvtav-existing-publisher',
           apiVersion: 1,
+          hostingTargetApi: 1,
           publishingEnabled: env.TZSVTAV_PUBLISH_ENABLED === '1',
           privateOnly: true,
         });

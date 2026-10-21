@@ -7,6 +7,7 @@ COPY --chown=node:node scripts/tzsvtav-publisher-server.mjs ./scripts/tzsvtav-pu
 COPY --chown=node:node scripts/coolify-inspect.mjs ./scripts/coolify-inspect.mjs
 COPY --chown=node:node scripts/coolify-target.mjs ./scripts/coolify-target.mjs
 COPY --chown=node:node scripts/hestia-publish.mjs ./scripts/hestia-publish.mjs
+COPY --chown=node:node scripts/hosting-targets.mjs ./scripts/hosting-targets.mjs
 USER node
 EXPOSE 4320
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD node -e "fetch('http://127.0.0.1:4320/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"

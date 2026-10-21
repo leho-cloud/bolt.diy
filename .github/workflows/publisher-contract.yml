@@ -7,6 +7,8 @@ on:
       - Dockerfile.publisher
       - scripts/tzsvtav-publisher-server.mjs
       - scripts/check-publisher-server.mjs
+      - scripts/hosting-targets.mjs
+      - scripts/check-hosting-targets.mjs
       - scripts/hestia-publish.mjs
       - scripts/check-hestia-publish.mjs
       - scripts/hestia/**
@@ -28,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test scripts/check-coolify-publish.mjs scripts/check-publisher-server.mjs scripts/check-hestia-publish.mjs
+      - run: node --test scripts/check-hosting-targets.mjs scripts/check-coolify-publish.mjs scripts/check-publisher-server.mjs scripts/check-hestia-publish.mjs
       - run: python3 -m unittest discover -s scripts/hestia -p 'test_*.py'
       - name: Build isolated publisher image (no deployment)
         run: docker build -f Dockerfile.publisher -t tzsvtav-publisher-test .
