@@ -12,7 +12,7 @@ test('inspection accepts only an authenticated receipt for the configured domain
 });
 test('Hestia endpoint is disabled by default, authenticates before transport and rejects browser calls',async()=>{
  let calls=0;const receive=async()=>{calls++;};
- for(const [req,settings,status] of [[request(),{},503],[request(body,'wrong'),env,403],[request(body,env.HESTIA_PUBLISH_KEY,{origin:'https://example.com'}),env,403],[request({operation:'delete',releaseId:body.releaseId}),env,400],[request({...body,padding:'a'.repeat(2*1024*1024)}),env,413]])assert.equal((await publishHestia(req,{env:settings,receive})).status,status);
+ for(const [req,settings,status] of [[request(),{},503],[request(body,'wrong'),env,403],[request(body,env.HESTIA_PUBLISH_KEY,{origin:'https://example.com'}),env,403],[request({operation:'delete',releaseId:body.releaseId}),env,400],[request({...body,padding:'a'.repeat(8*1024*1024)}),env,413]])assert.equal((await publishHestia(req,{env:settings,receive})).status,status);
  assert.equal(calls,0);
 });
 test('activation requires exact target and release receipt; uncertain state never retried',async()=>{

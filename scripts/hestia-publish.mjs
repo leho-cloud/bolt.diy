@@ -28,7 +28,7 @@ export async function publishHestia(request,{env=process.env,receive=sshReceive}
   if(expected.length<32||actual.length!==expected.length||!timingSafeEqual(actual,expected))return Response.json({error:'Forbidden'},{status:403});
   if(!request.headers.get('content-type')?.startsWith('application/json'))return Response.json({error:'JSON required'},{status:415});
   const chunks=[];let bytes=0;
-  for await(const chunk of request.body||[]){bytes+=chunk.length;if(bytes>2*1024*1024)return Response.json({error:'Request too large'},{status:413});chunks.push(Buffer.from(chunk));}
+  for await(const chunk of request.body||[]){bytes+=chunk.length;if(bytes>8*1024*1024)return Response.json({error:'Request too large'},{status:413});chunks.push(Buffer.from(chunk));}
   let body;try{body=JSON.parse(Buffer.concat(chunks));}catch{return Response.json({error:'Invalid JSON'},{status:400});}
   if(!body||!['publish','rollback','inspect'].includes(body.operation)||!(/^[a-f0-9]{64}$/.test(body.releaseId||'')))return Response.json({error:'Invalid release'},{status:400});
   try {

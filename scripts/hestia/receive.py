@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Forced-command static release receiver. Runs as ONE unprivileged Hestia user."""
-import fcntl, hashlib, json, os, re, sys
+import base64, fcntl, hashlib, json, os, re, sys
 from pathlib import Path
 
-LIMIT = 2 * 1024 * 1024
+LIMIT = 8 * 1024 * 1024
 
 def checked_release(data):
     files = data.get('files')
@@ -12,13 +12,20 @@ def checked_release(data):
     seen, result = set(), []
     for row in files:
         path, content = row.get('path'), row.get('content')
-        if not isinstance(path, str) or not re.fullmatch(r'[A-Za-z0-9_/-]+\.(?:html|css|js|mjs|json|svg|txt)', path):
+        if not isinstance(path, str) or not (re.fullmatch(r'[A-Za-z0-9_/-]+\.(?:html|css|js|mjs|json|svg|txt)', path) or path == 'sitemap.xml' or re.fullmatch(r'assets/[a-f0-9]{64}\.(?:jpg|png|webp)', path)):
             raise ValueError('Invalid static path')
         if any(p in ('', '.', '..') or p.startswith('.') for p in path.split('/')) or path.startswith('/') or path.casefold() in seen:
             raise ValueError('Duplicate or unsafe path')
         seen.add(path.casefold())
         if not isinstance(content, str): raise ValueError('Text files required')
-        raw = content.encode('utf-8')
+        if path.startswith('assets/'):
+            if row.get('encoding') != 'base64': raise ValueError('Image encoding required')
+            raw = base64.b64decode(content, validate=True)
+            valid = (path.endswith('.jpg') and raw.startswith(b'\xff\xd8\xff') or path.endswith('.png') and raw.startswith(b'\x89PNG\r\n\x1a\n') or path.endswith('.webp') and raw.startswith(b'RIFF') and raw[8:12] == b'WEBP')
+            if not valid or len(raw) > 400000 or hashlib.sha256(raw).hexdigest() != path.split('/')[1].split('.')[0]: raise ValueError('Invalid image')
+        else:
+            if row.get('encoding') is not None: raise ValueError('Text encoding must be UTF-8')
+            raw = content.encode('utf-8')
         digest = hashlib.sha256(raw).hexdigest()
         if len(raw) > 512 * 1024 or row.get('sha256') != digest:
             raise ValueError('File hash mismatch')
