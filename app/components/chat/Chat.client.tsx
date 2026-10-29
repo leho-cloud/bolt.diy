@@ -72,6 +72,7 @@ export function Chat() {
 
   return (
     <>
+      {!ready && <ChatLoading />}
       {ready && (
         <ChatImpl
           description={title}
@@ -83,6 +84,36 @@ export function Chat() {
         />
       )}
     </>
+  );
+}
+
+function ChatLoading() {
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 20000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="mx-auto mt-20 max-w-md rounded-xl border border-bolt-elements-borderColor p-6 text-bolt-elements-textPrimary">
+      <p role="status" className="font-medium">
+        Beszélgetés és projekt betöltése…
+      </p>
+      <p className="mt-3 text-sm text-bolt-elements-textSecondary">
+        {slow
+          ? 'A projekt indítása a szokásosnál tovább tart. A mentett munkád megmarad. Újratöltheted az oldalt, vagy visszatérhetsz a kezdőlapra.'
+          : 'Visszaállítom a mentett beszélgetést és az oldal fájljait.'}
+      </p>
+      {slow && (
+        <div className="mt-4 flex gap-4 text-sm">
+          <button type="button" onClick={() => window.location.reload()}>
+            Újratöltés
+          </button>
+          <a href="/">Kezdőlap</a>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -54,6 +54,7 @@ export type FileMap = Record<string, Dirent | undefined>;
 
 export class FilesStore {
   #webcontainer: Promise<WebContainer>;
+  #containerReady = false;
 
   /**
    * Tracks the number of files without folders.
@@ -611,6 +612,15 @@ export class FilesStore {
     this.#deletedPaths.clear();
     this.#persistDeletedPaths();
 
+    /*
+     * Before boot completes the container cannot contain an outgoing project.
+     * In particular, opening a text-only chat must not wait for a runtime it
+     * does not use. Later resets still clear the real filesystem as before.
+     */
+    if (!this.#containerReady) {
+      return;
+    }
+
     const container = await this.#webcontainer;
 
     try {
@@ -672,6 +682,7 @@ export class FilesStore {
 
   async #init() {
     const webcontainer = await this.#webcontainer;
+    this.#containerReady = true;
 
     // Clean up any files that were previously deleted
     this.#cleanupDeletedFiles();
