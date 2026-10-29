@@ -57,6 +57,16 @@ export interface ReferenceResult {
   cached?: boolean;
 }
 
+export class ReferenceCaptureError extends Error {
+  constructor(readonly status: number) {
+    super(
+      status === 429
+        ? 'A napi mintabeolvasási keret elfogyott.'
+        : 'A mintabeolvasási kapcsolat nem fejezte be a kérést.',
+    );
+  }
+}
+
 export async function captureReference({
   url,
   bridgeUrl,
@@ -89,11 +99,7 @@ export async function captureReference({
   const text = await readLimited(response, 2_000_000);
 
   if (!response.ok) {
-    throw new Error(
-      response.status === 429
-        ? 'A napi mintabeolvasási keret elfogyott. Nem indult automatikus újrakérés.'
-        : 'A mintaoldal beolvasása nem sikerült. Nem állítható, hogy a mintát felhasználtuk.',
-    );
+    throw new ReferenceCaptureError(response.status);
   }
 
   const result = JSON.parse(text);
