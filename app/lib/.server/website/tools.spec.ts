@@ -30,6 +30,7 @@ describe('website tool registration', () => {
     expect(isDesignReadTool('search')).toBe(true);
     expect(isDesignReadTool('get_component')).toBe(true);
     expect(isDesignReadTool('21st_magic_component_inspiration')).toBe(true);
+
     for (const name of ['generate', 'component_builder', 'refine_component', 'install_component', 'search_accounts']) {
       expect(isDesignReadTool(name)).toBe(false);
     }
@@ -39,6 +40,7 @@ describe('website tool registration', () => {
       'fetch',
       vi.fn(async () => new Response('private server details', { status: 401 })),
     );
+
     try {
       const tools = await createWebsiteTools({
         text: 'https://example.com/',
@@ -48,6 +50,7 @@ describe('website tool registration', () => {
           MUHELY_TOOL_BRIDGE_URL: 'https://muhely.example/',
         },
       });
+
       const output = await tools.website_reference.execute!({ url: 'https://example.com/' }, {} as any);
       expect(output).toMatchObject({ isError: true, status: 401 });
       expect(JSON.stringify(output)).not.toMatch(/private server|scoped-secret/);

@@ -95,7 +95,7 @@ describe('WorkbenchStore.addToExecutionQueue', () => {
 
 describe('WorkbenchStore.selectWorkbenchView', () => {
   it('should update currentView and record userSelectedView when userInitiated is true', () => {
-    expect(store.currentView.get()).toBe('code');
+    expect(store.currentView.get()).toBe('preview');
     expect(store.userSelectedView.get()).toBeUndefined();
 
     store.selectWorkbenchView('diff', { userInitiated: true });
@@ -115,7 +115,7 @@ describe('WorkbenchStore.selectWorkbenchView', () => {
     store.showWorkbench.set(false);
     await store.resetWorkbench();
     expect(store.userSelectedView.get()).toBeUndefined();
-    expect(store.currentView.get()).toBe('code');
+    expect(store.currentView.get()).toBe('preview');
     expect(store.showWorkbench.get()).toBe(true);
   });
 });

@@ -5,7 +5,6 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router';
 import { toast } from 'react-toastify';
 import { HistoryItem } from './HistoryItem';
-import { binDates } from './date-binning';
 
 /*
  * Lazy-load the heavy ControlPanel (settings UI).  Most users don't open it on
@@ -20,11 +19,13 @@ import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from
 import { DocumentationPanel } from '~/components/ui/DocumentationPanel';
 import { SettingsButton, HelpButton } from '~/components/ui/SettingsButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
+import { projectSummary } from '~/lib/common/projectSummary';
 import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
 import {
   db,
   deleteById,
   getAll,
+  getSnapshot,
   chatId,
   createChatWithNextId,
   type ChatHistoryItem,
@@ -59,28 +60,6 @@ const menuVariants = {
 type DialogContent =
   { type: 'delete'; item: ChatHistoryItem } | { type: 'bulkDelete'; items: ChatHistoryItem[] } | null;
 
-function CurrentDateTime() {
-  const [dateTime, setDateTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDateTime(new Date());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800/50">
-      <div className="h-4 w-4 i-ph:clock opacity-80" />
-      <div className="flex gap-2">
-        <span>{dateTime.toLocaleDateString('hu-HU')}</span>
-        <span>{dateTime.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-    </div>
-  );
-}
-
 export const Menu = () => {
   const { duplicateCurrentChat, exportChat } = useChatHistory({ loadHistory: false });
   const navigate = useNavigate();
@@ -89,6 +68,7 @@ export const Menu = () => {
   const [savingProject, setSavingProject] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
+  const [projectIds, setProjectIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -107,6 +87,17 @@ export const Menu = () => {
     if (db) {
       getAll(db)
         .then((list) => list.filter((item) => item.urlId && item.description))
+        .then(async (list) => {
+          const projects = await Promise.all(
+            list.map(async (item) => ({
+              id: item.id,
+              ...projectSummary(item.messages, await getSnapshot(db!, item.id)),
+            })),
+          );
+          setProjectIds(new Set(projects.filter((item) => item.hasFiles).map((item) => item.id)));
+
+          return list.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        })
         .then(setList)
         .catch((error) => toast.error(error.message));
     }
@@ -299,29 +290,11 @@ export const Menu = () => {
   }, [open, selectionMode]);
 
   useEffect(() => {
-    const enterThreshold = 20;
-    const exitThreshold = 20;
+    const openMenu = () => setOpen((value) => !value);
+    document.addEventListener('open-muhely-menu', openMenu);
 
-    function onMouseMove(event: MouseEvent) {
-      if (isSettingsOpen) {
-        return;
-      }
-
-      if (event.pageX < enterThreshold) {
-        setOpen(true);
-      }
-
-      if (menuRef.current && event.clientX > menuRef.current.getBoundingClientRect().right + exitThreshold) {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener('mousemove', onMouseMove);
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-    };
-  }, [isSettingsOpen]);
+    return () => document.removeEventListener('open-muhely-menu', openMenu);
+  }, []);
 
   useEffect(() => {
     const handleOpenGitHubSettings = () => {
@@ -401,16 +374,23 @@ export const Menu = () => {
         initial="closed"
         animate={open ? 'open' : 'closed'}
         variants={menuVariants}
-        style={{ width: '340px' }}
+        style={{ width: '288px' }}
         className={classNames(
-          'flex selection-accent flex-col side-menu fixed top-0 h-full rounded-r-2xl',
+          'flex selection-accent flex-col muhely-sidebar side-menu fixed top-0 h-full rounded-r-2xl',
           'bg-bolt-elements-background-depth-1 border-r border-bolt-elements-borderColor',
           'shadow-sm text-sm',
           isSettingsOpen ? 'z-40' : 'z-sidebar',
         )}
       >
         <div className="h-12 flex items-center justify-between px-4 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 rounded-tr-2xl">
-          <div className="text-bolt-elements-textPrimary font-medium"></div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Projektmenü bezárása"
+            className="muhely-header-icon"
+          >
+            <span className="i-ph:sidebar-simple" />
+          </button>
           <div className="flex items-center gap-3">
             <HelpButton onClick={() => setIsDocumentationOpen(true)} />
             <span className="font-medium text-sm text-bolt-elements-textPrimary truncate">
@@ -427,16 +407,16 @@ export const Menu = () => {
             </div>
           </div>
         </div>
-        <CurrentDateTime />
+        <div className="muhely-sidebar-label">A SAJÁT MUNKATERÜLETED</div>
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
           <div className="p-4 space-y-3">
             <button
               type="button"
               onClick={() => setCreatingProject((value) => !value)}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 font-medium transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-500 hover:brightness-110 text-white px-4 py-2.5 font-medium transition-colors"
             >
               <span className="i-ph:folder-plus h-5 w-5" />
-              Új projekt létrehozása
+              Új munkaterület
             </button>
             {creatingProject && (
               <form
@@ -460,7 +440,7 @@ export const Menu = () => {
                   <button
                     disabled={savingProject || !projectName.trim()}
                     type="submit"
-                    className="rounded-md bg-purple-600 px-3 py-2 text-white disabled:opacity-50"
+                    className="rounded-md bg-accent-500 px-3 py-2 text-white disabled:opacity-50"
                   >
                     Létrehozás
                   </button>
@@ -490,7 +470,7 @@ export const Menu = () => {
                 className={classNames(
                   'flex gap-1 items-center rounded-lg px-3 py-2 transition-colors',
                   selectionMode
-                    ? 'bg-purple-600 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
+                    ? 'bg-accent-500 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
                 )}
                 aria-label={selectionMode ? 'Kijelölési mód bezárása' : 'Kijelölési mód bekapcsolása'}
@@ -512,7 +492,7 @@ export const Menu = () => {
             </div>
           </div>
           <div className="flex items-center justify-between text-sm px-4 py-2">
-            <div className="font-medium text-gray-600 dark:text-gray-400">Mentett projektek és beszélgetések</div>
+            <div className="font-medium text-gray-600 dark:text-gray-400">Mentett munkák és beszélgetések</div>
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -538,32 +518,43 @@ export const Menu = () => {
               </div>
             )}
             <DialogRoot open={dialogContent !== null}>
-              {binDates(filteredList).map(({ category, items }) => (
-                <div key={category} className="mt-2 first:mt-0 space-y-1">
-                  <div className="text-xs font-medium text-bolt-elements-textTertiary sticky top-0 z-1 bg-bolt-elements-background-depth-1 px-4 py-1">
-                    {category}
+              {[
+                {
+                  category: 'Weboldalak és alkalmazások',
+                  items: filteredList.filter((item) => projectIds.has(item.id)),
+                },
+                {
+                  category: 'Beszélgetések · még nincs oldal',
+                  items: filteredList.filter((item) => !projectIds.has(item.id)),
+                },
+              ]
+                .filter((group) => group.items.length)
+                .map(({ category, items }) => (
+                  <div key={category} className="mt-2 first:mt-0 space-y-1">
+                    <div className="text-xs font-medium text-bolt-elements-textTertiary sticky top-0 z-1 bg-bolt-elements-background-depth-1 px-4 py-1">
+                      {category}
+                    </div>
+                    <div className="space-y-0.5 pr-1">
+                      {items.map((item) => (
+                        <HistoryItem
+                          key={item.id}
+                          item={item}
+                          exportChat={exportChat}
+                          onDelete={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            console.log('Delete triggered for item:', item);
+                            setDialogContentWithLogging({ type: 'delete', item });
+                          }}
+                          onDuplicate={() => handleDuplicate(item.id)}
+                          selectionMode={selectionMode}
+                          isSelected={selectedItems.includes(item.id)}
+                          onToggleSelection={toggleItemSelection}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-0.5 pr-1">
-                    {items.map((item) => (
-                      <HistoryItem
-                        key={item.id}
-                        item={item}
-                        exportChat={exportChat}
-                        onDelete={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          console.log('Delete triggered for item:', item);
-                          setDialogContentWithLogging({ type: 'delete', item });
-                        }}
-                        onDuplicate={() => handleDuplicate(item.id)}
-                        selectionMode={selectionMode}
-                        isSelected={selectedItems.includes(item.id)}
-                        onToggleSelection={toggleItemSelection}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                ))}
               <Dialog onBackdrop={closeDialog} onClose={closeDialog}>
                 {dialogContent?.type === 'delete' && (
                   <>
@@ -649,24 +640,6 @@ export const Menu = () => {
           </div>
         </div>
       </motion.div>
-
-      {/* Persistent sidebar trigger — always visible when sidebar is closed */}
-      {!open && !isSettingsOpen && (
-        <button
-          onClick={() => setOpen(true)}
-          className={classNames(
-            'fixed left-0 top-[72px] z-sidebar',
-            'bg-bolt-elements-background-depth-1',
-            'border border-l-0 border-bolt-elements-borderColor',
-            'rounded-r-lg p-1.5 shadow-sm',
-            'hover:bg-bolt-elements-background-depth-2',
-            'transition-colors',
-          )}
-          aria-label="Oldalsáv megnyitása"
-        >
-          <div className="i-ph:caret-right text-gray-500 dark:text-gray-400" />
-        </button>
-      )}
 
       <Suspense fallback={null}>
         <LazyControlPanel open={isSettingsOpen} onClose={handleSettingsClose} initialTab={settingsInitialTab as any} />

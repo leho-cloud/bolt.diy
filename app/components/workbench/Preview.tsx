@@ -5,6 +5,7 @@ import type { ElementInfo } from './Inspector';
 import { InspectorPanel } from './InspectorPanel';
 import { PortDropdown } from './PortDropdown';
 import { ScreenshotSelector } from './ScreenshotSelector';
+import { EmptyState } from '~/components/ui/EmptyState';
 import { IconButton } from '~/components/ui/IconButton';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
@@ -1189,8 +1190,13 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
               )}
             </>
           ) : (
-            <div className="flex w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary">
-              No preview available
+            <div className="muhely-preview-empty flex w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary">
+              <EmptyState
+                icon="i-ph:browser"
+                title="Itt kel életre az oldalad"
+                description="Írd le a bal oldali beszélgetésben, mit szeretnél készíteni. Az előnézet itt jelenik meg, amikor az oldal elindult."
+                className="max-w-sm"
+              />
             </div>
           )}
 

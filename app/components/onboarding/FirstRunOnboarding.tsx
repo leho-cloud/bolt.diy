@@ -43,7 +43,7 @@ export function FirstRunOnboarding() {
   const initializeMcp = useMCPStore((store) => store.initialize);
   const updateMcpSettings = useMCPStore((store) => store.updateSettings);
   const mcpInitialized = useMCPStore((store) => store.isInitialized);
-  const stepTitles = useMemo(() => ['Your profile', 'Connect an AI provider', 'MCP servers', 'Appearance'], []);
+  const stepTitles = useMemo(() => ['Profilod', 'AI-kapcsolat', 'Külső eszközök', 'Megjelenés'], []);
 
   useEffect(() => {
     let active = true;
@@ -198,37 +198,37 @@ export function FirstRunOnboarding() {
       >
         <div className="mb-5">
           <div className="mb-2 text-xs font-medium text-[#a09baa]">
-            Step {step + 1} of {stepTitles.length}
+            {step + 1}/{stepTitles.length} · {stepTitles[step]}
           </div>
           <div className="mb-3 flex gap-1" aria-hidden="true">
             {stepTitles.map((title, index) => (
               <span
                 key={title}
-                className={`h-1 flex-1 rounded-full ${index <= step ? 'bg-[#8b5cf6]' : 'bg-[#393641]'}`}
+                className={`h-1 flex-1 rounded-full ${index <= step ? 'bg-accent-500' : 'bg-[#393641]'}`}
               />
             ))}
           </div>
-          <DialogTitle className="text-xl font-semibold">Welcome to Bolt</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">Üdv a Műhelyben</DialogTitle>
           <DialogDescription className="mt-1 text-sm !text-[#a09baa]">
-            Let’s get your workspace ready. Optional details can be left blank and changed later in Settings.
+            Itt személyre szabhatod a munkaterületed. Ezt most kihagyhatod, később a Beállításokban is eléred.
           </DialogDescription>
         </div>
 
         {step === 0 && (
           <div className="space-y-3">
             <label className="block text-sm font-medium" htmlFor="onboarding-name">
-              What should we call you?
+              Hogyan szólíthatunk?
             </label>
             <input
               id="onboarding-name"
               autoFocus
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Your name"
-              className="w-full rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 text-sm text-[#f4f1fa] outline-none focus:border-[#8b5cf6]"
+              placeholder="Neved (nem kötelező)"
+              className="w-full rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 text-sm text-[#f4f1fa] outline-none focus:border-[#e62950]"
             />
             <div>
-              <span className="mb-2 block text-sm font-medium">Choose an avatar</span>
+              <span className="mb-2 block text-sm font-medium">Válassz profilképet</span>
               <div className="flex flex-wrap items-center gap-3">
                 {DEFAULT_AVATARS.map((preset) => (
                   <button
@@ -237,7 +237,7 @@ export function FirstRunOnboarding() {
                     aria-label={`Use ${preset.name} avatar`}
                     aria-pressed={avatar === preset.src}
                     onClick={() => setAvatar(preset.src)}
-                    className={`h-14 w-14 overflow-hidden rounded-full border-2 ${avatar === preset.src ? 'border-[#8b5cf6] ring-2 ring-[#8b5cf6]/40' : 'border-[#393641]'}`}
+                    className={`h-14 w-14 overflow-hidden rounded-full border-2 ${avatar === preset.src ? 'border-[#e62950] ring-2 ring-[#e62950]/40' : 'border-[#393641]'}`}
                   >
                     <img src={preset.src} alt="" className="h-full w-full object-cover" />
                   </button>
@@ -279,7 +279,7 @@ export function FirstRunOnboarding() {
                       event.target.value = '';
                     }}
                   />
-                  Upload image
+                  Kép feltöltése
                 </label>
                 {avatar.startsWith('data:image/') && (
                   <img
@@ -329,7 +329,7 @@ export function FirstRunOnboarding() {
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="Paste your API key"
-              className="w-full rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 text-sm text-[#f4f1fa] outline-none focus:border-[#8b5cf6]"
+              className="w-full rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 text-sm text-[#f4f1fa] outline-none focus:border-[#e62950]"
             />
           </div>
         )}
@@ -348,7 +348,7 @@ export function FirstRunOnboarding() {
               value={mcpText}
               onChange={(event) => setMcpText(event.target.value)}
               rows={9}
-              className="w-full resize-y rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 font-mono text-xs text-[#f4f1fa] outline-none focus:border-[#8b5cf6]"
+              className="w-full resize-y rounded-md border border-[#302e39] bg-[#121116] px-3 py-2 font-mono text-xs text-[#f4f1fa] outline-none focus:border-[#e62950]"
             />
             {error && (
               <p role="alert" className="text-sm text-red-500">
@@ -396,7 +396,7 @@ export function FirstRunOnboarding() {
                   onChange={(event) =>
                     setInterfaceOptions({ ...interfaceOptions, accentIntensity: Number(event.target.value) })
                   }
-                  className="w-1/2 accent-[#8b5cf6]"
+                  className="w-1/2 accent-[#e62950]"
                 />
               </label>
             </div>
@@ -410,7 +410,7 @@ export function FirstRunOnboarding() {
                     type="button"
                     aria-pressed={interfaceOptions.cornerRadius === radius}
                     onClick={() => setInterfaceOptions({ ...interfaceOptions, cornerRadius: radius })}
-                    className={`appearance-none rounded-md px-2 py-1 text-xs capitalize ${interfaceOptions.cornerRadius === radius ? 'bg-[#8b5cf6] text-white' : 'bg-[#302e39] text-[#b8b3c2]'}`}
+                    className={`appearance-none rounded-md px-2 py-1 text-xs capitalize ${interfaceOptions.cornerRadius === radius ? 'bg-accent-500 text-white' : 'bg-[#302e39] text-[#b8b3c2]'}`}
                   >
                     {radius}
                   </button>
@@ -436,31 +436,34 @@ export function FirstRunOnboarding() {
                   type="checkbox"
                   checked={interfaceOptions[key]}
                   onChange={(event) => setInterfaceOptions({ ...interfaceOptions, [key]: event.target.checked })}
-                  className="h-4 w-4 accent-[#8b5cf6]"
+                  className="h-4 w-4 accent-[#e62950]"
                 />
               </label>
             ))}
           </div>
         )}
 
-        <div className="mt-6 flex items-center justify-end gap-3">
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <button type="button" onClick={finish} className="text-xs text-[#a09baa] hover:text-white">
+            Most kihagyom
+          </button>
           <div className="flex gap-2">
             {step > 0 && (
               <button
                 type="button"
                 onClick={() => setStep((current) => current - 1)}
-                className="appearance-none rounded-md border border-[#393641] bg-[#302e39] px-4 py-2 text-sm text-[#eeeaf5] hover:bg-[#3b3846] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]"
+                className="appearance-none rounded-md border border-[#393641] bg-[#302e39] px-4 py-2 text-sm text-[#eeeaf5] hover:bg-[#3b3846] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e62950]"
               >
-                Back
+                Vissza
               </button>
             )}
             <button
               type="button"
               disabled={saving}
               onClick={() => void next()}
-              className="rounded-md bg-[#8b5cf6] px-4 py-2 text-sm font-medium text-white hover:bg-[#9a6bff] disabled:opacity-60"
+              className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60"
             >
-              {saving ? 'Saving…' : step === 3 ? 'Finish setup' : 'Continue'}
+              {saving ? 'Mentés…' : step === 3 ? 'Befejezés' : 'Tovább'}
             </button>
           </div>
         </div>

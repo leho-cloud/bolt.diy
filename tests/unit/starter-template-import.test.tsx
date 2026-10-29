@@ -50,7 +50,7 @@ describe('homepage starter project import', () => {
 
   it('routes the homepage icon to template creation instead of Git cloning', () => {
     render(<StarterTemplates />);
-    expect(screen.getByRole('link', { name: 'Start a blank React app' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'React alap megnyitása' }).getAttribute('href')).toBe(
       '/starter?template=Vite%20React',
     );
   });

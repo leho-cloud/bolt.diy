@@ -169,6 +169,27 @@ describe('useChatHistory chat switching', () => {
     await waitFor(() => expect(result.current.chatChanged).toBe(true));
   });
 
+  it('restores text-only conversations without manufacturing an incomplete app setup', async () => {
+    const messages = [
+      { id: 'question', role: 'user', parts: [{ type: 'text', text: 'Check the connection only' }] },
+      { id: 'answer', role: 'assistant', parts: [{ type: 'text', text: 'Connection verified' }] },
+    ] as UIMessage[];
+    vi.mocked(getCachedMessages).mockResolvedValueOnce({
+      id: '1',
+      urlId: 'chat-a',
+      description: 'Connection check',
+      timestamp: '2026-10-29',
+      messages,
+    });
+    vi.mocked(getCachedSnapshot).mockResolvedValueOnce({ chatIndex: 'answer', files: {} });
+
+    const useChatHistory = await importHook();
+    const { result } = renderHook(() => useChatHistory());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.initialMessages).toEqual(messages);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
   it('loads a snapshot by the persisted chat ID when the route uses a URL ID', async () => {
     const useChatHistory = await importHook();
 

@@ -11,7 +11,7 @@ export class TerminalStore {
   #pendingBoltOutput = '';
   #boltOutputReady = false;
 
-  showTerminal: WritableAtom<boolean> = import.meta.hot?.data.showTerminal ?? atom(true);
+  showTerminal: WritableAtom<boolean> = import.meta.hot?.data.showTerminal ?? atom(false);
 
   constructor(webcontainerPromise: Promise<WebContainer>) {
     this.#webcontainer = webcontainerPromise;

@@ -1,39 +1,57 @@
-import React from 'react';
 import type { Template } from '~/types/template';
 import { STARTER_TEMPLATES } from '~/utils/constants';
 
-interface FrameworkLinkProps {
-  template: Template;
-}
-
-const FrameworkLink: React.FC<FrameworkLinkProps> = ({ template }) => (
-  <a
-    href={`/starter?template=${encodeURIComponent(template.name)}`}
-    aria-label={`Start a blank ${template.label} app`}
-    data-state="closed"
-    data-discover="true"
-    className="items-center justify-center"
-  >
-    <div
-      className={`inline-block ${template.icon} w-8 h-8 text-4xl transition-theme hover:text-purple-500 dark:text-white dark:opacity-50 dark:hover:opacity-100 dark:hover:text-purple-400 transition-all grayscale hover:grayscale-0 transition`}
-      title={template.label}
-    />
-  </a>
-);
-
-const StarterTemplates: React.FC = () => {
-  return (
-    <div className="flex flex-col items-center gap-4">
-      <span className="text-sm text-gray-500">or start a blank app with your favorite stack</span>
-      <div className="flex justify-center">
-        <div className="flex flex-wrap justify-center items-center gap-4 max-w-full">
-          {STARTER_TEMPLATES.map((template) => (
-            <FrameworkLink key={template.name} template={template} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+const descriptions: Record<string, string> = {
+  'Vite React': 'Rugalmas alap oldalakhoz és saját alkalmazásokhoz.',
+  'NextJS Shadcn': 'Kész felületelemek összetettebb projektekhez.',
+  'Basic Astro': 'Könnyű induló alap tartalmi oldalakhoz.',
 };
 
-export default StarterTemplates;
+function TemplateCard({ template }: { template: Template }) {
+  return (
+    <a
+      href={`/starter?template=${encodeURIComponent(template.name)}`}
+      className="muhely-template-card"
+      aria-label={`${template.label} alap megnyitása`}
+    >
+      <span className={`muhely-template-icon ${template.icon}`} aria-hidden="true" />
+      <div>
+        <h3>{template.label}</h3>
+        <p>{descriptions[template.name] ?? 'A Bolt saját, AI-val továbbalakítható induló projektje.'}</p>
+      </div>
+      <span className="i-ph:arrow-up-right" aria-hidden="true" />
+    </a>
+  );
+}
+
+export default function StarterTemplates() {
+  const featured = STARTER_TEMPLATES.filter((t) => ['Vite React', 'NextJS Shadcn', 'Basic Astro'].includes(t.name));
+  const others = STARTER_TEMPLATES.filter((t) => !featured.includes(t));
+
+  return (
+    <section id="kesz-alapok" className="muhely-starters">
+      <div className="muhely-section-heading">
+        <div>
+          <span className="muhely-eyebrow">NEM KELL NULLÁRÓL INDULNOD</span>
+          <h2>A Bolt saját induló alapjai</h2>
+        </div>
+        <span className="muhely-local-note">Válassz alapot, majd alakítsd AI-val</span>
+      </div>
+      <div className="muhely-template-grid">
+        {featured.map((template) => (
+          <TemplateCard key={template.name} template={template} />
+        ))}
+      </div>
+      <details className="muhely-more-templates">
+        <summary>
+          További induló alapok <span>{others.length}</span>
+        </summary>
+        <div className="muhely-template-grid">
+          {others.map((template) => (
+            <TemplateCard key={template.name} template={template} />
+          ))}
+        </div>
+      </details>
+    </section>
+  );
+}

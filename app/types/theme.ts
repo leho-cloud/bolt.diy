@@ -1,4 +1,5 @@
 export const THEMES = [
+  { id: 'dark-workshop', name: 'Műhely', mode: 'dark', colors: ['#101114', '#1a1c21', '#ed2850'] },
   { id: 'light', name: 'Light', mode: 'light', colors: ['#f8fafc', '#e2e8f0', '#2563eb'] },
   { id: 'light-solarized', name: 'Solarized Light', mode: 'light', colors: ['#fdf6e3', '#eee8d5', '#268bd2'] },
   { id: 'light-nord', name: 'Nord Light', mode: 'light', colors: ['#eceff4', '#d8dee9', '#5e81ac'] },

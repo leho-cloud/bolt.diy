@@ -55,7 +55,7 @@ export class WorkbenchStore {
 
   showWorkbench: WritableAtom<boolean> = import.meta.hot?.data.showWorkbench ?? atom(true);
   projectGeneration: WritableAtom<number> = import.meta.hot?.data.projectGeneration ?? atom(0);
-  currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('code');
+  currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('preview');
   userSelectedView: WritableAtom<WorkbenchViewType | undefined> =
     import.meta.hot?.data.userSelectedView ?? atom<WorkbenchViewType | undefined>(undefined);
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
@@ -270,7 +270,7 @@ export class WorkbenchStore {
     this.artifacts.set({});
     this.artifactIdList = [];
     this.showWorkbench.set(true);
-    this.currentView.set('code');
+    this.currentView.set('preview');
     this.userSelectedView.set(undefined);
     this.unsavedFiles.set(new Set<string>());
     this.setSelectedFile(undefined);
@@ -851,10 +851,6 @@ export class WorkbenchStore {
 
       if (this.selectedFile.value !== fullPath) {
         this.setSelectedFile(fullPath);
-      }
-
-      if (this.currentView.value !== 'code' && this.userSelectedView.get() === undefined) {
-        this.currentView.set('code');
       }
 
       const doc = this.#editorStore.documents.get()[fullPath];

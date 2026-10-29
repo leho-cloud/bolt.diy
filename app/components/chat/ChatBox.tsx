@@ -162,7 +162,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
   return (
     <div
       className={classNames(
-        'relative bg-bolt-elements-background-depth-2 backdrop-blur p-3 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',
+        'muhely-composer relative bg-bolt-elements-background-depth-2 backdrop-blur p-3 rounded-lg border border-bolt-elements-borderColor relative w-full max-w-chat mx-auto z-prompt',
 
         /*
          * {
@@ -370,7 +370,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
             />
           )}
         </ClientOnly>
-        <div className="flex justify-between items-center text-sm p-4 pt-2">
+        <div className="muhely-composer-tools flex justify-between items-center text-sm p-4 pt-2">
           <div className="flex gap-1 items-center">
             <ClientOnly>
               {() => (
@@ -422,12 +422,12 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   {props.chatMode === 'discuss' ? (
                     <>
                       <div className="i-ph:chats text-lg" />
-                      <span>Discuss</span>
+                      <span>Beszélgetés</span>
                     </>
                   ) : (
                     <>
                       <div className="i-ph:robot text-lg" />
-                      <span>Agent</span>
+                      <span>Építés</span>
                     </>
                   )}
                   <div className="i-ph:caret-down text-sm" />
@@ -460,8 +460,10 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   >
                     <div className="i-ph:robot text-lg" />
                     <div className="flex flex-col">
-                      <span>Agent</span>
-                      <span className="text-xs text-bolt-elements-textSecondary">Plans & uses tools</span>
+                      <span>Építés</span>
+                      <span className="text-xs text-bolt-elements-textSecondary">
+                        Elkészíti és ellenőrzi az oldalad
+                      </span>
                     </div>
                   </DropdownMenu.Item>
                   <DropdownMenu.Item
@@ -479,8 +481,8 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   >
                     <div className="i-ph:chats text-lg" />
                     <div className="flex flex-col">
-                      <span>Discuss</span>
-                      <span className="text-xs text-bolt-elements-textSecondary">Chat without tools</span>
+                      <span>Beszélgetés</span>
+                      <span className="text-xs text-bolt-elements-textSecondary">Ötletelés, módosítások nélkül</span>
                     </div>
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
@@ -493,8 +495,8 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               disabled={props.isStreaming}
             />
             <IconButton
-              title="Model Settings"
-              className={classNames('transition-all flex items-center gap-1', {
+              title="AI beállításai"
+              className={classNames('muhely-model-settings transition-all flex items-center gap-1', {
                 'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
                   props.isModelSettingsCollapsed,
                 'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault':
@@ -506,7 +508,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               <div className={`i-ph:caret-${props.isModelSettingsCollapsed ? 'right' : 'down'} text-lg`} />
               {props.isModelSettingsCollapsed ? (
                 <span className="text-xs" title={props.model}>
-                  {props.model && props.model.length > 25 ? `${props.model.slice(0, 22)}...` : props.model}
+                  AI beállításai
                 </span>
               ) : (
                 <span />

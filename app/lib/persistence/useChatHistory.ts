@@ -207,6 +207,14 @@ export function useChatHistory({ loadHistory = true }: { loadHistory?: boolean }
               startingIdx = -1;
             }
 
+            /*
+             * A text-only snapshot is not an application setup. Restore its real
+             * conversation instead of fabricating an empty build artifact.
+             */
+            if (!Object.values(validSnapshot.files ?? {}).some((file) => file?.type === 'file')) {
+              startingIdx = -1;
+            }
+
             let filteredMessages = storedMessages.messages.slice(startingIdx + 1, endingIdx);
             let archivedMessages: UIMessage[] = [];
 

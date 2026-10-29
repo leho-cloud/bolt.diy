@@ -10,7 +10,7 @@ export function themeIsDark() {
   return getThemeMode(themeStore.get()) === 'dark';
 }
 
-export const DEFAULT_THEME = 'light';
+export const DEFAULT_THEME = 'dark-workshop';
 
 export const themeStore = atom<Theme>(initStore());
 
@@ -22,7 +22,7 @@ function initStore() {
   if (!import.meta.env.SSR) {
     const storedTheme = localStorage.getItem(kTheme);
     const persistedTheme = isTheme(storedTheme) ? storedTheme : undefined;
-    const themeAttribute = document.querySelector('html')?.getAttribute('data-theme');
+    const themeAttribute = document.querySelector('html')?.getAttribute('data-color-theme');
 
     return persistedTheme ?? (themeAttribute as Theme) ?? DEFAULT_THEME;
   }
@@ -39,7 +39,7 @@ export function toggleTheme() {
     isTheme(savedTheme) && getThemeMode(savedTheme) === targetMode
       ? savedTheme
       : targetMode === 'dark'
-        ? 'dark-dracula'
+        ? 'dark-workshop'
         : 'light';
 
   setTheme(newTheme);

@@ -66,7 +66,7 @@ const inlineThemeCode = stripIndents`
     let colorTheme = localStorage.getItem('bolt_theme');
 
     if (!colorTheme) {
-      colorTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-dracula' : 'light';
+      colorTheme = 'dark-workshop';
     }
 
     const mode = colorTheme === 'dark' || colorTheme.startsWith('dark-') ? 'dark' : 'light';
@@ -87,7 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // The theme script applies saved browser preferences before hydration.
   return (
     <html
-      lang="en"
+      lang="hu"
       suppressHydrationWarning
       data-theme={theme === 'dark' || theme.startsWith('dark-') ? 'dark' : 'light'}
       data-color-theme={theme === 'dark' ? 'dark-dracula' : theme}
