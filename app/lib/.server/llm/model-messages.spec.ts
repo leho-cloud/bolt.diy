@@ -1,8 +1,50 @@
-import type { UIMessage } from 'ai';
+import { tool, type UIMessage } from 'ai';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { prepareModelMessages } from './model-messages';
 
 describe('prepareModelMessages', () => {
+  it('passes reference screenshots to the vision model rather than flattening them to base64 text', async () => {
+    const referenceTool = tool({
+      inputSchema: z.object({}),
+      toModelOutput: () => ({
+        type: 'content' as const,
+        value: [
+          { type: 'text' as const, text: 'reference layout' },
+          { type: 'image-data' as const, data: 'UklGRg==', mediaType: 'image/webp' },
+        ],
+      }),
+    });
+
+    const tools = { website_reference: referenceTool };
+
+    const result = await prepareModelMessages(
+      [
+        {
+          id: 'ref',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-website_reference',
+              toolCallId: 'reference',
+              state: 'output-available',
+              input: {},
+              output: { sourceUrl: 'https://mingai.hu/' },
+            },
+          ],
+        },
+      ],
+      tools,
+    );
+    expect(result[1].content).toEqual([
+      expect.objectContaining({
+        output: expect.objectContaining({
+          type: 'content',
+          value: expect.arrayContaining([expect.objectContaining({ type: 'image-data', mediaType: 'image/webp' })]),
+        }),
+      }),
+    ]);
+  });
   it('preserves consecutive completed tool calls when the recent context has no text messages', async () => {
     const messages: UIMessage[] = Array.from({ length: 3 }, (_, index) => ({
       id: `assistant-${index}`,

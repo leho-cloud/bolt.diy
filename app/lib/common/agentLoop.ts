@@ -1,3 +1,4 @@
+import { isServerWebsiteTool } from './websiteWorkflow';
 import {
   getMessageParts,
   getMessageText,
@@ -13,7 +14,7 @@ export const MAX_AGENT_STEPS = 32;
 
 /** These tools execute on the server and must never receive a client approval result. */
 export function isServerAgentTool(name: string | undefined): boolean {
-  return name === 'agent_plan' || name === 'agent_complete';
+  return name === 'agent_plan' || name === 'agent_complete' || isServerWebsiteTool(name);
 }
 
 export interface AgentPlan {
@@ -21,6 +22,7 @@ export interface AgentPlan {
   steps: string[];
   criteria: Array<{ id: string; description: string }>;
   requiresPreview: boolean;
+  requiresQualityReport?: boolean;
 }
 
 export function isAgentPlan(value: unknown): value is AgentPlan {
@@ -63,6 +65,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
   let lastPassingTest = -1;
   let lastRun = -1;
   let lastPlan = -1;
+  let lastQualityReport = -1;
   let previewReady = false;
   let denied = false;
   let completedAt = -1;
@@ -140,6 +143,10 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         lastPlan = position;
       }
 
+      if (name === 'project_quality_report' && output.checked === true) {
+        lastQualityReport = position;
+      }
+
       if (name === 'agent_complete' && output.completed === true) {
         completedAt = position;
       }
@@ -206,6 +213,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     tested &&
     ran &&
     Boolean(plan) &&
+    (!plan?.requiresQualityReport || (lastQualityReport > lastEdit && lastQualityReport > lastFailure)) &&
     (!plan?.requiresPreview || previewReady) &&
     !pendingProjectCalls;
   const status = !active
@@ -226,6 +234,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     ran,
     previewReady,
     tested,
+    qualityChecked: lastQualityReport > lastEdit && lastQualityReport > lastFailure,
     steps,
     evidence,
     pendingProjectCalls,
@@ -259,6 +268,10 @@ export function getAgentCompletionProblems(progress: ReturnType<typeof getAgentL
     problems.push(
       'Run a relevant test/check with purpose test and confirm exit code 0 after the latest edit or failure.',
     );
+  }
+
+  if (progress.plan?.requiresQualityReport && !progress.qualityChecked) {
+    problems.push('Run project_quality_report after the latest edit, repair its errors, then rerun real checks.');
   }
 
   return problems;

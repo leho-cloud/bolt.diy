@@ -385,7 +385,7 @@ export async function streamText(props: {
       .filter((instruction): instruction is string => typeof instruction === 'string' && instruction.length > 0)
       .join('\n\n'),
     ...tokenParams,
-    messages: await prepareModelMessages(processedMessages as UIMessage[]),
+    messages: await prepareModelMessages(processedMessages as UIMessage[], options?.tools),
     ...forwardedOptions,
 
     ...(onChunk ? { onChunk } : {}),

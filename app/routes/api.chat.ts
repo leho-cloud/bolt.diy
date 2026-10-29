@@ -28,14 +28,16 @@ import { getWebResearchInstructions } from '~/lib/.server/llm/prompt-web-tools';
 import { getFilePaths, selectContext } from '~/lib/.server/llm/select-context';
 import { streamText, type StreamingOptions } from '~/lib/.server/llm/stream-text';
 import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
+import { createWebsiteTools } from '~/lib/.server/website/tools';
 import { getApiKeysFromCookie, getProviderSettingsFromCookie } from '~/lib/api/cookies';
 import { getAgentLoopInstructions, getAgentLoopProgress } from '~/lib/common/agentLoop';
 import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
 import { getStarterBuildProgress } from '~/lib/common/starterBuild';
+import { websiteWorkflowInstructions } from '~/lib/common/websiteWorkflow';
 import { createMessage, getMessageText } from '~/lib/persistence/messageMigration';
 import { getPluginToolDescriptions, getPluginTools } from '~/lib/plugins/adapters';
 import { getProjectToolNames, projectToolDefinitions } from '~/lib/runtime/projectMcp.shared';
-import { withSecurity } from '~/lib/security';
+import { withSecurity, getTrustedClientIP } from '~/lib/security';
 import { MCPService } from '~/lib/services/mcpService';
 import type { ContextAnnotation, ProgressAnnotation, ToolCallAnnotation } from '~/types/context';
 import type { IProviderSetting } from '~/types/model';
@@ -337,11 +339,52 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               )
             : {};
 
+        const websiteTools =
+          chatMode === 'build'
+            ? await createWebsiteTools({
+                text: messages
+                  .filter((message) => message.role === 'user')
+                  .map(getMessageText)
+                  .join('\n'),
+                owner: Array.from(
+                  new Uint8Array(
+                    await crypto.subtle.digest(
+                      'SHA-256',
+                      new TextEncoder().encode(getTrustedClientIP(request, context) || 'unavailable'),
+                    ),
+                  ),
+                )
+                  .map((byte) => byte.toString(16).padStart(2, '0'))
+                  .join(''),
+                env: { ...process.env, ...((context.cloudflare?.env as unknown as Record<string, string>) ?? {}) },
+                signal: request.signal,
+                disabled: Object.entries(body.toolEnabled ?? {})
+                  .filter(([, enabled]) => !enabled)
+                  .map(([name]) => name),
+                progress: (message) =>
+                  writer.write({
+                    type: 'data-progress',
+                    data: {
+                      type: 'progress',
+                      label: 'website-tools',
+                      status: 'in-progress',
+                      order: progressCounter++,
+                      message,
+                    } satisfies ProgressAnnotation,
+                  }),
+              })
+            : {};
+
         const agentLoop = createAgentLoopTools(
           processedMessages,
           agentLoopEnabled,
           starterBuild.status !== 'inactive',
-          [...Object.keys(mcpTools), ...Object.keys(projectTools), ...Object.keys(pluginTools)],
+          [
+            ...Object.keys(mcpTools),
+            ...Object.keys(projectTools),
+            ...Object.keys(pluginTools),
+            ...Object.keys(websiteTools),
+          ],
         );
 
         const agentTools = agentProgress.status !== 'inactive' ? agentLoop.tools : {};
@@ -350,6 +393,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           ...Object.keys(projectTools),
           ...Object.keys(pluginTools),
           ...Object.keys(agentTools),
+          ...Object.keys(websiteTools),
         ];
 
         const collisions = pluginAndProjectToolNames.filter(
@@ -360,7 +404,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           throw new Error(`Built-in MCP tool name conflict: ${collisions.join(', ')}`);
         }
 
-        const tools = { ...mcpTools, ...projectTools, ...pluginTools, ...agentTools };
+        const tools = { ...mcpTools, ...projectTools, ...pluginTools, ...agentTools, ...websiteTools };
         const pluginToolDescriptions = getPluginToolDescriptions(enabledPlugins);
         const hasTools = Object.keys(tools).length > 0;
         const recoveringAgent = agentProgress.status === 'pending';
@@ -400,6 +444,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               ),
             }),
             getAgentLoopInstructions(agentProgress),
+            chatMode === 'build' ? websiteWorkflowInstructions(Object.keys(websiteTools)) : '',
           ]
             .filter(Boolean)
             .join('\n\n'),
@@ -455,6 +500,20 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
                     toolName,
                     toolDescription:
                       projectToolDefinitions[toolName as keyof typeof projectToolDefinitions].description,
+                  } satisfies ToolCallAnnotation,
+                });
+              } else if (toolName in websiteTools) {
+                writer.write({
+                  type: 'data-toolCall',
+                  data: {
+                    type: 'toolCall',
+                    toolCallId: toolCall.toolCallId,
+                    serverName: 'Website tools',
+                    toolName,
+                    toolDescription:
+                      typeof websiteTools[toolName].description === 'string'
+                        ? websiteTools[toolName].description
+                        : toolName,
                   } satisfies ToolCallAnnotation,
                 });
               } else if (toolName in agentTools) {

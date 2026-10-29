@@ -520,6 +520,12 @@ function activityLabel(toolName: string, rawInput: unknown, rawOutput?: unknown,
   }
 
   switch (toolName) {
+    case 'website_reference':
+      return state === 'output-available' ? 'A mintaoldal képe és szerkezete beolvasva' : 'Mintaoldal beolvasása…';
+    case 'website_tools_status':
+      return 'Külső eszközök elérhetőségének ellenőrzése';
+    case 'project_quality_report':
+      return state === 'output-available' ? 'Forrásellenőrzés elkészült' : 'A kód ellenőrzése…';
     case 'agent_plan':
       return 'Plan and completion criteria recorded';
     case 'agent_complete':

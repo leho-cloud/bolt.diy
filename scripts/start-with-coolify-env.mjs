@@ -13,11 +13,13 @@ const keys = [
   'COOLIFY_PUBLISH_KEY',
   'COOLIFY_ENVIRONMENT_NAME',
   'COOLIFY_GITHUB_OWNER',
+  'MUHELY_TOOL_BRIDGE_URL',
+  'MUHELY_TOOL_BRIDGE_TOKEN',
+  'TWENTY_FIRST_API_KEY',
+  'TWENTY_FIRST_GENERATION_ENABLED',
 ];
 
-const lines = keys
-  .filter((key) => process.env[key])
-  .map((key) => `${key}=${JSON.stringify(process.env[key])}`);
+const lines = keys.filter((key) => process.env[key]).map((key) => `${key}=${JSON.stringify(process.env[key])}`);
 
 if (lines.length) {
   writeFileSync('/app/.dev.vars', lines.join('\n') + '\n', { mode: 0o600 });

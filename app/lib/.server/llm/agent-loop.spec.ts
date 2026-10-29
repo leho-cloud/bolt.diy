@@ -49,6 +49,68 @@ const completion = {
 const executeOptions = { toolCallId: 'complete', messages: [], context: {} };
 
 describe('agent plan and completion tools', () => {
+  it('withholds editing until the supplied reference really returned a screenshot', () => {
+    const request: AnyMessage = { role: 'user', content: 'A minta: https://mingai.hu/' };
+    const messages: AnyMessage[] = [request, { role: 'assistant', parts: [part('agent_plan', { plan })] }];
+
+    const loop = createAgentLoopTools(messages, true, true, [
+      'project_write_file',
+      'website_reference',
+      'website_tools_status',
+    ]);
+    expect(loop.prepareStep({ steps: [] }).activeTools).toEqual([
+      'website_reference',
+      'website_tools_status',
+      'agent_complete',
+    ]);
+
+    const output = { method: 'oxylabs-screenshot', image: 'data:image/webp;base64,UklGRg==' };
+
+    const next = loop.prepareStep({
+      steps: [
+        {
+          toolCalls: [{ toolName: 'website_reference', toolCallId: 'capture', input: { url: 'https://mingai.hu/' } }],
+          toolResults: [{ toolCallId: 'capture', output }],
+        },
+      ],
+    });
+    expect(next.activeTools).toContain('project_write_file');
+
+    const missing = loop.prepareStep({
+      steps: [
+        {
+          toolCalls: [{ toolName: 'website_reference', toolCallId: 'capture', input: { url: 'https://mingai.hu/' } }],
+          toolResults: [{ toolCallId: 'capture', output: { method: 'oxylabs-screenshot' } }],
+        },
+      ],
+    });
+    expect(missing.activeTools).not.toContain('project_write_file');
+  });
+  it('requires a fresh static report as well as real build checks on newly recorded web plans', async () => {
+    const strictPlan = { ...plan, requiresQualityReport: true };
+
+    const messages: AnyMessage[] = [
+      user,
+      { role: 'assistant', parts: [part('agent_plan', { plan: strictPlan }), ...(verified[1] as any).parts.slice(1)] },
+    ];
+
+    const loop = createAgentLoopTools(messages, true, true);
+    expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({
+      completed: false,
+      isError: true,
+    });
+    messages.push({ role: 'assistant', parts: [part('project_quality_report', { checked: true, isError: false })] });
+
+    const checked = createAgentLoopTools(messages, true, true);
+    expect(await checked.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: true });
+    messages.push({ role: 'assistant', parts: [part('project_patch_file', { patched: true })] });
+
+    const changed = createAgentLoopTools(messages, true, true);
+    expect(await changed.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({
+      completed: false,
+      isError: true,
+    });
+  });
   it('requires the plan tool first and enforces preview criteria for starter builds', async () => {
     const loop = createAgentLoopTools([user], true, true);
     expect(loop.prepareStep({ steps: [] })).toEqual({

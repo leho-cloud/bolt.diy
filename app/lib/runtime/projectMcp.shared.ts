@@ -11,6 +11,7 @@ export const PROJECT_TOOL_NAMES = [
   'project_find_related_files',
   'project_run_command',
   'project_get_process_output',
+  'project_quality_report',
   'project_stop_process',
   'web_search',
   'web_fetch',
@@ -32,6 +33,11 @@ const objectSchema = (properties: JsonSchema, required: string[]): JsonSchema =>
 
 /** JSON Schema contracts shared by the server chat route and browser MCP bridge. */
 export const projectToolDefinitions: Record<ProjectToolName, { description: string; inputSchema: JsonSchema }> = {
+  project_quality_report: {
+    description:
+      'Inspect current project source syntax and identify real build/typecheck/lint scripts. Returns issues and suggested commands. Does NOT run builds or approve visual quality. Use after edits, repair errors, then run the reported checks and inspect the actual preview.',
+    inputSchema: objectSchema({}, []),
+  },
   project_read_file: {
     description:
       'Read a UTF-8 text file from the active project. Returns content and revision; the latest read revision is checked automatically if expectedRevision is omitted when patching.',

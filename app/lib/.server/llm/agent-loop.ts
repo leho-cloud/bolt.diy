@@ -1,7 +1,15 @@
 import { tool, type Instructions } from 'ai';
 import { z } from 'zod';
 import { getAgentCompletionProblems, getAgentLoopInstructions, getAgentLoopProgress } from '~/lib/common/agentLoop';
-import type { AnyMessage } from '~/lib/persistence/messageMigration';
+import {
+  getMessageText,
+  getMessageParts,
+  getToolName,
+  getToolState,
+  getToolOutput,
+  getToolInput,
+  type AnyMessage,
+} from '~/lib/persistence/messageMigration';
 
 const planSchema = z
   .object({
@@ -32,7 +40,13 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       description:
         'Record a concise task plan and observable completion criteria before editing. Use stable criterion IDs. Require a preview for a web app, and preserve the existing project on follow-up requests.',
       inputSchema: planSchema,
-      execute: async (plan) => ({ plan: { ...plan, requiresPreview: requiresPreview || plan.requiresPreview } }),
+      execute: async (plan) => ({
+        plan: {
+          ...plan,
+          requiresPreview: requiresPreview || plan.requiresPreview,
+          requiresQualityReport: requiresPreview || plan.requiresPreview,
+        },
+      }),
     }),
     agent_complete: tool({
       description:
@@ -181,6 +195,57 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         };
       }
 
+      /*
+       * A reference is an actual prerequisite, not just a sentence in the system prompt.
+       * Only the current user's URLs require a fresh tool result; old references are available for reuse.
+       */
+      const lastUser = messages.findLastIndex((message) => message.role === 'user');
+
+      const canonicalUrl = (value: string) => {
+        try {
+          const parsed = new URL(value);
+          parsed.hash = '';
+
+          return parsed.href;
+        } catch {
+          return value;
+        }
+      };
+
+      const requested = [
+        ...new Set(
+          (getMessageText(messages[lastUser] ?? {}).match(/https:\/\/[^\s<>"'\]\)]+/g) ?? []).map((url) =>
+            canonicalUrl(url.replace(/[.,;!?]+$/, '')),
+          ),
+        ),
+      ];
+
+      const captured = new Set<string>();
+
+      for (const message of currentMessages.slice(lastUser + 1)) {
+        for (const part of getMessageParts(message) ?? []) {
+          if (getToolName(part) === 'website_reference' && getToolState(part) === 'output-available') {
+            const output = getToolOutput(part) as { method?: string; image?: string; isError?: boolean } | undefined;
+            const input = getToolInput(part) as { url?: string } | undefined;
+
+            if (output?.method === 'oxylabs-screenshot' && output.image && !output.isError && input?.url) {
+              captured.add(canonicalUrl(input.url));
+            }
+          }
+        }
+      }
+
+      if (taskToolNames?.includes('website_reference' as TaskToolName) && requested.some((url) => !captured.has(url))) {
+        return {
+          ...instructions,
+          toolChoice: 'auto' as const,
+          activeTools: [
+            ...taskToolNames.filter((name) => name === 'website_reference' || name === 'website_tools_status'),
+            'agent_complete' as const,
+          ],
+        };
+      }
+
       const editingTools = new Set([
         'project_read_file',
         'project_write_file',
@@ -194,7 +259,9 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       ]);
 
       const activeProjectTools = taskToolNames?.filter((toolName) => {
-        return progress.needsRepair || !progress.edited ? editingTools.has(toolName) : true;
+        return progress.needsRepair || !progress.edited
+          ? editingTools.has(toolName) || toolName.startsWith('website_') || toolName.startsWith('design_21st_')
+          : true;
       });
 
       return {

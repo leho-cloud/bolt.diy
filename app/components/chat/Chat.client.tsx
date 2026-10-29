@@ -11,6 +11,7 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import { API_KEYS_UPDATED_EVENT, type ApiKeysUpdatedDetail } from '~/lib/api/apiKeys';
 import { isServerAgentTool } from '~/lib/common/agentLoop';
 import { STARTER_BUILD_FLAG } from '~/lib/common/starterBuild';
+import { selectTaskModel } from '~/lib/common/taskModel';
 import { useMessageParser, usePromptEnhancer, useShortcuts } from '~/lib/hooks';
 import { useSettings } from '~/lib/hooks/useSettings';
 import { description, useChatHistory } from '~/lib/persistence';
@@ -965,22 +966,12 @@ export const ChatImpl = memo(
       }
 
       // Rule-based routing avoids an extra paid model classification call.
-      const autoEnabled = autoModelMode !== 'manual' && provider.name === 'OpenRouter';
-
-      const broadTask =
-        /(?:teljes|komplett|alkalmaz[aá]s|weboldal|webapp|rendszer|architekt[uú]r|refaktor|from scratch|full app|entire app|whole project)/i.test(
-          messageContent,
-        );
-      const mediumTask =
-        /(?:hib[aá]|jav[ií]t|k[oó]d|f[uü]ggv[eé]ny|komponens|typescript|javascript|api|sz[aá]m[ií]t[aá]s|funkci[oó])/i.test(
-          messageContent,
-        );
-      const taskModel =
-        !autoEnabled || autoModelMode === 'quality' || (autoModelMode === 'balanced' && broadTask)
-          ? model
-          : autoModelMode === 'economy' || !mediumTask
-            ? 'openai/gpt-4o-mini'
-            : 'openai/gpt-4o';
+      const taskModel = selectTaskModel({
+        text: messageContent,
+        selected: model,
+        provider: provider.name,
+        mode: autoModelMode,
+      });
 
       runAnimation();
 

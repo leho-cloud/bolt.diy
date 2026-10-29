@@ -34,3 +34,5 @@ jobs:
         run: pnpm run typecheck
       - name: ESLint
         run: pnpm run lint
+      - name: Integrációs és regressziós tesztek
+        run: pnpm test
