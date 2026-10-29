@@ -236,7 +236,7 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
     tabs: group.tabs.filter(
       (id) => isCustomerTab(id) && (id !== 'notifications' || profile?.preferences?.notifications !== false),
     ),
-  }));
+  })).filter((group) => group.tabs.length > 0);
 
   return (
     <RadixDialog.Root open={open}>
@@ -311,7 +311,7 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
                         Control Panel
                       </DialogTitle>
                       <p className="mb-6 text-sm text-bolt-elements-textSecondary">
-                        Manage your account, preferences, providers, and connected services.
+                        A fiókod, a megjelenés és a mentett munkáid beállításai.
                       </p>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {visibleTabs.map((tab, index) => (
