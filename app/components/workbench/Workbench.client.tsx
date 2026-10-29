@@ -424,7 +424,7 @@ export const Workbench = memo(
           initial="closed"
           animate={showWorkbench ? 'open' : 'closed'}
           variants={workbenchVariants}
-          className="z-workbench"
+          className="muhely-workbench-slot z-workbench"
         >
           <div
             className={classNames(

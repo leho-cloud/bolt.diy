@@ -382,13 +382,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         className={classNames(styles.BaseChat, 'muhely-workspace relative flex h-full w-full overflow-hidden')}
         data-chat-visible={showChat}
         data-started={chatStarted}
+        data-workbench-visible={showWorkbench}
       >
         <ClientOnly>{() => <Menu />}</ClientOnly>
         {chatStarted && showChat && !showWorkbench && (
           <WorkbenchReopenButton onClick={() => workbenchStore.showWorkbench.set(true)} />
         )}
-        <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
-          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
+        <div className="muhely-workspace-layout flex flex-col lg:flex-row overflow-y-auto w-full h-full">
+          <div
+            className={classNames(
+              styles.Chat,
+              'muhely-chat-column flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full',
+            )}
+          >
             {!chatStarted && (
               <div id="intro" className="muhely-intro">
                 <span className="muhely-eyebrow">

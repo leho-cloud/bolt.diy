@@ -571,3 +571,32 @@ body {
     display: none;
   }
 }
+
+/* Fixed preview geometry and the flex chat column must reserve the same width.
+ * Otherwise long messages expand the chat underneath the fixed preview panel. */
+.muhely-chat-column {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.muhely-chat-column > div {
+  min-width: 0;
+}
+.muhely-chat-column .muhely-composer {
+  max-width: 100%;
+  min-width: 0;
+}
+.muhely-chat-column pre {
+  overflow-x: auto;
+}
+@media (min-width: 1024px) {
+  .muhely-workspace[data-started='true'][data-chat-visible='true'][data-workbench-visible='true'] .muhely-chat-column {
+    flex: 0 0 var(--chat-min-width);
+    width: var(--chat-min-width);
+    min-width: 0;
+    max-width: var(--chat-min-width);
+  }
+  .muhely-workbench-slot {
+    flex-shrink: 0;
+    min-width: 0;
+  }
+}
