@@ -7,7 +7,7 @@ const MODES: Array<{ id: ToolAccessMode; label: string; description: string }> =
   { id: 'full-access', label: 'Automatikus végrehajtás', description: 'Eszközök futtatása külön jóváhagyás nélkül' },
 ];
 
-export function ToolAccessMenu() {
+export function ToolAccessMenu({ compact = false }: { compact?: boolean }) {
   const mode = useToolAccessStore((state) => state.mode);
   const setMode = useToolAccessStore((state) => state.setMode);
   const selectedMode = MODES.find((item) => item.id === mode) ?? MODES[0];
@@ -17,19 +17,21 @@ export function ToolAccessMenu() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          title="Eszközhozzáférés kiválasztása"
-          aria-label={`Tool access: ${selectedMode.label}`}
+          title={`Jóváhagyás: ${selectedMode.label}`}
+          aria-label={`Jóváhagyás: ${selectedMode.label}`}
           className={classNames(
             'inline-flex items-center gap-1 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-3 px-2 py-1 text-xs transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bolt-elements-focus',
-            mode === 'full-access'
-              ? 'text-accent-500 hover:text-accent-500'
-              : 'text-bolt-elements-textPrimary hover:text-bolt-elements-textPrimary',
+            compact
+              ? 'text-bolt-elements-textSecondary'
+              : mode === 'full-access'
+                ? 'text-accent-500 hover:text-accent-500'
+                : 'text-bolt-elements-textPrimary hover:text-bolt-elements-textPrimary',
           )}
         >
           <div className={mode === 'full-access' ? 'i-ph:shield-warning' : 'i-ph:hand'} />
-          <span>{selectedMode.label}</span>
-          <div className="i-ph:caret-down" />
+          {!compact && <span>{selectedMode.label}</span>}
+          {!compact && <div className="i-ph:caret-down" />}
         </button>
       </DropdownMenu.Trigger>
 

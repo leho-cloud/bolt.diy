@@ -232,7 +232,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <textarea
           ref={props.textareaRef}
           className={classNames(
-            'w-full pl-4 pt-4 pr-16 outline-none resize-none text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary bg-transparent text-sm',
+            'w-full pl-3 pt-3 pr-3 outline-none resize-none text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary bg-transparent text-sm',
             'transition-all duration-200',
             'hover:border-bolt-elements-focus',
           )}
@@ -299,27 +299,8 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
           placeholder={props.chatMode === 'build' ? 'Mit szeretnél készíteni?' : 'Miben segíthetek?'}
           translate="no"
         />
-        <ClientOnly>
-          {() => (
-            <SendButton
-              show={true}
-              isStreaming={props.isStreaming}
-              disabled={!props.isStreaming && !props.input.trim() && props.uploadedFiles.length === 0}
-              onClick={(event) => {
-                if (props.isStreaming) {
-                  props.handleStop?.();
-                  return;
-                }
-
-                if (props.input.length > 0 || props.uploadedFiles.length > 0) {
-                  props.handleSendMessage?.(event);
-                }
-              }}
-            />
-          )}
-        </ClientOnly>
-        <div className="muhely-composer-tools flex justify-between items-center text-sm p-4 pt-2">
-          <div className="flex gap-1 items-center">
+        <div className="muhely-composer-tools">
+          <div className="muhely-composer-options">
             <ClientOnly>
               {() => (
                 <AttachmentMenu
@@ -346,7 +327,6 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 />
               )}
             </ClientOnly>
-            <ClientOnly>{() => <ToolAccessMenu />}</ClientOnly>
             {/* Hidden components for programmatic access from menu */}
             <div className="hidden">
               <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
@@ -357,7 +337,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
-                  title={props.chatMode === 'discuss' ? 'Discuss Mode' : 'Agent Mode'}
+                  title={props.chatMode === 'discuss' ? 'Beszélgetés' : 'Oldalkészítés'}
                   className={classNames(
                     'transition-all flex items-center gap-1 rounded-md px-1.5 py-1 text-xs',
                     props.chatMode === 'discuss'
@@ -436,12 +416,34 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+          </div>
+          <div className="muhely-composer-actions">
+            <ClientOnly>{() => <ToolAccessMenu compact />}</ClientOnly>
             <SpeechRecognitionButton
               isListening={props.isListening}
               onStart={props.startListening}
               onStop={props.stopListening}
               disabled={props.isStreaming}
             />
+            <ClientOnly>
+              {() => (
+                <SendButton
+                  show={true}
+                  isStreaming={props.isStreaming}
+                  disabled={!props.isStreaming && !props.input.trim() && props.uploadedFiles.length === 0}
+                  onClick={(event) => {
+                    if (props.isStreaming) {
+                      props.handleStop?.();
+                      return;
+                    }
+
+                    if (props.input.length > 0 || props.uploadedFiles.length > 0) {
+                      props.handleSendMessage?.(event);
+                    }
+                  }}
+                />
+              )}
+            </ClientOnly>
           </div>
           <ExpoQrModal open={props.qrModalOpen} onClose={() => props.setQrModalOpen(false)} />
         </div>

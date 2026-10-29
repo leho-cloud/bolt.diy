@@ -555,10 +555,50 @@ body {
   font-size: 11px;
 }
 
-.muhely-composer-tools > div:first-child {
+.muhely-composer-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px 2px;
+}
+.muhely-composer-options,
+.muhely-composer-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  flex-wrap: wrap;
-  row-gap: 8px;
+}
+.muhely-composer-options > button {
+  flex-shrink: 0;
+  height: 32px;
+  white-space: nowrap;
+}
+.muhely-composer-actions > button,
+.muhely-composer-options > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+}
+.muhely-composer textarea {
+  display: block;
+  padding-bottom: 6px;
+}
+.muhely-composer-actions .muhely-send-button {
+  background: #df2047;
+  color: #fff;
+}
+.muhely-composer-actions .muhely-send-button:disabled {
+  background: var(--bolt-elements-bg-depth-3, #24272e);
+  color: var(--bolt-elements-textTertiary);
+  opacity: 1;
 }
 @media (max-width: 580px) {
   .muhely-intro h1 {

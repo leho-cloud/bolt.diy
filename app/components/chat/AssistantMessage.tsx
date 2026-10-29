@@ -171,9 +171,13 @@ export const AssistantMessage = memo(
             )}
             <div className="flex w-full items-center justify-between">
               {usage && (
-                <div>
-                  Tokens: {usage.totalTokens} (prompt: {usage.promptTokens}, completion: {usage.completionTokens})
-                </div>
+                <details className="text-xs text-bolt-elements-textTertiary">
+                  <summary className="cursor-pointer">Felhasználás részletei</summary>
+                  <p>
+                    Összesen {usage.totalTokens} token · Bemenet: {usage.promptTokens} · Válasz:{' '}
+                    {usage.completionTokens}
+                  </p>
+                </details>
               )}
               {(onRewind || onFork) && messageId && (
                 <div className="flex gap-2 flex-col lg:flex-row ml-auto">
