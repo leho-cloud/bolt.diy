@@ -96,7 +96,12 @@ export async function captureReference({
 
   const response = await fetcher(endpoint, {
     method: 'POST',
-    redirect: 'error',
+
+    /*
+     * Workers rejects redirect:"error" before sending anything. Manual still
+     * prevents forwarding the scoped credential to a redirected destination.
+     */
+    redirect: 'manual',
     signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180_000)]),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ url: normalizeReferenceUrl(url), owner }),

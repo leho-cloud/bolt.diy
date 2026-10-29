@@ -29,7 +29,7 @@ describe('reference service boundary', () => {
 
     const [url, options] = fetcher.mock.calls[0] as unknown as [URL, RequestInit];
     expect(url.href).toBe('https://muhely.example/api/integrations/bolt/reference');
-    expect(options.redirect).toBe('error');
+    expect(options.redirect).toBe('manual');
     expect(options.headers).toMatchObject({ Authorization: 'Bearer bridge-only' });
     expect(JSON.parse(String(options.body))).toEqual({ url: 'https://mingai.hu/', owner: 'owner' });
     expect(JSON.stringify(result)).not.toContain('bridge-only');
@@ -47,6 +47,22 @@ describe('reference service boundary', () => {
       }),
     ).rejects.toThrow('keret');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('rejects redirects without sending the bridge credential to another destination', async () => {
+    const fetcher = vi.fn(
+      async () => new Response(null, { status: 302, headers: { Location: 'https://other.example/' } }),
+    );
+    await expect(
+      captureReference({
+        url: 'https://mingai.hu/',
+        bridgeUrl: 'https://muhely.example',
+        token: 'secret',
+        owner: 'owner',
+        fetcher,
+      }),
+    ).rejects.toMatchObject({ status: 302 });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect((fetcher.mock.calls[0] as unknown as [URL, RequestInit])[1].redirect).toBe('manual');
   });
   it('rejects an image-less response and bounds the response stream', async () => {
     const fetcher = vi.fn(async () => Response.json({ method: 'oxylabs-screenshot', referenceText: 'text-only' }));
