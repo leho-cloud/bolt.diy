@@ -6,7 +6,7 @@
  */
 // eslint-disable-next-line unicorn/prefer-node-protocol
 import { Buffer } from 'buffer';
-import type { WebContainer } from '@webcontainer/api';
+import type { PathWatcherEvent, WebContainer } from '@webcontainer/api';
 import { getEncoding } from 'istextorbinary';
 import { map, type MapStore } from 'nanostores';
 import {
@@ -22,8 +22,8 @@ import {
   clearCache,
   clearAllLocksForChat,
 } from '~/lib/persistence/lockedFiles';
-import { watchProject, type ProjectPathEvent as PathWatcherEvent } from '~/lib/webcontainer/watch-project';
 import { bufferWatchEvents } from '~/utils/buffer';
+import { WORK_DIR } from '~/utils/constants';
 import { computeFileModifications } from '~/utils/diff';
 import { getCurrentChatId } from '~/utils/fileLocks';
 import { createScopedLogger } from '~/utils/logger';
@@ -688,7 +688,14 @@ export class FilesStore {
     this.#cleanupDeletedFiles();
 
     // Set up file watcher
-    watchProject(webcontainer, bufferWatchEvents(100, this.#processEventBuffer.bind(this)));
+    webcontainer.internal.watchPaths(
+      {
+        include: [`${WORK_DIR}/**`],
+        exclude: ['**/node_modules', '.git', '**/package-lock.json'],
+        includeContent: true,
+      },
+      bufferWatchEvents(100, this.#processEventBuffer.bind(this)),
+    );
 
     // Get the current chat ID
     const currentChatId = getCurrentChatId();

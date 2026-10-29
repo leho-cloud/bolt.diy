@@ -174,8 +174,8 @@ importers:
         specifier: ^66.10.5
         version: 66.10.5
       '@webcontainer/api':
-        specifier: 1.6.4
-        version: 1.6.4
+        specifier: 1.6.5-internal.2
+        version: 1.6.5-internal.2
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
@@ -2821,8 +2821,8 @@ packages:
   '@vitest/spy@5.0.3':
     resolution: {integrity: sha512-XhFysQTB8AZ+P4gMi+Lpo99vg2AZi0qKpaB9yXQl37+CaMEAPO3iH/wGVnSyL5MPERiLezpqTVtrR6UZH5GCXg==}
 
-  '@webcontainer/api@1.6.4':
-    resolution: {integrity: sha512-r9sHCXg1FcC1AMgppGwAc0vYWaQhqvg282cnsuPbJEzYnWifAdCVvg+8ngJUEHyHcomhJJp+/zuytite4ITHLw==}
+  '@webcontainer/api@1.6.5-internal.2':
+    resolution: {integrity: sha512-RtuOwlcCtGa7M0ppX5wR12NBORMHggTjcH1egbrWZVXp9TeX1mvHEbJPvQ3jIWumh3MKAF967aSLOfXgXYudkQ==}
 
   '@workflow/serde@4.1.0':
     resolution: {integrity: sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ==}
@@ -9326,7 +9326,7 @@ snapshots:
 
   '@vitest/spy@5.0.3': {}
 
-  '@webcontainer/api@1.6.4': {}
+  '@webcontainer/api@1.6.5-internal.2': {}
 
   '@workflow/serde@4.1.0': {}
 
