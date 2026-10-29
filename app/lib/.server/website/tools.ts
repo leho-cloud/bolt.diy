@@ -118,6 +118,13 @@ export async function createWebsiteTools({
           return {
             isError: true as const,
             status: error instanceof ReferenceCaptureError ? error.status : undefined,
+            stage: error instanceof ReferenceCaptureError ? error.stage : 'validation',
+            failureType:
+              error instanceof ReferenceCaptureError
+                ? error.failureType
+                : error instanceof Error
+                  ? error.name
+                  : 'Error',
             error:
               'Az OXY-mintabeolvasás nem sikerült. Nem készült felhasználható referencia. Ne helyettesítsd szöveges webes olvasással és ne állítsd, hogy felhasználtad a mintát. Ne próbáld újra automatikusan.',
           };

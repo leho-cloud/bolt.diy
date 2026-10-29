@@ -58,11 +58,17 @@ export interface ReferenceResult {
 }
 
 export class ReferenceCaptureError extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    readonly stage = 'http',
+    readonly failureType = 'Error',
+  ) {
     super(
-      status === 429
-        ? 'A napi mintabeolvasási keret elfogyott.'
-        : 'A mintabeolvasási kapcsolat nem fejezte be a kérést.',
+      stage === 'response-image'
+        ? 'Nem érkezett használható kép a mintaoldalról.'
+        : status === 429
+          ? 'A napi mintabeolvasási keret elfogyott.'
+          : 'A mintabeolvasási kapcsolat nem fejezte be a kérést.',
     );
   }
 }
@@ -94,9 +100,13 @@ export async function captureReference({
     signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180_000)]),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ url: normalizeReferenceUrl(url), owner }),
+  }).catch((error) => {
+    throw new ReferenceCaptureError(0, 'network', error?.name || 'Error');
   });
 
-  const text = await readLimited(response, 2_000_000);
+  const text = await readLimited(response, 2_000_000).catch((error) => {
+    throw new ReferenceCaptureError(response.status, 'response-body', error?.name || 'Error');
+  });
 
   if (!response.ok) {
     throw new ReferenceCaptureError(response.status);
@@ -111,7 +121,7 @@ export async function captureReference({
     typeof result.image !== 'string' ||
     !/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/.test(result.image)
   ) {
-    throw new Error('Nem érkezett használható kép a mintaoldalról.');
+    throw new ReferenceCaptureError(response.status, 'response-image');
   }
 
   return {
