@@ -302,9 +302,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <ClientOnly>
           {() => (
             <SendButton
-              show={props.input.length > 0 || props.isStreaming || props.uploadedFiles.length > 0}
+              show={true}
               isStreaming={props.isStreaming}
-              disabled={!props.providerList || props.providerList.length === 0}
+              disabled={!props.isStreaming && !props.input.trim() && props.uploadedFiles.length === 0}
               onClick={(event) => {
                 if (props.isStreaming) {
                   props.handleStop?.();

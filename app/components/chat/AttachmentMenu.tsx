@@ -40,7 +40,7 @@ export function AttachmentMenu({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          title="Add attachment or connector"
+          title="Csatolmány és kapcsolatok"
           className={classNames(
             'flex items-center text-bolt-elements-item-contentDefault bg-transparent',
             'hover:text-bolt-elements-item-contentActive rounded-md p-1',
@@ -81,7 +81,7 @@ export function AttachmentMenu({
             onSelect={onAttachFile}
           >
             <div className="i-ph:paperclip text-lg"></div>
-            <span>Attach File</span>
+            <span>Fájl csatolása</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Item
@@ -95,7 +95,7 @@ export function AttachmentMenu({
             onSelect={onOpenDesignDialog}
           >
             <div className="i-ph:palette text-lg"></div>
-            <span>Design Palette</span>
+            <span>Színek és megjelenés</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Item
@@ -115,7 +115,7 @@ export function AttachmentMenu({
             ) : (
               <div className="i-bolt:stars text-lg"></div>
             )}
-            <span>Enhance Prompt</span>
+            <span>Kérés pontosítása</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator className="h-px bg-bolt-elements-borderColor my-1" />
@@ -131,7 +131,7 @@ export function AttachmentMenu({
             >
               <div className="flex items-center gap-2">
                 <div className="i-ph:plug text-lg"></div>
-                <span>Connectors</span>
+                <span>Kapcsolatok</span>
               </div>
               <div className="i-ph:caret-right text-sm"></div>
             </DropdownMenu.SubTrigger>
@@ -161,9 +161,9 @@ export function AttachmentMenu({
                   )}
                 >
                   <div className="i-ph:magnifying-glass text-lg" />
-                  <span>Web Search</span>
+                  <span>Internetes keresés</span>
                   <span
-                    aria-label={webSearchEnabled ? 'Enabled' : 'Disabled'}
+                    aria-label={webSearchEnabled ? 'Bekapcsolva' : 'Kikapcsolva'}
                     className={classNames(
                       'ml-auto h-2 w-2 rounded-full',
                       webSearchEnabled ? 'bg-green-500' : 'bg-red-500',
@@ -186,7 +186,7 @@ export function AttachmentMenu({
                     {connector.icon}
                     <span>{connector.name}</span>
                     <span
-                      aria-label={connector.enabled ? 'Enabled' : 'Disabled'}
+                      aria-label={connector.enabled ? 'Bekapcsolva' : 'Kikapcsolva'}
                       className={classNames(
                         'ml-auto h-2 w-2 rounded-full',
                         connector.enabled ? 'bg-green-500' : 'bg-red-500',
