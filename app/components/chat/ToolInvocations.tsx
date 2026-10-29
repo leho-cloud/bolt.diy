@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useMemo, useState, useEffect, useRef } from 'react';
+import { memo, useMemo, useState, useEffect, useRef, createContext, useContext } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';
 import { Markdown } from './Markdown';
 import { getToolDisplayError, getToolDisplayState } from './toolActivity';
@@ -92,14 +92,23 @@ function JsonCodeBlock({ className, code, theme }: JsonCodeBlockProps) {
   );
 }
 
+const ToolStreamingContext = createContext(false);
+
 interface ToolInvocationsProps {
+  isStreaming?: boolean;
   toolInvocations: AnyPart[];
   toolCallAnnotations: ToolCallAnnotation[];
   addToolResult: (options: { tool: string; toolCallId: string; output: unknown }) => void;
   orderedParts?: AnyPart[];
 }
 
-export const ToolInvocations = memo(
+export const ToolInvocations = ({ isStreaming = false, ...props }: ToolInvocationsProps) => (
+  <ToolStreamingContext.Provider value={isStreaming}>
+    <ToolInvocationsContent {...props} />
+  </ToolStreamingContext.Provider>
+);
+
+const ToolInvocationsContent = memo(
   ({ toolInvocations, toolCallAnnotations, addToolResult, orderedParts }: ToolInvocationsProps) => {
     const theme = useStore(themeStore);
     const [showDetails, setShowDetails] = useState(false);
@@ -331,6 +340,7 @@ interface ToolCallsListProps {
 const ToolCallsList = memo(
   ({ toolInvocations, orderedParts, toolCallAnnotations, addToolResult }: ToolCallsListProps) => {
     const [runningToolCalls, setRunningToolCalls] = useState<Set<string>>(new Set());
+    const streaming = useContext(ToolStreamingContext);
     const fullAccess = useToolAccessStore((state) => state.mode === 'full-access');
     const autoApprovedCalls = useRef(new Set<string>());
 
@@ -469,7 +479,7 @@ const ToolCallsList = memo(
                         <span className="i-ph:x text-red-500" />
                       ) : displayState === 'process-running' ? (
                         <span className="i-ph:play text-blue-500" />
-                      ) : isRunning || state === 'input-streaming' ? (
+                      ) : isRunning || (streaming && state === 'input-streaming') ? (
                         <span className="i-svg-spinners:90-ring-with-bg" />
                       ) : (
                         <span className="i-ph:wrench" />
@@ -643,6 +653,7 @@ function ToolActivityRow({
   fullAccess: boolean;
   annotation?: ToolCallAnnotation;
 }) {
+  const streaming = useContext(ToolStreamingContext);
   const name = getToolName(tool) ?? '';
   const state = getToolState(tool);
   const displayState = getToolDisplayState(tool);
@@ -668,14 +679,16 @@ function ToolActivityRow({
             <span className="i-ph:x-circle-fill text-red-500" />
           ) : displayState === 'process-running' ? (
             <span className="i-ph:play text-blue-500" />
-          ) : running || state === 'input-streaming' ? (
+          ) : running || (streaming && state === 'input-streaming') ? (
             <span className="i-svg-spinners:90-ring-with-bg" />
           ) : (
             <span className={icon} />
           )}
         </span>
         <span className="min-w-0 flex-1 truncate text-bolt-elements-textPrimary" title={annotation?.toolDescription}>
-          {activityLabel(name, getToolInput(tool), getToolOutput(tool), displayState)}
+          {!streaming && state === 'input-streaming'
+            ? `Félbeszakadt fájlművelet: ${String((getToolInput(tool) as Record<string, unknown> | undefined)?.path ?? '')}`
+            : activityLabel(name, getToolInput(tool), getToolOutput(tool), displayState)}
         </span>
         {state === 'input-available' && !fullAccess && !isServerAgentTool(name) && (
           <span className="shrink-0 text-xs text-bolt-elements-textTertiary">Approval needed</span>

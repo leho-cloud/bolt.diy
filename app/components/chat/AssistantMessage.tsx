@@ -207,6 +207,7 @@ export const AssistantMessage = memo(
         <ThinkingDetails text={reasoningText} />
         {chatMode === 'build' && toolInvocations && toolInvocations.length > 0 && (
           <ToolInvocations
+            isStreaming={isStreaming}
             toolInvocations={toolInvocations}
             toolCallAnnotations={toolCallAnnotations}
             addToolResult={addToolResult}
@@ -228,6 +229,7 @@ export const AssistantMessage = memo(
         )}
         {chatMode !== 'build' && toolInvocations && toolInvocations.length > 0 && (
           <ToolInvocations
+            isStreaming={isStreaming}
             toolInvocations={toolInvocations}
             toolCallAnnotations={toolCallAnnotations}
             addToolResult={addToolResult}

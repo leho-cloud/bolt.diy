@@ -186,7 +186,7 @@ export const ChatImpl = memo(
     const [animationScope, animate] = useAnimate();
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
     const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
-    const [agentMode, setAgentMode] = useState(() => Cookies.get('agentMode') === 'true');
+    const [agentMode, setAgentMode] = useState(true);
 
     const [autoModelMode, setAutoModelMode] = useState<'manual' | 'economy' | 'balanced' | 'quality'>(() => {
       const saved = typeof window !== 'undefined' ? window.localStorage.getItem('bolt_auto_model_mode') : null;
@@ -408,6 +408,7 @@ export const ChatImpl = memo(
     messagesRef.current = messages;
 
     const executingProjectCallsRef = useRef(new Set<string>());
+    const [runningProjectCalls, setRunningProjectCalls] = useState<Set<string>>(new Set());
     const projectToolControllersRef = useRef(new Map<string, AbortController>());
     const projectCallGenerationsRef = useRef(new Map<string, { generation: number; chatId?: string }>());
     const currentProjectGeneration = workbenchStore.projectGeneration.get();
@@ -418,6 +419,7 @@ export const ChatImpl = memo(
           controller.abort();
         }
         projectToolControllersRef.current.clear();
+        setRunningProjectCalls(new Set());
       });
 
       return () => {
@@ -581,6 +583,7 @@ export const ChatImpl = memo(
 
         const abortController = new AbortController();
         projectToolControllersRef.current.set(toolCallId, abortController);
+        setRunningProjectCalls((calls) => new Set(calls).add(toolCallId));
         void callProjectMcpTool(tool, input as Record<string, unknown>, {
           signal: abortController.signal,
           generation: executionContext?.generation,
@@ -621,6 +624,12 @@ export const ChatImpl = memo(
             });
           })
           .finally(() => {
+            setRunningProjectCalls((calls) => {
+              const next = new Set(calls);
+              next.delete(toolCallId);
+
+              return next;
+            });
             executingProjectCallsRef.current.delete(toolCallId);
             projectToolControllersRef.current.delete(toolCallId);
           });
@@ -799,6 +808,14 @@ export const ChatImpl = memo(
 
     const abort = () => {
       stop();
+
+      for (const controller of projectToolControllersRef.current.values()) {
+        controller.abort();
+      }
+      projectToolControllersRef.current.clear();
+      setRunningProjectCalls(new Set());
+      setFakeLoading(false);
+      setProgressAnnotations([]);
       chatStore.setKey('aborted', true);
       workbenchStore.abortAllActions();
 
@@ -1191,7 +1208,7 @@ export const ChatImpl = memo(
         input={input}
         showChat={showChat}
         chatStarted={chatStarted}
-        isStreaming={isLoading || fakeLoading}
+        isStreaming={isLoading || fakeLoading || runningProjectCalls.size > 0}
         onStreamingChange={(streaming) => {
           streamingState.set(streaming);
         }}

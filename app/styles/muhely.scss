@@ -640,3 +640,19 @@ body {
     min-width: 0;
   }
 }
+
+.muhely-build-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--bolt-elements-borderColor);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--bolt-elements-bg-depth-2, #17191e);
+  color: var(--bolt-elements-textSecondary);
+}
+.muhely-build-status-working { color: #eab6c2; }
+.muhely-build-status-blocked { color: #f0c08a; }
+.muhely-build-status-ready { color: #8ec8ad; }

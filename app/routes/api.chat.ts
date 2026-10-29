@@ -23,6 +23,7 @@ import { createAgentLoopTools } from '~/lib/.server/llm/agent-loop';
 import { createAgentStreamRecovery } from '~/lib/.server/llm/agent-stream';
 import { MAX_RESPONSE_SEGMENTS, MAX_TOKENS, type FileMap } from '~/lib/.server/llm/constants';
 import { shouldOptimizeRequestContext } from '~/lib/.server/llm/context-optimization';
+import { assertTextContinuation } from '~/lib/.server/llm/continuation';
 import { createSummary } from '~/lib/.server/llm/create-summary';
 import { getWebResearchInstructions } from '~/lib/.server/llm/prompt-web-tools';
 import { getFilePaths, selectContext } from '~/lib/.server/llm/select-context';
@@ -79,7 +80,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
   const messages = asMessages(body.messages);
   const starterBuild = chatMode === 'build' ? getStarterBuildProgress(messages) : getStarterBuildProgress([]);
-  const agentLoopEnabled = chatMode === 'build' && (agentMode || starterBuild.status !== 'inactive');
+  const agentLoopEnabled = chatMode === 'build';
   const agentProgress = getAgentLoopProgress(messages, agentLoopEnabled);
   const files = asFileMap(body.files);
   const designScheme = asDesignScheme(body.designScheme);
@@ -575,6 +576,12 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
               return;
             }
+
+            /*
+             * A partial native tool input cannot be resumed as plain assistant text.
+             * Replaying it made file writes restart repeatedly without executing.
+             */
+            assertTextContinuation(hasTools);
 
             if (responseSegments >= MAX_RESPONSE_SEGMENTS) {
               throw Error('Cannot continue message: Maximum segments reached');

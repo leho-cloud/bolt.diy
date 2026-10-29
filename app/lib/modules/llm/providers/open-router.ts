@@ -40,6 +40,7 @@ export default class OpenRouterProvider extends BaseProvider {
       label: 'Claude Sonnet 5.5 (paid)',
       provider: 'OpenRouter',
       maxTokenAllowed: 1000000,
+      maxCompletionTokens: 16384,
     },
     {
       name: 'openai/gpt-6.1-sol',

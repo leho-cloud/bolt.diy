@@ -6,12 +6,12 @@ import React, { lazy, Suspense, type RefCallback, useEffect, useState } from 're
 import { ClientOnly } from 'remix-utils/client-only';
 import { getApiKeysFromCookies } from './APIKeyManager';
 import styles from './BaseChat.module.scss';
+import { BuildStatus } from './BuildStatus';
 import ChatAlert from './ChatAlert';
 import { ChatBox } from './ChatBox';
 import GitCloneButton from './GitCloneButton';
 import LlmErrorAlert from './LLMApiAlert';
 import { Messages, type DisplayMessage } from './Messages.client';
-import ProgressCompilation from './ProgressCompilation';
 import { ProjectLibrary } from './ProjectLibrary';
 import StarterTemplates from './StarterTemplates';
 import { ToolApprovalTray } from './ToolApprovalTray';
@@ -411,7 +411,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             )}
             <StickToBottom
               className={classNames('pt-6 px-2 sm:px-6 relative', {
-                'h-full flex flex-col modern-scrollbar': chatStarted,
+                'flex-1 min-h-0 flex flex-col modern-scrollbar': chatStarted,
               })}
               resize="smooth"
               initial="smooth"
@@ -436,83 +436,93 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 </ClientOnly>
                 <ScrollToBottom />
               </StickToBottom.Content>
-              <div
-                className={classNames('my-auto flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-6', {
-                  'sticky bottom-2': chatStarted,
-                })}
-              >
-                <div className="flex flex-col gap-2">
-                  {deployAlert && (
-                    <DeployChatAlert
-                      alert={deployAlert}
-                      clearAlert={() => _clearDeployAlert?.()}
-                      postMessage={(message: string | undefined) => {
-                        sendMessage?.({} as any, message);
-                      }}
-                    />
-                  )}
-                  {actionAlert && (
-                    <ChatAlert
-                      alert={actionAlert}
-                      clearAlert={() => clearAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearAlert?.();
-                      }}
-                    />
-                  )}
-                  {llmErrorAlert && <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />}
-                </div>
-                <ToolApprovalTray messages={messages} addToolOutput={addToolOutput} />
-                {incomingProgressAnnotations && <ProgressCompilation data={incomingProgressAnnotations} />}
-                <ChatBox
-                  isModelSettingsCollapsed={isModelSettingsCollapsed}
-                  setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
-                  provider={provider}
-                  setProvider={setProvider}
-                  providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
-                  model={model}
-                  setModel={setModel}
-                  autoModelMode={autoModelMode}
-                  setAutoModelMode={setAutoModelMode}
-                  modelList={modelList}
-                  apiKeys={apiKeys}
-                  isModelLoading={isModelLoading}
-                  onApiKeysChange={onApiKeysChange}
-                  uploadedFiles={uploadedFiles}
-                  setUploadedFiles={setUploadedFiles}
-                  imageDataList={imageDataList}
-                  setImageDataList={setImageDataList}
-                  textareaRef={textareaRef}
-                  input={input}
-                  handleInputChange={handleInputChange}
-                  handlePaste={handlePaste}
-                  TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
-                  TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
-                  isStreaming={isStreaming}
-                  handleStop={handleStop}
-                  handleSendMessage={handleSendMessage}
-                  enhancingPrompt={enhancingPrompt}
-                  enhancePrompt={enhancePrompt}
-                  isListening={isListening}
-                  startListening={startListening}
-                  stopListening={stopListening}
-                  chatStarted={chatStarted}
-                  exportChat={exportChat}
-                  qrModalOpen={qrModalOpen}
-                  setQrModalOpen={setQrModalOpen}
-                  handleFileUpload={handleFileUpload}
-                  chatMode={chatMode}
-                  setChatMode={setChatMode}
-                  agentMode={agentMode}
-                  setAgentMode={setAgentMode}
-                  designScheme={designScheme}
-                  setDesignScheme={setDesignScheme}
-                  selectedElement={selectedElement}
-                  setSelectedElement={setSelectedElement}
-                />
-              </div>
             </StickToBottom>
+            <div
+              className={classNames(
+                'muhely-composer-dock shrink-0 flex flex-col gap-2 w-full max-w-chat mx-auto z-prompt mb-4',
+                {
+                  'px-2 sm:px-6': chatStarted,
+                },
+              )}
+            >
+              <div className="flex flex-col gap-2">
+                {deployAlert && (
+                  <DeployChatAlert
+                    alert={deployAlert}
+                    clearAlert={() => _clearDeployAlert?.()}
+                    postMessage={(message: string | undefined) => {
+                      sendMessage?.({} as any, message);
+                    }}
+                  />
+                )}
+                {actionAlert && (
+                  <ChatAlert
+                    alert={actionAlert}
+                    clearAlert={() => clearAlert?.()}
+                    postMessage={(message) => {
+                      sendMessage?.({} as any, message);
+                      clearAlert?.();
+                    }}
+                  />
+                )}
+                {llmErrorAlert && <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />}
+              </div>
+              <ToolApprovalTray messages={messages} addToolOutput={addToolOutput} />
+              {chatStarted && chatMode === 'build' && (
+                <BuildStatus
+                  messages={messages ?? []}
+                  active={isStreaming}
+                  error={Boolean(llmErrorAlert)}
+                  progress={incomingProgressAnnotations}
+                />
+              )}
+              <ChatBox
+                isModelSettingsCollapsed={isModelSettingsCollapsed}
+                setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
+                provider={provider}
+                setProvider={setProvider}
+                providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+                model={model}
+                setModel={setModel}
+                autoModelMode={autoModelMode}
+                setAutoModelMode={setAutoModelMode}
+                modelList={modelList}
+                apiKeys={apiKeys}
+                isModelLoading={isModelLoading}
+                onApiKeysChange={onApiKeysChange}
+                uploadedFiles={uploadedFiles}
+                setUploadedFiles={setUploadedFiles}
+                imageDataList={imageDataList}
+                setImageDataList={setImageDataList}
+                textareaRef={textareaRef}
+                input={input}
+                handleInputChange={handleInputChange}
+                handlePaste={handlePaste}
+                TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
+                TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
+                isStreaming={isStreaming}
+                handleStop={handleStop}
+                handleSendMessage={handleSendMessage}
+                enhancingPrompt={enhancingPrompt}
+                enhancePrompt={enhancePrompt}
+                isListening={isListening}
+                startListening={startListening}
+                stopListening={stopListening}
+                chatStarted={chatStarted}
+                exportChat={exportChat}
+                qrModalOpen={qrModalOpen}
+                setQrModalOpen={setQrModalOpen}
+                handleFileUpload={handleFileUpload}
+                chatMode={chatMode}
+                setChatMode={setChatMode}
+                agentMode={agentMode}
+                setAgentMode={setAgentMode}
+                designScheme={designScheme}
+                setDesignScheme={setDesignScheme}
+                selectedElement={selectedElement}
+                setSelectedElement={setSelectedElement}
+              />
+            </div>
             <div className="flex flex-col justify-center">
               {!chatStarted && (
                 <details className="muhely-import">
