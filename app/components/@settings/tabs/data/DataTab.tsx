@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import Cookies from 'js-cookie';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Button } from '~/components/ui/Button';
@@ -77,20 +76,17 @@ export function DataTab() {
   // Use our custom hook for the boltHistory database
   const { db, isLoading: dbLoading } = useBoltHistoryDB();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const apiKeyFileInputRef = useRef<HTMLInputElement>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   // State for confirmation dialogs
   const [showResetInlineConfirm, setShowResetInlineConfirm] = useState(false);
   const [showDeleteInlineConfirm, setShowDeleteInlineConfirm] = useState(false);
-  const [showDeleteAPIKeysConfirm, setShowDeleteAPIKeysConfirm] = useState(false);
   const [showSettingsSelection, setShowSettingsSelection] = useState(false);
   const [showChatsSelection, setShowChatsSelection] = useState(false);
 
   // State for settings categories and available chats
   const [settingsCategories] = useState<SettingsCategory[]>([
     { id: 'core', label: 'Alapbeállítások', description: 'Felhasználói profil és fő beállítások' },
-    { id: 'providers', label: 'Szolgáltatók', description: 'API-kulcsok és szolgáltatói beállítások' },
     { id: 'features', label: 'Funkciók', description: 'Funkciókapcsolók és beállítások' },
     { id: 'ui', label: 'Felület', description: 'Felületbeállítások és megjelenés' },
     { id: 'connections', label: 'Kapcsolatok', description: 'Külső szolgáltatások kapcsolatai' },
@@ -106,7 +102,6 @@ export function DataTab() {
     isExporting,
     isImporting,
     isResetting,
-    isDownloadingTemplate,
     canUndo,
     handleUndo,
     handleExportSettings,
@@ -117,8 +112,6 @@ export function DataTab() {
     handleImportChats,
     handleResetSettings,
     handleResetChats,
-    handleDownloadTemplate,
-    handleImportAPIKeys,
   } = useDataOperations({
     customDb: db || undefined, // Pass the boltHistory database, converting null to undefined
     onReloadSettings: () => window.location.reload(),
@@ -139,7 +132,6 @@ export function DataTab() {
 
   // Loading states for operations not provided by the hook
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isImportingKeys, setIsImportingKeys] = useState(false);
 
   // Load available chats
   useEffect(() => {
@@ -182,18 +174,6 @@ export function DataTab() {
     [handleImportSettings],
   );
 
-  const handleAPIKeyFileInputChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-
-      if (file) {
-        setIsImportingKeys(true);
-        handleImportAPIKeys(file).finally(() => setIsImportingKeys(false));
-      }
-    },
-    [handleImportAPIKeys],
-  );
-
   const handleChatFileInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -211,13 +191,6 @@ export function DataTab() {
     handleResetChats().finally(() => setIsDeleting(false));
   }, [handleResetChats]);
 
-  const handleDeleteAllAPIKeys = useCallback(() => {
-    Cookies.remove('apiKeys', { path: '/' });
-    setShowDeleteAPIKeysConfirm(false);
-    toast.success('Minden mentett API-kulcs törölve.');
-    window.location.reload();
-  }, []);
-
   return (
     <div className="space-y-12">
       {canUndo && (
@@ -231,13 +204,6 @@ export function DataTab() {
 
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileInputChange} className="hidden" />
-      <input
-        ref={apiKeyFileInputRef}
-        type="file"
-        accept=".json"
-        onChange={handleAPIKeyFileInputChange}
-        className="hidden"
-      />
       <input
         ref={chatFileInputRef}
         type="file"
@@ -270,17 +236,6 @@ export function DataTab() {
         variant="destructive"
         isLoading={isDeleting}
         onConfirm={handleResetChatsWithState}
-      />
-
-      <ConfirmationDialog
-        isOpen={showDeleteAPIKeysConfirm}
-        onClose={() => setShowDeleteAPIKeysConfirm(false)}
-        title="Törlöd az összes API-kulcsot?"
-        description="A böngészőben mentett API-kulcsok véglegesen törlődnek. A környezeti változókból megadott kulcsok nem változnak."
-        confirmLabel="Összes API-kulcs törlése"
-        cancelLabel="Mégse"
-        variant="destructive"
-        onConfirm={handleDeleteAllAPIKeys}
       />
 
       {/* Settings Selection Dialog */}
@@ -577,86 +532,6 @@ export function DataTab() {
         </div>
       </div>
 
-      {/* API Keys Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-bolt-elements-textPrimary">API-kulcsok</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="bg-bolt-elements-background-depth-2 transition-colors hover:bg-bolt-elements-background-depth-3">
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <motion.div className="text-accent-500 mr-2" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <div className="i-ph-file-text-duotone w-5 h-5" />
-                </motion.div>
-                <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  Sablon letöltése
-                </CardTitle>
-              </div>
-              <CardDescription>Minta JSON-fájl letöltése az API-kulcsokhoz.</CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
-                <Button
-                  onClick={handleDownloadTemplate}
-                  disabled={isDownloadingTemplate}
-                  variant="outline"
-                  size="sm"
-                  className={classNames(
-                    'hover:text-bolt-elements-item-contentAccent hover:border-bolt-elements-item-backgroundAccent hover:bg-bolt-elements-item-backgroundAccent transition-colors w-full justify-center',
-                    isDownloadingTemplate ? 'cursor-not-allowed' : '',
-                  )}
-                >
-                  {isDownloadingTemplate ? (
-                    <>
-                      <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Letöltés…
-                    </>
-                  ) : (
-                    'Letöltés'
-                  )}
-                </Button>
-              </motion.div>
-            </CardFooter>
-          </Card>
-
-          <Card className="bg-bolt-elements-background-depth-2 transition-colors hover:bg-bolt-elements-background-depth-3">
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <motion.div className="text-accent-500 mr-2" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <div className="i-ph-upload-duotone w-5 h-5" />
-                </motion.div>
-                <CardTitle className="text-lg group-hover:text-bolt-elements-item-contentAccent transition-colors">
-                  API-kulcsok importálása
-                </CardTitle>
-              </div>
-              <CardDescription>API-kulcsok importálása JSON-fájlból.</CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full">
-                <Button
-                  onClick={() => apiKeyFileInputRef.current?.click()}
-                  disabled={isImportingKeys}
-                  variant="outline"
-                  size="sm"
-                  className={classNames(
-                    'hover:text-bolt-elements-item-contentAccent hover:border-bolt-elements-item-backgroundAccent hover:bg-bolt-elements-item-backgroundAccent transition-colors w-full justify-center',
-                    isImportingKeys ? 'cursor-not-allowed' : '',
-                  )}
-                >
-                  {isImportingKeys ? (
-                    <>
-                      <div className="i-ph-spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Importálás…
-                    </>
-                  ) : (
-                    'Kulcsok importálása'
-                  )}
-                </Button>
-              </motion.div>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-
       {/* Danger Section */}
       <div>
         <h2 className="text-xl font-semibold mb-4 text-red-500 dark:text-red-400">Veszélyes műveletek</h2>
@@ -699,28 +574,6 @@ export function DataTab() {
                 className="w-full justify-center"
               >
                 {isResetting ? 'Visszaállítás…' : 'Összes beállítás visszaállítása'}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card className="border-red-500/30 bg-bolt-elements-background-depth-2">
-            <CardHeader>
-              <div className="flex items-center mb-2">
-                <div className="i-ph-key-duotone w-5 h-5 text-red-500 dark:text-red-400 mr-2" />
-                <CardTitle className="text-lg">Összes API-kulcs törlése</CardTitle>
-              </div>
-              <CardDescription>
-                A böngészőben mentett API-kulcsok törlése. A környezeti kulcsok nem változnak.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button
-                onClick={() => setShowDeleteAPIKeysConfirm(true)}
-                variant="destructive"
-                size="sm"
-                className="w-full justify-center"
-              >
-                Összes API-kulcs törlése
               </Button>
             </CardFooter>
           </Card>

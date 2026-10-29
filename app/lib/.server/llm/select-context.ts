@@ -1,11 +1,12 @@
 import { generateText, type UIMessage } from 'ai';
 import ignore from 'ignore';
 import { IGNORE_PATTERNS, type FileMap } from './constants';
-import { createFilesContext, extractCurrentContext, extractPropertiesFromMessage, simplifyBoltActions } from './utils';
+import { managedAI } from './managed-ai';
+import { createFilesContext, extractCurrentContext, simplifyBoltActions } from './utils';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { createMessage, getFirstTextPart, getMessageText } from '~/lib/persistence/messageMigration';
 import type { IProviderSetting } from '~/types/model';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROVIDER_LIST } from '~/utils/constants';
+import { DEFAULT_PROVIDER, PROVIDER_LIST } from '~/utils/constants';
 import { createScopedLogger } from '~/utils/logger';
 
 // Common patterns to ignore, similar to .gitignore
@@ -24,17 +25,12 @@ export async function selectContext(props: {
   summary: string;
   onFinish?: (resp: Awaited<ReturnType<typeof generateText>>) => void;
 }) {
-  const { messages, env: serverEnv, apiKeys, files, providerSettings, summary, onFinish } = props;
+  const { messages, env: serverEnv, files, summary, onFinish } = props;
 
-  let currentModel = DEFAULT_MODEL;
-  let currentProvider = DEFAULT_PROVIDER.name;
+  const { model: currentModel, provider: currentProvider, apiKeys, providerSettings } = managedAI(serverEnv);
 
   const processedMessages = messages.map((message) => {
     if (message.role === 'user') {
-      const { model, provider } = extractPropertiesFromMessage(message);
-      currentModel = model;
-      currentProvider = provider;
-
       return message;
     } else if (message.role == 'assistant') {
       let text = simplifyBoltActions(getMessageText(message));
@@ -68,11 +64,7 @@ export async function selectContext(props: {
     modelDetails = modelsList.find((m) => m.name === currentModel);
 
     if (!modelDetails) {
-      // Fallback to first model
-      logger.warn(
-        `MODEL [${currentModel}] not found in provider [${provider.name}]. Falling back to first model. ${modelsList[0].name}`,
-      );
-      modelDetails = modelsList[0];
+      throw new Error('A beállított AI-modell nem érhető el.');
     }
   }
 

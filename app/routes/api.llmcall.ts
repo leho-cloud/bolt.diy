@@ -9,11 +9,11 @@ import {
   toTokenLimitError,
 } from '~/lib/.server/api/errors';
 import { readJsonBody } from '~/lib/.server/api/read-body';
-import { REQUEST_LIMITS, asProviderInfo, llmCallRequestSchema, parseBody } from '~/lib/.server/api/schemas';
+import { REQUEST_LIMITS, llmCallRequestSchema, parseBody } from '~/lib/.server/api/schemas';
 import { MAX_TOKENS, PROVIDER_COMPLETION_LIMITS, isReasoningModel } from '~/lib/.server/llm/constants';
 import { toLlmCallResponse } from '~/lib/.server/llm/llmcall-response';
+import { managedAI } from '~/lib/.server/llm/managed-ai';
 import { streamText } from '~/lib/.server/llm/stream-text';
-import { getApiKeysFromCookie, getProviderSettingsFromCookie } from '~/lib/api/cookies';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import type { ModelInfo } from '~/lib/modules/llm/types';
 import { createMessage } from '~/lib/persistence/messageMigration';
@@ -95,13 +95,10 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
     return toApiErrorResponse(error);
   }
 
-  const { system, message, model, streamOutput } = body;
-  const provider = asProviderInfo(body.provider);
+  const { system, message, streamOutput } = body;
+  const { model, apiKeys, providerSettings } = managedAI(context.cloudflare?.env);
+  const provider = PROVIDER_LIST.find((item) => item.name === 'OpenRouter')!;
   const { name: providerName } = provider;
-
-  const cookieHeader = request.headers.get('Cookie');
-  const apiKeys = getApiKeysFromCookie(cookieHeader);
-  const providerSettings = getProviderSettingsFromCookie(cookieHeader);
 
   if (streamOutput) {
     try {

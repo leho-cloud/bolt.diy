@@ -29,7 +29,6 @@ import { getFilePaths, selectContext } from '~/lib/.server/llm/select-context';
 import { streamText, type StreamingOptions } from '~/lib/.server/llm/stream-text';
 import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import { createWebsiteTools } from '~/lib/.server/website/tools';
-import { getApiKeysFromCookie, getProviderSettingsFromCookie } from '~/lib/api/cookies';
 import { getAgentLoopInstructions, getAgentLoopProgress } from '~/lib/common/agentLoop';
 import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
 import { getStarterBuildProgress } from '~/lib/common/starterBuild';
@@ -40,7 +39,6 @@ import { getProjectToolNames, projectToolDefinitions } from '~/lib/runtime/proje
 import { withSecurity, getTrustedClientIP } from '~/lib/security';
 import { MCPService } from '~/lib/services/mcpService';
 import type { ContextAnnotation, ProgressAnnotation, ToolCallAnnotation } from '~/types/context';
-import type { IProviderSetting } from '~/types/model';
 import { WORK_DIR } from '~/utils/constants';
 import { createScopedLogger } from '~/utils/logger';
 
@@ -86,9 +84,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   const files = asFileMap(body.files);
   const designScheme = asDesignScheme(body.designScheme);
 
-  const cookieHeader = request.headers.get('Cookie');
-  const apiKeys = getApiKeysFromCookie(cookieHeader);
-  const providerSettings: Record<string, IProviderSetting> = getProviderSettingsFromCookie(cookieHeader);
+  const apiKeys = {};
+  const providerSettings = {};
 
   /*
    * SwitchableStream is no longer used: its .switches counter was the only

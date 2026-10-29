@@ -2,7 +2,6 @@ import { useStore } from '@nanostores/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import React from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
-import { APIKeyManager } from './APIKeyManager';
 import { AttachmentMenu } from './AttachmentMenu';
 import styles from './BaseChat.module.scss';
 import FilePreview from './FilePreview';
@@ -11,23 +10,19 @@ import { ScreenshotStateManager } from './ScreenshotStateManager';
 import { SendButton } from './SendButton.client';
 import { SupabaseConnection } from './SupabaseConnection';
 import { ToolAccessMenu } from './ToolAccessMenu';
-import { ModelSelector } from '~/components/chat/ModelSelector';
 import { SpeechRecognitionButton } from '~/components/chat/SpeechRecognition';
 import { ColorSchemeDialog } from '~/components/ui/ColorSchemeDialog';
-import { IconButton } from '~/components/ui/IconButton';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import { isGitHubConnected } from '~/lib/stores/githubConnection';
 import { isGitLabConnected } from '~/lib/stores/gitlabConnection';
 import { useMCPStore, type ConnectorId } from '~/lib/stores/mcp';
 import { netlifyConnection } from '~/lib/stores/netlify';
-import { LOCAL_PROVIDERS } from '~/lib/stores/settings';
 import { supabaseConnection } from '~/lib/stores/supabase';
 import { vercelConnection } from '~/lib/stores/vercel';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ProviderInfo } from '~/types/model';
 import { classNames } from '~/utils/classNames';
-import { PROVIDER_LIST } from '~/utils/constants';
 
 interface ChatBoxProps {
   isModelSettingsCollapsed: boolean;
@@ -197,53 +192,6 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         <rect className={classNames(styles.PromptEffectLine)} pathLength="100" strokeLinecap="round"></rect>
         <rect className={classNames(styles.PromptShine)} x="48" y="24" width="70" height="1"></rect>
       </svg>
-      <div>
-        <ClientOnly>
-          {() => (
-            <div className={props.isModelSettingsCollapsed ? 'hidden' : ''}>
-              <div className="mb-2 flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
-                <label htmlFor="bolt-auto-model">AI-modellválasztás</label>
-                <select
-                  id="bolt-auto-model"
-                  value={props.autoModelMode ?? 'manual'}
-                  onChange={(event) =>
-                    props.setAutoModelMode?.(event.target.value as 'manual' | 'economy' | 'balanced' | 'quality')
-                  }
-                  className="rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-2 py-1 text-bolt-elements-textPrimary"
-                  title="Automatikus választás jelenleg OpenRouterrel működik"
-                >
-                  <option value="manual">Kézi</option>
-                  <option value="economy">Automatikus – Takarékos</option>
-                  <option value="balanced">Automatikus – Kiegyensúlyozott</option>
-                  <option value="quality">Automatikus – Minőség</option>
-                </select>
-              </div>
-              <ModelSelector
-                key={props.provider?.name}
-                model={props.model}
-                setModel={props.setModel}
-                modelList={props.modelList}
-                provider={props.provider}
-                setProvider={props.setProvider}
-                providerList={props.providerList || (PROVIDER_LIST as ProviderInfo[])}
-                apiKeys={props.apiKeys}
-                modelLoading={props.isModelLoading}
-              />
-              {(props.providerList || []).length > 0 &&
-                props.provider &&
-                !LOCAL_PROVIDERS.includes(props.provider.name) && (
-                  <APIKeyManager
-                    provider={props.provider}
-                    apiKey={props.apiKeys[props.provider.name] || ''}
-                    setApiKey={(key) => {
-                      props.onApiKeysChange(props.provider.name, key);
-                    }}
-                  />
-                )}
-            </div>
-          )}
-        </ClientOnly>
-      </div>
       <FilePreview
         files={props.uploadedFiles}
         imageDataList={props.imageDataList}
@@ -494,26 +442,6 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               onStop={props.stopListening}
               disabled={props.isStreaming}
             />
-            <IconButton
-              title="AI beállításai"
-              className={classNames('muhely-model-settings transition-all flex items-center gap-1', {
-                'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
-                  props.isModelSettingsCollapsed,
-                'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault':
-                  !props.isModelSettingsCollapsed,
-              })}
-              onClick={() => props.setIsModelSettingsCollapsed(!props.isModelSettingsCollapsed)}
-              disabled={!props.providerList || props.providerList.length === 0}
-            >
-              <div className={`i-ph:caret-${props.isModelSettingsCollapsed ? 'right' : 'down'} text-lg`} />
-              {props.isModelSettingsCollapsed ? (
-                <span className="text-xs" title={props.model}>
-                  AI beállításai
-                </span>
-              ) : (
-                <span />
-              )}
-            </IconButton>
           </div>
           <ExpoQrModal open={props.qrModalOpen} onClose={() => props.setQrModalOpen(false)} />
         </div>

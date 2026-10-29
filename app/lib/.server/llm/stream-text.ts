@@ -1,9 +1,10 @@
 import { streamText as _streamText, type ModelMessage, type UIMessage } from 'ai';
 import { withAgentStreamDeadlines, withAgentToolCallRecovery } from './agent-stream';
 import { MAX_TOKENS, PROVIDER_COMPLETION_LIMITS, isReasoningModel, type FileMap } from './constants';
+import { managedAI } from './managed-ai';
 import { prepareModelMessages } from './model-messages';
 import { withDevelopmentCommentaryWorkstyle } from './prompt-workstyle';
-import { createFilesContext, extractPropertiesFromMessage } from './utils';
+import { createFilesContext } from './utils';
 import { PromptLibrary } from '~/lib/common/prompt-library';
 import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
@@ -11,7 +12,7 @@ import { LLMManager } from '~/lib/modules/llm/manager';
 import { createMessage, getMessageText } from '~/lib/persistence/messageMigration';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { IProviderSetting } from '~/types/model';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
+import { DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
 import { createScopedLogger } from '~/utils/logger';
 import { allowedHTMLElements } from '~/utils/markdown';
 
@@ -105,9 +106,7 @@ export async function streamText(props: {
     messages,
     env: serverEnv,
     options,
-    apiKeys,
     files,
-    providerSettings,
     promptId,
     contextOptimization,
     contextFiles,
@@ -118,23 +117,15 @@ export async function streamText(props: {
     onChunk,
   } = props;
 
-  let currentModel = props.model ?? DEFAULT_MODEL;
-  let currentProvider = props.provider ?? DEFAULT_PROVIDER.name;
+  const {
+    model: currentModel,
+    provider: currentProvider,
+    apiKeys,
+    providerSettings,
+  } = managedAI(serverEnv, chatMode === 'build' ? 'build' : 'assist');
 
   let processedMessages = messages.map((message) => {
     const newMessage = { ...message } as Record<string, any>;
-
-    if (message.role === 'user') {
-      const { model, provider } = extractPropertiesFromMessage(message);
-
-      if (!props.model) {
-        currentModel = model;
-      }
-
-      if (!props.provider) {
-        currentProvider = provider;
-      }
-    }
 
     /*
      * Text is rebuilt through createMessage so it lands in both `content` and
@@ -175,13 +166,11 @@ export async function streamText(props: {
   let modelDetails = staticModels.find((m) => m.name === currentModel);
 
   if (!modelDetails) {
+    const modelListOptions = { apiKeys, providerSettings, serverEnv: serverEnv as any };
+
     const modelsList = [
       ...(provider.staticModels || []),
-      ...(await LLMManager.getInstance().getModelListFromProvider(provider, {
-        apiKeys,
-        providerSettings,
-        serverEnv: serverEnv as any,
-      })),
+      ...(await LLMManager.getInstance().getModelListFromProvider(provider, modelListOptions)),
     ];
 
     if (!modelsList.length) {
@@ -191,18 +180,7 @@ export async function streamText(props: {
     modelDetails = modelsList.find((m) => m.name === currentModel);
 
     if (!modelDetails) {
-      // Check if it's a Google provider and the model name looks like it might be incorrect
-      if (provider.name === 'Google' && currentModel.includes('2.5')) {
-        throw new Error(
-          `Model "${currentModel}" not found. Gemini 2.5 Pro doesn't exist. Available Gemini models include: gemini-1.5-pro, gemini-2.0-flash, gemini-1.5-flash. Please select a valid model.`,
-        );
-      }
-
-      // Fallback to first model with warning
-      logger.warn(
-        `MODEL [${currentModel}] not found in provider [${provider.name}]. Falling back to first model. ${modelsList[0].name}`,
-      );
-      modelDetails = modelsList[0];
+      throw new Error('A beállított AI-modell nem érhető el. Kérjük, jelezd az ügyfélszolgálatnak.');
     }
   }
 
@@ -371,12 +349,8 @@ export async function streamText(props: {
    * not advertise every optional parameter. Preserve explicit user settings.
    */
 
-  const selectedModel = provider.getModelInstance({
-    model: modelDetails.name,
-    serverEnv,
-    apiKeys,
-    providerSettings,
-  });
+  const selectedModel = provider.getModelInstance({ apiKeys, providerSettings, model: modelDetails.name, serverEnv });
+
   const boundedModel =
     forwardedOptions.streamRetries !== undefined ? withAgentStreamDeadlines(selectedModel) : selectedModel;
   const streamParams = {

@@ -3,6 +3,7 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import { useState, useEffect, useMemo } from 'react';
 import { AvatarDropdown } from './AvatarDropdown';
 import { TAB_LABELS, TAB_ICONS, DEFAULT_TAB_CONFIG, TAB_DESCRIPTIONS } from './constants';
+import { isCustomerTab } from './customer-tabs';
 import type { TabType, Profile } from './types';
 import { TabTile } from '~/components/@settings/shared/components/TabTile';
 
@@ -13,13 +14,9 @@ import { EventLogsTab } from '~/components/@settings/tabs/event-logs/EventLogsTa
 import FeaturesTab from '~/components/@settings/tabs/features/FeaturesTab';
 import GitHubTab from '~/components/@settings/tabs/github/GitHubTab';
 import GitLabTab from '~/components/@settings/tabs/gitlab/GitLabTab';
-import McpTab from '~/components/@settings/tabs/mcp/McpTab';
 import NetlifyTab from '~/components/@settings/tabs/netlify/NetlifyTab';
 import NotificationsTab from '~/components/@settings/tabs/notifications/NotificationsTab';
-import PluginTab from '~/components/@settings/tabs/plugins/PluginTab';
 import ProfileTab from '~/components/@settings/tabs/profile/ProfileTab';
-import CloudProvidersTab from '~/components/@settings/tabs/providers/cloud/CloudProvidersTab';
-import LocalProvidersTab from '~/components/@settings/tabs/providers/local/LocalProvidersTab';
 import SettingsTab from '~/components/@settings/tabs/settings/SettingsTab';
 import SupabaseTab from '~/components/@settings/tabs/supabase/SupabaseTab';
 import VercelTab from '~/components/@settings/tabs/vercel/VercelTab';
@@ -61,7 +58,6 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
   const [activeTab, setActiveTab] = useState<TabType | null>(null);
   const [loadingTab, setLoadingTab] = useState<TabType | null>(null);
   const [isDocumentationOpen, setIsDocumentationOpen] = useState(false);
-  const [hasVisitedCloudProviders, setHasVisitedCloudProviders] = useState(false);
 
   // Store values
   const tabConfiguration = useStore(tabConfigurationStore);
@@ -91,7 +87,7 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
     // Optimize user mode tab filtering
     return tabConfiguration.userTabs
       .filter((tab) => {
-        if (!tab?.id) {
+        if (!tab?.id || !isCustomerTab(tab.id)) {
           return false;
         }
 
@@ -112,13 +108,9 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
       setLoadingTab(null);
     } else {
       // When opening, set initial tab if provided
-      if (initialTab) {
+      if (initialTab && isCustomerTab(initialTab)) {
         setActiveTab(initialTab);
         setLoadingTab(null);
-
-        if (initialTab === 'cloud-providers') {
-          setHasVisitedCloudProviders(true);
-        }
       } else {
         setActiveTab(null);
       }
@@ -134,6 +126,10 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
 
   // Handlers
   const getTabComponent = (tabId: TabType) => {
+    if (!isCustomerTab(tabId)) {
+      return null;
+    }
+
     switch (tabId) {
       case 'profile':
         return <ProfileTab />;
@@ -145,10 +141,6 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
         return <FeaturesTab />;
       case 'data':
         return <DataTab />;
-      case 'cloud-providers':
-        return <CloudProvidersTab />;
-      case 'local-providers':
-        return <LocalProvidersTab />;
       case 'connectors':
         return <ConnectorsTab />;
       case 'github':
@@ -163,10 +155,6 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
         return <NetlifyTab />;
       case 'event-logs':
         return <EventLogsTab />;
-      case 'mcp':
-        return <McpTab />;
-      case 'plugins':
-        return <PluginTab />;
 
       default:
         return null;
@@ -214,12 +202,12 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
   };
 
   const handleTabClick = (tabId: TabType) => {
+    if (!isCustomerTab(tabId)) {
+      return;
+    }
+
     setLoadingTab(tabId);
     setActiveTab(tabId);
-
-    if (tabId === 'cloud-providers') {
-      setHasVisitedCloudProviders(true);
-    }
 
     // Acknowledge notifications based on tab
     switch (tabId) {
@@ -245,7 +233,9 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
 
   const navigationTabs = NAV_GROUPS.map((group) => ({
     ...group,
-    tabs: group.tabs.filter((id) => id !== 'notifications' || profile?.preferences?.notifications !== false),
+    tabs: group.tabs.filter(
+      (id) => isCustomerTab(id) && (id !== 'notifications' || profile?.preferences?.notifications !== false),
+    ),
   }));
 
   return (
@@ -349,14 +339,6 @@ export const ControlPanel = ({ open, onClose, initialTab }: ControlPanelProps) =
                       </div>
                     </div>
                   ) : null}
-                  {hasVisitedCloudProviders && (
-                    <div
-                      aria-hidden={activeTab !== 'cloud-providers'}
-                      className={classNames('mx-auto max-w-5xl', activeTab !== 'cloud-providers' && 'hidden')}
-                    >
-                      <CloudProvidersTab />
-                    </div>
-                  )}
                 </main>
               </div>
             </div>
