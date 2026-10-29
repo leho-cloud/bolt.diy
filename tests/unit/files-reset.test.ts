@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WebContainer } from '@webcontainer/api';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FilesStore } from '~/lib/stores/files';
 
 vi.mock('~/lib/persistence/lockedFiles', () => ({
@@ -26,11 +26,20 @@ describe('reset while runtime boots', () => {
   it('still removes the outgoing project after runtime boot', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+
     const rm = vi.fn().mockResolvedValue(undefined);
+
     const runtime = {
-      fs: { readdir: vi.fn().mockResolvedValue(['src', 'package.json']), rm },
-      internal: { watchPaths: vi.fn() },
+      workdir: '/home/project',
+      fs: {
+        readdir: vi
+          .fn()
+          .mockImplementation(async (_path, options) => (options?.withFileTypes ? [] : ['src', 'package.json'])),
+        watch: vi.fn().mockReturnValue({ close: vi.fn() }),
+        rm,
+      },
     } as unknown as WebContainer;
+
     const store = new FilesStore(Promise.resolve(runtime));
     await Promise.resolve();
     await store.reset();
