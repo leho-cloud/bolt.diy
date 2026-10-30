@@ -132,6 +132,45 @@ describe('agent plan and completion tools', () => {
     expect(loop.prepareStep({ steps: [] }).activeTools).toEqual(['project_read_file', 'agent_plan', 'agent_complete']);
   });
 
+  it('allows inspecting a follow-up alongside its plan, then exposes edits without requesting an old reference', () => {
+    const messages: AnyMessage[] = [
+      { role: 'user', content: 'A minta: https://mingai.hu/' },
+      ...verified.slice(1),
+      { role: 'user', content: 'A meglévő cím legyen kisebb, a videót ne változtasd.' },
+    ];
+    const loop = createAgentLoopTools(messages, true, true, [
+      'project_read_file',
+      'project_list_paths',
+      'project_write_file',
+      'project_run_command',
+      'website_reference',
+      'website_tools_status',
+    ]);
+    expect(loop.prepareStep({ steps: [] }).activeTools).toEqual([
+      'agent_plan',
+      'project_read_file',
+      'project_list_paths',
+    ]);
+
+    const next = loop.prepareStep({
+      steps: [
+        {
+          toolCalls: [
+            { toolName: 'agent_plan', toolCallId: 'plan', input: plan },
+            { toolName: 'project_read_file', toolCallId: 'read', input: { path: 'src/styles.css' } },
+          ],
+          toolResults: [
+            { toolCallId: 'plan', output: { plan } },
+            { toolCallId: 'read', output: { content: 'h1 { font-size: 120px; }' } },
+          ],
+        },
+      ],
+    });
+    expect(next.activeTools).toContain('project_write_file');
+    expect(next.activeTools).toContain('project_read_file');
+    expect(next.activeTools).not.toContain('project_run_command');
+  });
+
   it('rejects completion without actual run and test evidence', async () => {
     const loop = createAgentLoopTools(
       [

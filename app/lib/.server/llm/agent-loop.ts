@@ -187,11 +187,23 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           ...instructions,
 
           /*
-           * Expose only the planning tool, but avoid a forced named-tool
-           * selection that some OpenRouter routes cannot fulfill reliably.
+           * Planning may inspect the existing project. Models commonly batch
+           * agent_plan with these reads; hiding them turns harmless inspection
+           * into invalid tool calls and can strand a follow-up before editing.
+           * Writes and commands still require a recorded plan.
            */
           toolChoice: 'auto' as const,
-          activeTools: ['agent_plan' as const],
+          activeTools: [
+            'agent_plan' as const,
+            ...(taskToolNames?.filter((name) =>
+              [
+                'project_read_file',
+                'project_list_paths',
+                'project_search_content',
+                'project_find_related_files',
+              ].includes(name),
+            ) ?? []),
+          ],
         };
       }
 
