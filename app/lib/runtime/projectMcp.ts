@@ -120,6 +120,14 @@ function assertUnlocked(filePath: string, directory = false) {
   }
 }
 
+function assertNoUnsavedChanges(filePath: string) {
+  if (workbenchStore.unsavedFiles.get().has(filePath)) {
+    throw new Error(
+      'The file has unsaved manual edits. Ask the user to save or discard them before editing this file.',
+    );
+  }
+}
+
 async function readText(relative: string): Promise<string> {
   const wc = await webcontainer;
   const bytes = await wc.fs.readFile(relative);
@@ -275,7 +283,8 @@ export async function createProjectMcpBridge() {
 
         let created = false;
         let changed = false;
-        await queueMutation(async () => {
+
+        const revision = await queueMutation(async () => {
           assertNotAborted(extra.signal);
           assertProjectCurrent();
 
@@ -305,10 +314,14 @@ export async function createProjectMcpBridge() {
           }
 
           assertUnlocked(target.absolute);
+          assertNoUnsavedChanges(target.absolute);
           changed = current?.type !== 'file' || current.content !== content;
 
+          const revision = await getFileRevision(content);
+
           if (!changed) {
-            return;
+            fileRevisionsReadByModel.set(target.relative, revision);
+            return revision;
           }
 
           if (current?.type === 'file' && !replacementReason) {
@@ -320,19 +333,27 @@ export async function createProjectMcpBridge() {
           await assertValidProjectSource(target.relative, content);
           assertNotAborted(extra.signal);
           assertProjectCurrent();
+          assertNoUnsavedChanges(target.absolute);
 
           if (current?.type === 'file') {
             await workbenchStore.saveFileContent(target.absolute, content);
           } else {
             await workbenchStore.createFile(target.absolute, content);
           }
+
+          fileRevisionsReadByModel.set(target.relative, revision);
+
+          return revision;
         });
 
-        if (changed) {
-          fileRevisionsReadByModel.delete(target.relative);
-        }
-
-        return success({ path: target.relative, written: true, created, changed, generation: bridgeProjectGeneration });
+        return success({
+          path: target.relative,
+          written: true,
+          created,
+          changed,
+          revision,
+          generation: bridgeProjectGeneration,
+        });
       } catch (error) {
         return failure(error);
       }
@@ -350,30 +371,43 @@ export async function createProjectMcpBridge() {
           .string()
           .regex(/^[a-f0-9]{64}$/)
           .optional(),
-        oldText: z.string().min(1),
-        newText: z.string(),
+        oldText: z.string().min(1).optional(),
+        newText: z.string().optional(),
+        edits: z
+          .array(z.object({ oldText: z.string().min(1), newText: z.string() }))
+          .min(1)
+          .max(100)
+          .optional(),
       },
     },
-    async ({ path: input, expectedContent, expectedRevision, oldText, newText }, extra) => {
+    async ({ path: input, expectedContent, expectedRevision, oldText, newText, edits }, extra) => {
       try {
         const target = projectPath(input);
+
+        if (edits ? oldText !== undefined || newText !== undefined : oldText === undefined || newText === undefined) {
+          throw new Error('Supply either edits or both oldText and newText, never both forms. File was not saved.');
+        }
+
+        const replacements = edits ?? [{ oldText: oldText!, newText: newText! }];
 
         return await queueMutation(async () => {
           assertNotAborted(extra.signal);
           assertUnlocked(target.absolute);
+          assertNoUnsavedChanges(target.absolute);
 
           const content = await readText(target.relative);
           assertNotAborted(extra.signal);
           assertProjectCurrent();
 
           const revisionToCheck = expectedRevision ?? fileRevisionsReadByModel.get(target.relative);
+          const currentRevision = await getFileRevision(content);
 
           if (expectedContent === undefined && revisionToCheck === undefined) {
             throw new Error('Read the file first, then supply its revision as expectedRevision.');
           }
 
           if (
-            (revisionToCheck !== undefined && (await getFileRevision(content)) !== revisionToCheck) ||
+            (revisionToCheck !== undefined && currentRevision !== revisionToCheck) ||
             (expectedContent !== undefined && content !== expectedContent)
           ) {
             throw new Error(
@@ -381,17 +415,23 @@ export async function createProjectMcpBridge() {
             );
           }
 
-          const first = content.indexOf(oldText);
+          let updated = content;
 
-          if (first < 0) {
-            throw new Error('Patch conflict: oldText was not found.');
+          for (const [index, replacement] of replacements.entries()) {
+            const first = updated.indexOf(replacement.oldText);
+
+            if (first < 0) {
+              throw new Error(`Patch conflict at edit ${index + 1}: oldText was not found. File was not saved.`);
+            }
+
+            if (updated.indexOf(replacement.oldText, first + replacement.oldText.length) >= 0) {
+              throw new Error(
+                `Patch conflict at edit ${index + 1}: oldText is ambiguous; it must match exactly once. File was not saved.`,
+              );
+            }
+
+            updated = updated.slice(0, first) + replacement.newText + updated.slice(first + replacement.oldText.length);
           }
-
-          if (content.indexOf(oldText, first + oldText.length) >= 0) {
-            throw new Error('Patch conflict: oldText is ambiguous; it must match exactly once.');
-          }
-
-          const updated = content.slice(0, first) + newText + content.slice(first + oldText.length);
 
           if (new TextEncoder().encode(updated).byteLength > MAX_TEXT_BYTES) {
             throw new Error('Patched file exceeds the text file size limit.');
@@ -400,16 +440,38 @@ export async function createProjectMcpBridge() {
           assertProjectCurrent();
 
           const changed = updated !== content;
+          const revision = await getFileRevision(updated);
 
           if (changed) {
             await assertValidProjectSource(target.relative, updated);
             assertNotAborted(extra.signal);
             assertProjectCurrent();
+            assertUnlocked(target.absolute);
+            assertNoUnsavedChanges(target.absolute);
+
+            if ((await getFileRevision(await readText(target.relative))) !== currentRevision) {
+              throw new Error(
+                'Patch conflict: the file changed during validation. Read the file again; file was not saved.',
+              );
+            }
+
+            assertProjectCurrent();
+            assertNotAborted(extra.signal);
+            assertUnlocked(target.absolute);
+            assertNoUnsavedChanges(target.absolute);
             await workbenchStore.saveFileContent(target.absolute, updated);
-            fileRevisionsReadByModel.delete(target.relative);
           }
 
-          return success({ path: target.relative, patched: true, changed, generation: bridgeProjectGeneration });
+          fileRevisionsReadByModel.set(target.relative, revision);
+
+          return success({
+            path: target.relative,
+            patched: true,
+            changed,
+            revision,
+            appliedEdits: replacements.length,
+            generation: bridgeProjectGeneration,
+          });
         });
       } catch (error) {
         return failure(error);

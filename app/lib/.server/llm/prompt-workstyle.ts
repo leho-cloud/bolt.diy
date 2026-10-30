@@ -11,11 +11,12 @@ const PROJECT_MCP_INSTRUCTIONS = `
   
   CRITICAL: ALWAYS READ FILES BEFORE EDITING
   - NEVER call project_patch_file without first calling project_read_file on that exact file
-  - The read result contains a "revision" field - copy this value into expectedRevision when patching
-  - If you get an error about "Read the file first" or "supply its revision", you skipped the read step
+  - Reads, writes and patches return a "revision" field. Use the latest successful result as expectedRevision for the next patch, never reuse the revision from before an edit. If omitted, the tool checks the latest known revision automatically.
+  - For multiple changes to one file, use one project_patch_file call with an ordered edits array of oldText/newText pairs. The whole batch is validated and saved together, or none is saved. Do not edit one file through parallel calls using the same old revision. Parallel edits to different files are fine.
+  - A successful patch does not require another read solely to obtain its new revision. On unsaved manual edits, ask the user to save or discard them; do not overwrite them.
   - If patching fails with a conflict, read the file again to get the updated revision, then retry
   
-  - Follow-up requests must preserve the existing project. Read the relevant files and use project_patch_file for small targeted changes, supplying exact oldText and the read result's revision as expectedRevision. On a conflict read again; do not repeat a stale patch or reconstruct the whole expectedContent. Edit only files needed for the request. Preserve unrelated code, formatting, dependencies, and behavior; avoid unnecessary rewrites, refactors, renames, or new scaffolds.
+  - Follow-up requests must preserve the existing project. Read the relevant files and use project_patch_file for small targeted changes, supplying exact oldText and the latest successful revision as expectedRevision. On a conflict read again; do not repeat a stale patch or reconstruct the whole expectedContent. Edit only files needed for the request. Preserve unrelated code, formatting, dependencies, and behavior; avoid unnecessary rewrites, refactors, renames, or new scaffolds.
   - Use project_write_file for new files. Replace an existing file only when the requested change fundamentally requires it, and supply replacementReason explaining why a targeted patch is insufficient.
   - Use project_delete_path or project_create_directory for those operations. Respect tool errors and locked-file results.
   - Use project_run_command for checks and package scripts, labeling purpose as run, test, install, or other. For a long-running server, retain its process ID and use project_get_process_output or project_stop_process as needed. Reuse a live preview server on follow-ups.

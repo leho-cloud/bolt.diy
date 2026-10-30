@@ -10,6 +10,17 @@ const { spawn, writeToBoltTerminal, toggleTerminal, readFile, saveFileContent, c
   createFile: vi.fn(),
 }));
 
+const serializeMutation = vi.hoisted(() => {
+  let tail: Promise<unknown> = Promise.resolve();
+
+  return (operation: () => Promise<unknown>) => {
+    const result = tail.then(operation);
+    tail = result.catch(() => undefined);
+
+    return result;
+  };
+});
+
 vi.mock('~/lib/webcontainer', () => ({
   webcontainer: Promise.resolve({ spawn, workdir: '/home/project', fs: { readFile } }),
 }));
@@ -19,11 +30,12 @@ vi.mock('~/lib/stores/workbench', () => ({
     projectGeneration: atom(1),
     previews: atom([]),
     files: atom({}),
+    unsavedFiles: atom(new Set<string>()),
     saveFileContent,
     createFile,
     isFolderLocked: () => ({ isLocked: false }),
     isFileLocked: () => ({ locked: false }),
-    queueProjectMutation: (operation: () => Promise<unknown>) => operation(),
+    queueProjectMutation: serializeMutation,
     waitForExecutionQueue: async () => undefined,
     toggleTerminal,
     writeToBoltTerminal,
@@ -42,6 +54,223 @@ afterEach(async () => {
   workbenchStore.projectGeneration.set(workbenchStore.projectGeneration.get() + 1);
   workbenchStore.previews.set([]);
   workbenchStore.files.set({});
+  workbenchStore.unsavedFiles.set(new Set());
+});
+
+describe('multiple edits to one project file', () => {
+  const file = 'src/theme.js';
+  const absolute = '/home/project/src/theme.js';
+  const initial = 'export const color = "blue";\nexport const size = 12;\n';
+  const colors = { oldText: '"blue"', newText: '"green"' };
+  const sizes = { oldText: 'size = 12', newText: 'size = 14' };
+
+  let text = initial;
+
+  const revisionOf = (result: unknown) =>
+    (result as { structuredContent: { revision: string } }).structuredContent.revision;
+
+  const setText = (value: string) => {
+    text = value;
+    workbenchStore.files.set({ [absolute]: { type: 'file', content: text, isBinary: false } });
+  };
+  const prepare = async () => {
+    setText(initial);
+    readFile.mockImplementation(async () => new TextEncoder().encode(text));
+    saveFileContent.mockReset().mockImplementation(async (_path, value) => setText(value));
+    bridge = await createProjectMcpBridge();
+
+    return (await bridge.callTool('project_read_file', { path: file })).structuredContent as { revision: string };
+  };
+  afterEach(() => {
+    readFile.mockReset();
+    saveFileContent.mockReset();
+  });
+
+  it('applies several exact changes in one save and returns the resulting revision', async () => {
+    const { revision } = await prepare();
+
+    const result = await bridge!.callTool('project_patch_file', {
+      path: file,
+      expectedRevision: revision,
+      edits: [colors, sizes],
+    });
+    expect(result.isError).not.toBe(true);
+    expect(text).toBe(initial.replace('blue', 'green').replace('12', '14'));
+    expect(saveFileContent).toHaveBeenCalledOnce();
+
+    const reread = await bridge!.callTool('project_read_file', { path: file });
+    expect(result.structuredContent).toMatchObject({ appliedEdits: 2, revision: revisionOf(reread) });
+  });
+
+  it('validates the final source, allowing intermediate steps that are not valid on their own', async () => {
+    await prepare();
+    setText('export const first = 1;\nexport const second = 2;\n');
+
+    const read = await bridge!.callTool('project_read_file', { path: file });
+
+    const result = await bridge!.callTool('project_patch_file', {
+      path: file,
+      expectedRevision: revisionOf(read),
+      edits: [
+        { oldText: 'first = 1', newText: 'second = 1' },
+        { oldText: 'second = 2', newText: 'first = 2' },
+      ],
+    });
+    expect(result.isError).not.toBe(true);
+    expect(text).toBe('export const second = 1;\nexport const first = 2;\n');
+    expect(saveFileContent).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { oldText: 'missing', newText: 'other' },
+    { oldText: 'export const', newText: 'const' },
+    { oldText: 'size = 12', newText: 'size = (' },
+  ])('does not save any part of a batch when its final edit is invalid: $oldText', async (badEdit) => {
+    await prepare();
+
+    const result = await bridge!.callTool('project_patch_file', { path: file, edits: [colors, badEdit] });
+    expect(result.isError).toBe(true);
+    expect(text).toBe(initial);
+    expect(saveFileContent).not.toHaveBeenCalled();
+  });
+
+  it('continues sequential edits without another model read and accepts the latest returned explicit revision', async () => {
+    await prepare();
+
+    const first = await bridge!.callTool('project_patch_file', { path: file, ...colors });
+    const second = await bridge!.callTool('project_patch_file', { path: file, ...sizes });
+
+    const third = await bridge!.callTool('project_patch_file', {
+      path: file,
+      expectedRevision: revisionOf(second),
+      oldText: '"green"',
+      newText: '"red"',
+    });
+    expect([first, second, third].every((result) => !result.isError)).toBe(true);
+    expect(text).toBe(initial.replace('blue', 'red').replace('12', '14'));
+  });
+
+  it('serializes parallel implicit-revision patches without losing either change', async () => {
+    await prepare();
+
+    const results = await Promise.all([
+      bridge!.callTool('project_patch_file', { path: file, ...colors }),
+      bridge!.callTool('project_patch_file', { path: file, ...sizes }),
+    ]);
+    expect(results.every((result) => !result.isError)).toBe(true);
+    expect(text).toBe(initial.replace('blue', 'green').replace('12', '14'));
+  });
+
+  it('still rejects an explicitly stale revision instead of silently rebasing it', async () => {
+    const { revision } = await prepare();
+
+    const results = await Promise.all([
+      bridge!.callTool('project_patch_file', { path: file, expectedRevision: revision, ...colors }),
+      bridge!.callTool('project_patch_file', { path: file, expectedRevision: revision, ...sizes }),
+    ]);
+    expect(results[0].isError).not.toBe(true);
+    expect(results[1].isError).toBe(true);
+    expect(text).toBe(initial.replace('blue', 'green'));
+  });
+
+  it('refuses a manual change between model edits and permits continuation only after rereading', async () => {
+    await prepare();
+    await bridge!.callTool('project_patch_file', { path: file, ...colors });
+    setText(text + '// Manual note\n');
+
+    const refused = await bridge!.callTool('project_patch_file', { path: file, ...sizes });
+    expect(refused.isError).toBe(true);
+    expect(text).toContain('// Manual note');
+    expect(text).toContain('size = 12');
+    await bridge!.callTool('project_read_file', { path: file });
+
+    const accepted = await bridge!.callTool('project_patch_file', { path: file, ...sizes });
+    expect(accepted.isError).not.toBe(true);
+    expect(text).toContain('// Manual note');
+  });
+
+  it('returns and remembers a successful replacement revision for a subsequent targeted patch', async () => {
+    await prepare();
+
+    const replaced = await bridge!.callTool('project_write_file', {
+      path: file,
+      content: initial.replace('blue', 'green'),
+      replacementReason: 'Replace the theme structure.',
+    });
+    expect(revisionOf(replaced)).toMatch(/^[a-f0-9]{64}$/);
+
+    const patched = await bridge!.callTool('project_patch_file', { path: file, ...sizes });
+    expect(patched.isError).not.toBe(true);
+    expect(text).toBe(initial.replace('blue', 'green').replace('12', '14'));
+  });
+
+  it('protects unsaved manual edits from both patches and replacements', async () => {
+    await prepare();
+    workbenchStore.unsavedFiles.set(new Set([absolute]));
+
+    const patched = await bridge!.callTool('project_patch_file', { path: file, ...colors });
+
+    const replaced = await bridge!.callTool('project_write_file', {
+      path: file,
+      content: 'export const other = true;',
+      replacementReason: 'New theme.',
+    });
+    expect(patched.isError).toBe(true);
+    expect(replaced.isError).toBe(true);
+    expect(saveFileContent).not.toHaveBeenCalled();
+  });
+
+  it('remembers the revision of a newly created file without requiring a redundant read', async () => {
+    await prepare();
+    workbenchStore.files.set({});
+    readFile.mockRejectedValueOnce({ code: 'ENOENT' });
+    createFile.mockReset().mockImplementation(async (_path, value) => setText(value));
+
+    const created = await bridge!.callTool('project_write_file', { path: file, content: initial, overwrite: false });
+    expect(created.structuredContent).toMatchObject({ created: true });
+    expect(revisionOf(created)).toMatch(/^[a-f0-9]{64}$/);
+
+    const patched = await bridge!.callTool('project_patch_file', { path: file, ...colors });
+    expect(patched.isError).not.toBe(true);
+    expect(text).toBe(initial.replace('blue', 'green'));
+    createFile.mockReset();
+  });
+
+  it('keeps a no-op revision usable without writing or discarding its concurrency protection', async () => {
+    const { revision } = await prepare();
+    const noop = await bridge!.callTool('project_patch_file', { path: file, oldText: '"blue"', newText: '"blue"' });
+    expect(noop.structuredContent).toMatchObject({ changed: false, revision });
+    expect(saveFileContent).not.toHaveBeenCalled();
+
+    const next = await bridge!.callTool('project_patch_file', { path: file, expectedRevision: revision, ...colors });
+    expect(next.isError).not.toBe(true);
+  });
+
+  it('rechecks the saved file before committing, preserving a change that arrived during validation', async () => {
+    await prepare();
+    readFile
+      .mockImplementationOnce(async () => new TextEncoder().encode(text))
+      .mockImplementationOnce(async () => {
+        setText(text + '// Arrived during validation\n');
+        return new TextEncoder().encode(text);
+      });
+
+    const result = await bridge!.callTool('project_patch_file', { path: file, ...colors });
+    expect(result.isError).toBe(true);
+    expect(text).toBe(initial + '// Arrived during validation\n');
+    expect(saveFileContent).not.toHaveBeenCalled();
+  });
+
+  it.each([{ edits: [] }, { edits: [colors], ...sizes }, { oldText: 'blue' }])(
+    'rejects malformed edit requests without saving',
+    async (args) => {
+      await prepare();
+
+      const result = await bridge!.callTool('project_patch_file', { path: file, ...args });
+      expect(result.isError).toBe(true);
+      expect(saveFileContent).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function processWithOutput(output: string, exitCode: number | Promise<number>) {

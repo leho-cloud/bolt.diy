@@ -40,7 +40,7 @@ export const projectToolDefinitions: Record<ProjectToolName, { description: stri
   },
   project_read_file: {
     description:
-      'Read a UTF-8 text file from the active project. Returns content and revision; the latest read revision is checked automatically if expectedRevision is omitted when patching.',
+      'Read a UTF-8 text file from the active project. Returns content and revision; subsequent successful edits return the new revision. The latest known revision is checked automatically if expectedRevision is omitted when patching.',
     inputSchema: objectSchema({ path: { type: 'string', minLength: 1 } }, ['path']),
   },
   project_write_file: {
@@ -58,7 +58,7 @@ export const projectToolDefinitions: Record<ProjectToolName, { description: stri
   },
   project_patch_file: {
     description:
-      'Replace one exact unique oldText in a file. Read the file first; its latest revision is checked automatically when expectedRevision is omitted. Include expectedRevision when available. Do not copy the whole file. On a conflict, read again before retrying. Preserve actual line breaks in newText. Invalid JS/TS syntax is rejected before saving.',
+      'Patch a file using either oldText/newText or an ordered edits array of those pairs. For multiple changes to ONE file use ONE edits array, not parallel calls. All edits are checked and saved together or none are saved. Each oldText must match exactly once after earlier edits. Read first, then use the latest revision returned by a read/write/patch, never reuse an older revision. If omitted, the latest known revision is checked automatically. Returns the new revision. On conflict read again, never repeat a stale patch. Invalid final JS/TS is rejected before saving.',
     inputSchema: objectSchema(
       {
         path: { type: 'string', minLength: 1 },
@@ -66,8 +66,17 @@ export const projectToolDefinitions: Record<ProjectToolName, { description: stri
         expectedRevision: { type: 'string', pattern: '^[a-f0-9]{64}$' },
         oldText: { type: 'string', minLength: 1 },
         newText: { type: 'string' },
+        edits: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 100,
+          items: objectSchema({ oldText: { type: 'string', minLength: 1 }, newText: { type: 'string' } }, [
+            'oldText',
+            'newText',
+          ]),
+        },
       },
-      ['path', 'oldText', 'newText'],
+      ['path'],
     ),
   },
   project_delete_path: {
