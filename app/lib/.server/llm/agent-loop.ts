@@ -20,6 +20,7 @@ const planSchema = z
       .min(1)
       .max(8),
     requiresPreview: z.boolean(),
+    requiresVisualReview: z.boolean().optional(),
   })
   .refine(
     (plan) => new Set(plan.criteria.map((criterion) => criterion.id)).size === plan.criteria.length,
@@ -46,6 +47,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           requiresPreview: requiresPreview || plan.requiresPreview,
           requiresQualityReport: requiresPreview || plan.requiresPreview,
           requiresPreviewReport: requiresPreview || plan.requiresPreview,
+          requiresVisualReview: requiresPreview || plan.requiresPreview || plan.requiresVisualReview === true,
         },
       }),
     }),

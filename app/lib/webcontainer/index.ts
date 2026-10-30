@@ -1,4 +1,5 @@
 import { WebContainer } from '@webcontainer/api';
+import visualCaptureScript from 'html-to-image/dist/html-to-image.js?raw';
 import { withOptionalPreviewSupport } from './preview-support';
 import { WORK_DIR_NAME } from '~/utils/constants';
 import { cleanStackTrace } from '~/utils/stacktrace';
@@ -37,7 +38,7 @@ if (!import.meta.env.SSR) {
           const { workbenchStore } = await import('~/lib/stores/workbench');
 
           const scripts = await Promise.all(
-            ['/inspector-script.js', '/preview-audit.js'].map(async (url) => {
+            ['/inspector-script.js', '/preview-audit.js', '/preview-visual.js'].map(async (url) => {
               const response = await fetch(url);
 
               if (!response.ok) {
@@ -48,7 +49,9 @@ if (!import.meta.env.SSR) {
             }),
           );
           await webcontainer.setPreviewScript(
-            scripts.join('\n').replace("'__MUHELY_PARENT_ORIGIN__'", JSON.stringify(window.location.origin)),
+            [visualCaptureScript, ...scripts]
+              .join('\n')
+              .replaceAll("'__MUHELY_PARENT_ORIGIN__'", JSON.stringify(window.location.origin)),
           );
 
           // Listen for preview errors

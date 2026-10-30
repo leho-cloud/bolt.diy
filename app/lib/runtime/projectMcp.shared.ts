@@ -13,6 +13,7 @@ export const PROJECT_TOOL_NAMES = [
   'project_get_process_output',
   'project_quality_report',
   'project_preview_report',
+  'project_visual_review',
   'project_stop_process',
   'web_search',
   'web_fetch',
@@ -34,6 +35,11 @@ const objectSchema = (properties: JsonSchema, required: string[]): JsonSchema =>
 
 /** JSON Schema contracts shared by the server chat route and browser MCP bridge. */
 export const projectToolDefinitions: Record<ProjectToolName, { description: string; inputSchema: JsonSchema }> = {
+  project_visual_review: {
+    description:
+      'Export desktop/mobile images of the existing rendered preview and request an independent AI review of typography, spacing, contrast and visual consistency. Uses the existing server AI connection. This is a DOM image export, not native browser screenshots; unavailable captures do not count as approval. Fix concrete issues with small style patches, preserve content/functionality, then rerun code/browser/visual checks.',
+    inputSchema: objectSchema({}, []),
+  },
   project_preview_report: {
     description:
       'Inspect the existing rendered preview at desktop and mobile sizes. Measures blank pages, horizontal overflow, broken img elements, missing local anchors and runtime errors without clicking links or submitting forms. Does NOT take screenshots or judge aesthetics. Repair errors, rerun checks and inspect again after edits. Requires a running visible project preview.',

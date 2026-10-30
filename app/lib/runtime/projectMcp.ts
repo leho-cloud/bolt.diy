@@ -590,6 +590,68 @@ export async function createProjectMcpBridge() {
   );
 
   server.registerTool(
+    'project_visual_review',
+    { description: projectToolDefinitions.project_visual_review.description, inputSchema: {} },
+    async (_input, extra) => {
+      try {
+        return await queueMutation(async () => {
+          assertNotAborted(extra.signal);
+          assertProjectCurrent();
+
+          const capture = await inspectProjectPreview(
+            extra.signal,
+            () => workbenchStore.projectGeneration.get() === bridgeProjectGeneration && chatId.get() === bridgeChatId,
+            true,
+          );
+
+          let direction = '';
+
+          try {
+            direction = (await readText('.muhely/design.json')).slice(0, 16000);
+          } catch {
+            /* optional saved design */
+          }
+          assertProjectCurrent();
+
+          const images = capture.reports.map(({ device, report }) => ({
+            device,
+            width: report.viewport!.width,
+            height: report.viewport!.height,
+            image: report.image,
+            warnings: report.warnings ?? [],
+          }));
+          const response = await fetch('/api/visual-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images, direction }),
+            signal: extra.signal,
+          });
+
+          const review = (await response.json()) as Record<string, unknown>;
+          assertProjectCurrent();
+
+          if (!response.ok) {
+            throw new Error(
+              typeof review.message === 'string' ? review.message : 'A képi ellenőrzés nem fejeződött be.',
+            );
+          }
+
+          return {
+            ...success({
+              ...review,
+              images,
+              ...(review.isError === true ? { error: 'A képi ellenőrzés javítandó megjelenési hibát talált.' } : {}),
+            }),
+            ...(review.isError === true ? { isError: true } : {}),
+          };
+        });
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
     'project_preview_report',
     { description: projectToolDefinitions.project_preview_report.description, inputSchema: {} },
     async (_input, extra) => {

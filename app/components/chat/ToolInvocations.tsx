@@ -497,6 +497,7 @@ const ToolCallsList = memo(
                   </div>
                   {error && <p className="ml-7 mt-1 break-words text-xs text-red-500">{error}</p>}
                   <AgentPlanDetails tool={tool} />
+                  <VisualReviewDetails tool={tool} />
                 </div>
               </motion.li>
             );
@@ -534,6 +535,10 @@ function activityLabel(toolName: string, rawInput: unknown, rawOutput?: unknown,
       return state === 'output-available' ? 'A mintaoldal képe és szerkezete beolvasva' : 'Mintaoldal beolvasása…';
     case 'website_tools_status':
       return 'Külső eszközök elérhetőségének ellenőrzése';
+    case 'project_visual_review':
+      return state === 'output-available'
+        ? 'Képi megjelenésellenőrzés elkészült'
+        : 'Az oldal megjelenésének ellenőrzése…';
     case 'project_preview_report':
       return state === 'output-available'
         ? 'Asztali és telefonos nézet ellenőrizve'
@@ -621,6 +626,48 @@ function AgentPlanDetails({ tool }: { tool: AnyPart }) {
   );
 }
 
+function VisualReviewDetails({ tool }: { tool: AnyPart }) {
+  if (getToolName(tool) !== 'project_visual_review') {
+    return null;
+  }
+
+  const output = getToolOutput(tool) as
+    | { images?: Array<{ device: string; image: string }>; issues?: Array<{ location: string; message: string }> }
+    | undefined;
+
+  if (!Array.isArray(output?.images) || !output.images.length) {
+    return null;
+  }
+
+  return (
+    <details className="ml-7 mt-1 text-xs text-bolt-elements-textSecondary">
+      <summary className="cursor-pointer">Megvizsgált képek és észrevételek</summary>
+      <p className="my-2">Az előnézet képi exportja. Az űrlapértékek kitakarva; a videó poszterképként jelenhet meg.</p>
+      <div className="flex gap-2 overflow-x-auto">
+        {output.images.map(
+          ({ device, image }) =>
+            typeof image === 'string' &&
+            /^data:image\/jpeg;base64,/.test(image) && (
+              <img
+                key={device}
+                src={image}
+                alt={device === 'desktop' ? 'Megvizsgált asztali nézet' : 'Megvizsgált telefonos nézet'}
+                className="max-w-[70%] rounded border border-bolt-elements-borderColor"
+              />
+            ),
+        )}
+      </div>
+      {Array.isArray(output.issues) &&
+        output.issues.map((issue, index) => (
+          <p key={index} className="mt-2">
+            <strong>{issue.location}: </strong>
+            {issue.message}
+          </p>
+        ))}
+    </details>
+  );
+}
+
 function summarizeExploration(parts: AnyPart[]): string {
   const names = parts.map((part) => getToolName(part));
   const reads = names.filter((name) => name === 'project_read_file').length;
@@ -702,6 +749,7 @@ function ToolActivityRow({
         <p className="ml-7 mt-1 break-words text-xs text-red-500">{getToolDisplayError(tool)}</p>
       )}
       <AgentPlanDetails tool={tool} />
+      <VisualReviewDetails tool={tool} />
     </div>
   );
 }

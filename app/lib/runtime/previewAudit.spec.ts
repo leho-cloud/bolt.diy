@@ -31,6 +31,35 @@ function respond(frame: HTMLIFrameElement, change: (report: any) => any = (repor
 }
 
 describe('rendered preview audit bridge', () => {
+  it('captures two bounded images through the trusted frame channel and restores the viewport', async () => {
+    const frame = preview();
+    const original = frame.getAttribute('style');
+    vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation((request: any) => {
+      expect(request.type).toBe('MUHELY_PREVIEW_IMAGE_REQUEST');
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: frame.contentWindow,
+          origin: new URL(frame.src).origin,
+          data: {
+            type: 'MUHELY_PREVIEW_IMAGE_RESULT',
+            requestId: request.requestId,
+            report: {
+              checked: true,
+              viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) },
+              image: 'data:image/jpeg;base64,/9j/AA==',
+              captureMethod: 'dom-image-export',
+              issues: [],
+            },
+          },
+        }),
+      );
+    });
+
+    const report = await inspectProjectPreview(new AbortController().signal, () => true, true);
+    expect(report.reports).toHaveLength(2);
+    expect(report.visualChecked).toBe(false);
+    expect(frame.getAttribute('style')).toBe(original);
+  });
   it('measures desktop and mobile in the existing frame, restoring its size and path', async () => {
     const frame = preview();
     const original = frame.getAttribute('style');

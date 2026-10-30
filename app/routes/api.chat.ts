@@ -33,6 +33,7 @@ import { createWebsiteTools } from '~/lib/.server/website/tools';
 import { getAgentLoopInstructions, getAgentLoopProgress } from '~/lib/common/agentLoop';
 import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
 import { getStarterBuildProgress } from '~/lib/common/starterBuild';
+import { visualReviewModelOutput } from '~/lib/common/visualReview';
 import { websiteWorkflowInstructions } from '~/lib/common/websiteWorkflow';
 import { createMessage, getMessageText } from '~/lib/persistence/messageMigration';
 import { getPluginToolDescriptions, getPluginTools } from '~/lib/plugins/adapters';
@@ -332,6 +333,14 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
                   {
                     description: projectToolDefinitions[name].description,
                     inputSchema: jsonSchema(projectToolDefinitions[name].inputSchema as JSONSchema7),
+                    ...(name === 'project_visual_review'
+                      ? {
+                          toModelOutput: ({ output }: { output: unknown }) => ({
+                            type: 'json' as const,
+                            value: visualReviewModelOutput(output),
+                          }),
+                        }
+                      : {}),
                   },
                 ]),
               )

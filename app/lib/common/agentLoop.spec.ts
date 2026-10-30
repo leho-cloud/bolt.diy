@@ -55,6 +55,17 @@ const complete = result('agent_complete', { completed: true });
 const verifiedMessages = [user, response(planned, edited, run, test)];
 
 describe('agent build loop', () => {
+  it('requires a fresh successful visual review after edits and visual errors', () => {
+    const visualPlan = result('agent_plan', { plan: { ...plan, requiresVisualReview: true } });
+    const checked = result('project_visual_review', { checked: true, visualChecked: true });
+    const failed = result('project_visual_review', { checked: true, visualChecked: true, isError: true });
+    const base = [user, response(visualPlan, edited, run, test)];
+    expect(getAgentCompletionProblems(getAgentLoopProgress(base, true)).join(' ')).toContain('project_visual_review');
+    expect(getAgentLoopProgress([...base, response(checked, complete)], true).status).toBe('ready');
+    expect(getAgentLoopProgress([...base, response(checked, edited, test, complete)], true).status).toBe('pending');
+    expect(getAgentLoopProgress([...base, response(failed, complete)], true).status).toBe('pending');
+    expect(getAgentLoopProgress([...base, response(checked, failed, complete)], true).visualChecked).toBe(false);
+  });
   it('requires a recorded plan, real execution, passing verification and explicit completion', () => {
     const initial = getAgentLoopProgress([user, response({ type: 'text', text: 'I will build it.' })], true);
     expect(initial.status).toBe('pending');

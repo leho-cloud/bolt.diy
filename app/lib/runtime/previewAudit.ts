@@ -4,6 +4,13 @@ const reportSchema = z.object({
   checked: z.literal(true),
   viewport: z.object({ width: z.number().int().min(1).max(4096), height: z.number().int().min(1).max(4096) }),
   title: z.string().max(150).optional(),
+  image: z
+    .string()
+    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/)
+    .max(800000)
+    .optional(),
+  captureMethod: z.literal('dom-image-export').optional(),
+  warnings: z.array(z.string().max(400)).max(10).optional(),
   pageWidth: z.number().min(0).max(10_000_000).optional(),
   issues: z
     .array(
@@ -18,7 +25,7 @@ const reportSchema = z.object({
 });
 export type PreviewAuditReport = z.infer<typeof reportSchema>;
 
-function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal): Promise<PreviewAuditReport> {
+function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = false): Promise<PreviewAuditReport> {
   const target = frame.contentWindow;
   const origin = new URL(frame.src).origin;
   const requestId = crypto.randomUUID();
@@ -39,7 +46,7 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal): Promise<Pr
       if (
         event.source !== target ||
         event.origin !== origin ||
-        event.data?.type !== 'MUHELY_PREVIEW_AUDIT_RESULT' ||
+        event.data?.type !== (capture ? 'MUHELY_PREVIEW_IMAGE_RESULT' : 'MUHELY_PREVIEW_AUDIT_RESULT') ||
         event.data.requestId !== requestId
       ) {
         return;
@@ -50,16 +57,25 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal): Promise<Pr
       const parsed = reportSchema.safeParse(event.data.report);
 
       if (!parsed.success) {
-        reject(new Error('Az előnézet nem adott érvényes ellenőrzési eredményt.'));
+        reject(
+          new Error(
+            typeof event.data.report?.error === 'string'
+              ? event.data.report.error.slice(0, 300)
+              : 'Az előnézet nem adott érvényes ellenőrzési eredményt.',
+          ),
+        );
       } else {
         resolve(parsed.data);
       }
     };
 
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('Az előnézet ellenőrzője nem válaszolt. Frissítsd az előnézetet, majd próbáld újra.'));
-    }, 8000);
+    const timeout = setTimeout(
+      () => {
+        cleanup();
+        reject(new Error('Az előnézet ellenőrzője nem válaszolt. Frissítsd az előnézetet, majd próbáld újra.'));
+      },
+      capture ? 30000 : 8000,
+    );
     window.addEventListener('message', onMessage);
     signal.addEventListener('abort', onAbort, { once: true });
 
@@ -68,12 +84,15 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal): Promise<Pr
       return;
     }
 
-    target?.postMessage({ type: 'MUHELY_PREVIEW_AUDIT_REQUEST', requestId }, origin);
+    target?.postMessage(
+      { type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST', requestId },
+      origin,
+    );
   });
 }
 
 /** Inspect the existing iframe at two real CSS viewports without navigation or submitting user data. */
-export async function inspectProjectPreview(signal: AbortSignal, isCurrent: () => boolean) {
+export async function inspectProjectPreview(signal: AbortSignal, isCurrent: () => boolean, capture = false) {
   const frame = document.querySelector<HTMLIFrameElement>('iframe[title="preview"]');
 
   if (!frame?.contentWindow || !frame.src) {
@@ -110,10 +129,14 @@ export async function inspectProjectPreview(signal: AbortSignal, isCurrent: () =
         frame.style.setProperty(property, value, 'important');
       }
 
-      const report = await inspectFrame(frame, signal);
+      const report = await inspectFrame(frame, signal, capture);
 
       if (report.viewport?.width !== viewport.width || report.viewport?.height !== viewport.height) {
         throw new Error('Az előnézet mérete nem állt át, ezért az eredmény nem tekinthető ellenőrzöttnek.');
+      }
+
+      if (capture && (!report.image || report.captureMethod !== 'dom-image-export')) {
+        throw new Error('Nem érkezett értékelhető kép az előnézetből.');
       }
 
       reports.push({ device: viewport.device, report });
