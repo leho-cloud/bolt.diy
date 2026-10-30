@@ -656,3 +656,23 @@ body {
 .muhely-build-status-working { color: #eab6c2; }
 .muhely-build-status-blocked { color: #f0c08a; }
 .muhely-build-status-ready { color: #8ec8ad; }
+
+.muhely-build-status-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.muhely-build-status-message > [aria-hidden] { flex-shrink: 0; }
+.muhely-build-status-waiting { color: #f0c08a; }
+.muhely-build-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--bolt-elements-textSecondary);
+}
