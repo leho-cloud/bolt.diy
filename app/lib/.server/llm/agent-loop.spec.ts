@@ -111,6 +111,36 @@ describe('agent plan and completion tools', () => {
       isError: true,
     });
   });
+  it('requires a fresh measured desktop/mobile report and invalidates it after edits', async () => {
+    const messages: AnyMessage[] = [
+      user,
+      {
+        role: 'assistant',
+        parts: [
+          part('agent_plan', { plan: { ...plan, requiresPreviewReport: true } }),
+          ...(verified[1] as any).parts.slice(1),
+        ],
+      },
+    ];
+
+    const before = createAgentLoopTools(messages, true, true);
+    expect(await before.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({
+      completed: false,
+      error: expect.stringContaining('project_preview_report'),
+    });
+    messages.push({
+      role: 'assistant',
+      parts: [part('project_preview_report', { checked: true, browserChecked: true, previewReady: true })],
+    });
+    expect(
+      await createAgentLoopTools(messages, true, true).tools.agent_complete.execute!(completion, executeOptions),
+    ).toMatchObject({ completed: true });
+    messages.push({ role: 'assistant', parts: [part('project_patch_file', { patched: true })] });
+    expect(
+      await createAgentLoopTools(messages, true, true).tools.agent_complete.execute!(completion, executeOptions),
+    ).toMatchObject({ completed: false, error: expect.stringContaining('project_preview_report') });
+  });
+
   it('requires the plan tool first and enforces preview criteria for starter builds', async () => {
     const loop = createAgentLoopTools([user], true, true);
     expect(loop.prepareStep({ steps: [] })).toEqual({

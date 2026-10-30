@@ -534,6 +534,10 @@ function activityLabel(toolName: string, rawInput: unknown, rawOutput?: unknown,
       return state === 'output-available' ? 'A mintaoldal képe és szerkezete beolvasva' : 'Mintaoldal beolvasása…';
     case 'website_tools_status':
       return 'Külső eszközök elérhetőségének ellenőrzése';
+    case 'project_preview_report':
+      return state === 'output-available'
+        ? 'Asztali és telefonos nézet ellenőrizve'
+        : 'Az asztali és telefonos nézet ellenőrzése…';
     case 'project_quality_report':
       return state === 'output-available' ? 'Forrásellenőrzés elkészült' : 'A kód ellenőrzése…';
     case 'agent_plan':

@@ -23,6 +23,7 @@ export interface AgentPlan {
   criteria: Array<{ id: string; description: string }>;
   requiresPreview: boolean;
   requiresQualityReport?: boolean;
+  requiresPreviewReport?: boolean;
 }
 
 export function isAgentPlan(value: unknown): value is AgentPlan {
@@ -66,6 +67,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
   let lastRun = -1;
   let lastPlan = -1;
   let lastQualityReport = -1;
+  let lastPreviewReport = -1;
   let previewReady = false;
   let denied = false;
   let completedAt = -1;
@@ -143,6 +145,11 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         lastPlan = position;
       }
 
+      if (name === 'project_preview_report' && output.checked === true && output.browserChecked === true) {
+        lastPreviewReport = position;
+        previewReady = output.previewReady === true;
+      }
+
       if (name === 'project_quality_report' && output.checked === true) {
         lastQualityReport = position;
       }
@@ -214,6 +221,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     Boolean(plan) &&
     (!plan?.requiresQualityReport || (lastQualityReport > lastEdit && lastQualityReport > lastFailure)) &&
     (!plan?.requiresPreview || previewReady) &&
+    (!plan?.requiresPreviewReport || (lastPreviewReport > lastEdit && lastPreviewReport > lastFailure)) &&
     !pendingProjectCalls;
   const status = !active
     ? 'inactive'
@@ -234,6 +242,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     previewReady,
     tested,
     qualityChecked: lastQualityReport > lastEdit && lastQualityReport > lastFailure,
+    browserChecked: lastPreviewReport > lastEdit && lastPreviewReport > lastFailure,
     steps,
     evidence,
     pendingProjectCalls,
@@ -273,6 +282,12 @@ export function getAgentCompletionProblems(progress: ReturnType<typeof getAgentL
     problems.push('Run project_quality_report after the latest edit, repair its errors, then rerun real checks.');
   }
 
+  if (progress.plan?.requiresPreviewReport && !progress.browserChecked) {
+    problems.push(
+      'Run project_preview_report after the latest edit and repair its desktop/mobile errors before completing.',
+    );
+  }
+
   return problems;
 }
 
@@ -305,7 +320,9 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
             ? 'Start or inspect the app preview now. Confirm it is running before completing.'
             : progress.plan?.requiresQualityReport && !progress.qualityChecked
               ? 'Run project_quality_report now. Repair reported errors, rerun relevant checks, then retry completion.'
-              : 'Call agent_complete alone and report every recorded criterion by its exact ID. The server attaches evidence from successful project tool calls automatically; do not provide process IDs, command names, or guessed evidence IDs.';
+              : progress.plan?.requiresPreviewReport && !progress.browserChecked
+                ? 'Run project_preview_report now to inspect the rendered desktop/mobile preview. Repair errors and rerun checks before completing. This is DOM inspection, not screenshot-based visual approval.'
+                : 'Call agent_complete alone and report every recorded criterion by its exact ID. The server attaches evidence from successful project tool calls automatically; do not provide process IDs, command names, or guessed evidence IDs.';
 
   return `Follow Plan -> edit -> run -> test -> repair. Record a short plan and observable completion criteria with agent_plan. Inspect relevant files, then use small exact patches. Run the app/program with purpose run; use an existing live server for follow-up UI edits. Run the smallest relevant available checks with purpose test and wait for exit code 0. If a check fails, inspect its output, patch the cause, and rerun the check. Any edit after a passing check requires fresh verification. Call agent_complete alone and report each planned criterion by its exact ID; the server attaches evidence from successful project tool calls automatically. A plan or started process alone is not completion. If no automated test script exists, use an available typecheck, lint, focused runtime assertion, or smoke check and explain its limits; do not invent passing tests. If work cannot proceed, report outcome blocked with a concrete reason.
 NEXT REQUIRED ACTION: ${nextAction}

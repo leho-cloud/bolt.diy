@@ -38,6 +38,7 @@ const DOM_TESTS = [
   'app/routes.spec.tsx',
   'app/components/chat/Artifact.spec.tsx',
   'app/components/chat/BuildStatus.spec.tsx',
+  'app/lib/runtime/previewAudit.spec.ts',
   'app/components/chat/ImportZipButton.spec.tsx',
   'app/components/workbench/WorkbenchReopenButton.spec.tsx',
   'app/lib/hooks/useMessageParser.spec.ts',

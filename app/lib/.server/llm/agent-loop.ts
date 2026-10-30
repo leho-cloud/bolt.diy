@@ -45,6 +45,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           ...plan,
           requiresPreview: requiresPreview || plan.requiresPreview,
           requiresQualityReport: requiresPreview || plan.requiresPreview,
+          requiresPreviewReport: requiresPreview || plan.requiresPreview,
         },
       }),
     }),

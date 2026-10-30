@@ -43,6 +43,10 @@ function workingPhase(parts: unknown[]) {
     return 'Átnézem az oldal fájljait…';
   }
 
+  if (name === 'project_preview_report') {
+    return 'Ellenőrzöm az asztali és telefonos nézetet…';
+  }
+
   if (name === 'project_quality_report') {
     return 'Ellenőrzöm a kódot…';
   }

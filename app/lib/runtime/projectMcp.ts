@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { inspectProjectPreview } from './previewAudit';
 import { assertValidProjectSource, getFileRevision } from './projectFileValidation';
 import { PROJECT_TOOL_NAMES, projectToolDefinitions } from './projectMcp.shared';
 import { projectQualityReport } from './projectQuality';
@@ -582,6 +583,29 @@ export async function createProjectMcpBridge() {
           .map(([entryPath, entry]) => ({ path: entryPath.slice(`${WORK_DIR}/`.length), type: entry!.type }));
 
         return success({ entries, truncated: entries.length === limit });
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'project_preview_report',
+    { description: projectToolDefinitions.project_preview_report.description, inputSchema: {} },
+    async (_input, extra) => {
+      try {
+        return await queueMutation(async () => {
+          assertNotAborted(extra.signal);
+          assertProjectCurrent();
+
+          const report = await inspectProjectPreview(
+            extra.signal,
+            () => workbenchStore.projectGeneration.get() === bridgeProjectGeneration && chatId.get() === bridgeChatId,
+          );
+          assertProjectCurrent();
+
+          return { ...success(report), ...(report.isError ? { isError: true } : {}) };
+        });
       } catch (error) {
         return failure(error);
       }

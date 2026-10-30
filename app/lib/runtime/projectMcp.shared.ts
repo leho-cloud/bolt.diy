@@ -12,6 +12,7 @@ export const PROJECT_TOOL_NAMES = [
   'project_run_command',
   'project_get_process_output',
   'project_quality_report',
+  'project_preview_report',
   'project_stop_process',
   'web_search',
   'web_fetch',
@@ -33,6 +34,11 @@ const objectSchema = (properties: JsonSchema, required: string[]): JsonSchema =>
 
 /** JSON Schema contracts shared by the server chat route and browser MCP bridge. */
 export const projectToolDefinitions: Record<ProjectToolName, { description: string; inputSchema: JsonSchema }> = {
+  project_preview_report: {
+    description:
+      'Inspect the existing rendered preview at desktop and mobile sizes. Measures blank pages, horizontal overflow, broken img elements, missing local anchors and runtime errors without clicking links or submitting forms. Does NOT take screenshots or judge aesthetics. Repair errors, rerun checks and inspect again after edits. Requires a running visible project preview.',
+    inputSchema: objectSchema({}, []),
+  },
   project_quality_report: {
     description:
       'Inspect current project source syntax and identify real build/typecheck/lint scripts. Returns issues and suggested commands. Does NOT run builds or approve visual quality. Use after edits, repair errors, then run the reported checks and inspect the actual preview.',

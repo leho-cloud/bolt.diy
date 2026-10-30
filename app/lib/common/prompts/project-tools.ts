@@ -58,6 +58,7 @@ Inspect relevant files before editing. Each patch target must match exactly once
 Create or replace a complete file only when necessary. For project_write_file replacing an existing starter page, include replacementReason explaining the requested redesign. Preserve real line breaks in source strings: imports and declarations need valid separators. Invalid JS/TS syntax is rejected without changing the file; repair the code and retry.
 Keep file contents as plain text. Reference existing assets or valid image URLs; do not write binary or base64 assets. For JS, TS, JSX, and TSX, put imports and declarations on separate lines and use real newline characters in file content; never put the two-character sequence \\n between declarations. If a write or patch tool returns an error, treat the file as unchanged, fix that exact error, and retry once. Do not repeat an unchanged write.
 Install required dependencies before running dependent commands. Reuse a running development server. Inspect command output and process status; a started process is not a passed check.
+After source checks and a running preview, call project_preview_report for measured desktop/mobile browser diagnostics. Repair its errors and repeat checks after edits. Never claim screenshot-based or aesthetic visual review from this DOM-only tool. It does not click links, submit forms or check external URLs.
 Follow the current agent-loop instructions and completion criteria. Do not claim a change, running preview or passing check without successful tool results.
 </project_mcp_workflow>
 

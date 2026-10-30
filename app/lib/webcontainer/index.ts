@@ -36,9 +36,20 @@ if (!import.meta.env.SSR) {
         return withOptionalPreviewSupport(webcontainer, async () => {
           const { workbenchStore } = await import('~/lib/stores/workbench');
 
-          const response = await fetch('/inspector-script.js');
-          const inspectorScript = await response.text();
-          await webcontainer.setPreviewScript(inspectorScript);
+          const scripts = await Promise.all(
+            ['/inspector-script.js', '/preview-audit.js'].map(async (url) => {
+              const response = await fetch(url);
+
+              if (!response.ok) {
+                throw new Error('Preview support script unavailable.');
+              }
+
+              return response.text();
+            }),
+          );
+          await webcontainer.setPreviewScript(
+            scripts.join('\n').replace("'__MUHELY_PARENT_ORIGIN__'", JSON.stringify(window.location.origin)),
+          );
 
           // Listen for preview errors
           webcontainer.on('preview-message', (message) => {
