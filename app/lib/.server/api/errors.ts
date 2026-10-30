@@ -183,7 +183,7 @@ export function toSafeStreamErrorMessage(error: unknown): string {
     `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable}, reason=${diagnosticReason}, causeType=${causeType}, causeStatus=${causeStatus})`,
   );
 
-  if (statusCode === 402) {
+  if (statusCode === 402 || normalizedMessage.includes('http 402')) {
     return 'Custom error: Az AI-szolgáltató a rendelkezésre álló egyenleg vagy költési keret miatt nem fogadta a kérést (HTTP 402). Az elkészült módosítások megmaradtak; a folytatáshoz az üzemeltetőnek kell ellenőriznie a szolgáltatói keretet.';
   }
 

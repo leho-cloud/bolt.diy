@@ -36,6 +36,7 @@ describe('toSafeStreamErrorMessage', () => {
     expect(message).toContain('módosítások megmaradtak');
     expect(message).not.toContain('secret-value');
     expect(message).not.toContain('API key');
+    expect(toSafeStreamErrorMessage(new Error(message))).toBe(message);
   });
   it('explains tool validation failures without exposing raw arguments or provider details', () => {
     const invalid = new InvalidToolInputError({
