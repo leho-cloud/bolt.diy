@@ -4,6 +4,8 @@ import { BaseProvider } from '~/lib/modules/llm/base-provider';
 import type { ModelInfo } from '~/lib/modules/llm/types';
 import type { IProviderSetting } from '~/types/model';
 
+export const OPENROUTER_API_BASE_URL = 'https://eu.openrouter.ai/api/v1';
+
 interface OpenRouterModel {
   name: string;
   id: string;
@@ -49,8 +51,8 @@ export default class OpenRouterProvider extends BaseProvider {
       maxTokenAllowed: 1050000,
     },
     {
-      name: 'openai/gpt-4o',
-      label: 'GPT-4o',
+      name: 'openai/gpt-4o-mini',
+      label: 'GPT-4o mini',
       provider: 'OpenRouter',
       maxTokenAllowed: 128000,
     },
@@ -62,7 +64,7 @@ export default class OpenRouterProvider extends BaseProvider {
     _serverEnv: Record<string, string> = {},
   ): Promise<ModelInfo[]> {
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
+      const response = await fetch(`${OPENROUTER_API_BASE_URL}/models`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -123,6 +125,7 @@ export default class OpenRouterProvider extends BaseProvider {
 
     const openRouter = createOpenRouter({
       apiKey,
+      baseURL: OPENROUTER_API_BASE_URL,
     });
 
     const instance = openRouter.chat(model);

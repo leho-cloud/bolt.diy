@@ -1,3 +1,4 @@
+import { generateText } from 'ai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import OpenRouterProvider from './open-router';
 
@@ -29,9 +30,32 @@ describe('OpenRouter model catalog', () => {
     );
 
     const models = await new OpenRouterProvider().getDynamicModels();
+    expect(fetch).toHaveBeenCalledWith('https://eu.openrouter.ai/api/v1/models', expect.any(Object));
     expect(models).toHaveLength(2);
     expect(models.find((model) => model.name === 'free')?.isFree).toBe(true);
     expect(models.find((model) => model.name === 'paid')?.isFree).toBe(false);
     expect(models.find((model) => model.name === 'paid')?.label).toContain('in:$0.00');
+  });
+
+  it('sends inference to the EU endpoint with no global fallback', async () => {
+    const request = vi.fn().mockResolvedValue(
+      Response.json({
+        id: 'test',
+        model: 'anthropic/claude-sonnet-5.5',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Rendben.' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+    vi.stubGlobal('fetch', request);
+
+    const model = new OpenRouterProvider().getModelInstance({
+      model: 'anthropic/claude-sonnet-5.5',
+      serverEnv: { OPEN_ROUTER_API_KEY: 'test-key-not-sent' } as Env,
+    });
+
+    const result = await generateText({ model, prompt: 'Endpoint test', maxRetries: 0 });
+    expect(result.text).toBe('Rendben.');
+    expect(String(request.mock.calls[0][0])).toBe('https://eu.openrouter.ai/api/v1/chat/completions');
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });
