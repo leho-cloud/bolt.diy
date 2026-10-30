@@ -28,14 +28,22 @@ function setup(
   return dom;
 }
 
-async function request(dom: ReturnType<typeof setup>, origin = 'https://muhely.example') {
+async function request(
+  dom: ReturnType<typeof setup>,
+  origin = 'https://muhely.example',
+  viewport?: { width: number; height: number },
+) {
   const win = dom.window;
   const post = vi.spyOn(win, 'postMessage');
   win.dispatchEvent(
     new win.MessageEvent('message', {
       source: win,
       origin,
-      data: { type: 'MUHELY_PREVIEW_IMAGE_REQUEST', requestId: 'capture-one' },
+      data: {
+        type: 'MUHELY_PREVIEW_IMAGE_REQUEST',
+        requestId: 'capture-one',
+        viewport: viewport ?? { width: win.innerWidth, height: win.innerHeight },
+      },
     }),
   );
   await vi.waitFor(() => expect(post).toHaveBeenCalled(), { timeout: 1500 });
@@ -45,6 +53,22 @@ async function request(dom: ReturnType<typeof setup>, origin = 'https://muhely.e
 }
 
 describe('preview image export', () => {
+  it('waits for the actual iframe resize before recording the image dimensions', async () => {
+    const dom = setup();
+
+    try {
+      setTimeout(() => {
+        dom.window.innerWidth = 1280;
+        dom.window.innerHeight = 800;
+      }, 50);
+      expect(await request(dom, 'https://muhely.example', { width: 1280, height: 800 })).toMatchObject({
+        checked: true,
+        viewport: { width: 1280, height: 800 },
+      });
+    } finally {
+      dom.window.close();
+    }
+  });
   it('exports a clone, redacts form values, and restores the original DOM', async () => {
     const exportImage = vi.fn(async (element: HTMLElement) => {
       expect(element.querySelector('input')!.value).toBe('');

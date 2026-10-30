@@ -85,7 +85,11 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
     }
 
     target?.postMessage(
-      { type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST', requestId },
+      {
+        type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST',
+        requestId,
+        ...(capture ? { viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) } } : {}),
+      },
       origin,
     );
   });

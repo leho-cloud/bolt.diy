@@ -1,7 +1,16 @@
 (function () {
   const expectedParentOrigin = '__MUHELY_PARENT_ORIGIN__';
   let busy = false;
-  const capture = async () => {
+  const capture = async (viewport) => {
+    if (!viewport || !Number.isInteger(viewport.width) || !Number.isInteger(viewport.height))
+      throw Error('Hiányzó nézetméret.');
+    const resizeDeadline = Date.now() + 2000;
+    while (window.innerWidth !== viewport.width || window.innerHeight !== viewport.height) {
+      if (Date.now() > resizeDeadline) throw Error('Az előnézet méretváltása nem fejeződött be.');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    // postMessage can arrive before the browser has applied the iframe resize.
+    await new Promise((resolve) => setTimeout(resolve, 40));
     if (!window.htmlToImage) throw Error('A képi exportáló nem érhető el.');
     const width = window.innerWidth,
       height = window.innerHeight;
@@ -185,7 +194,7 @@
       return;
     busy = true;
     try {
-      const report = await capture();
+      const report = await capture(event.data.viewport);
       window.parent.postMessage(
         { type: 'MUHELY_PREVIEW_IMAGE_RESULT', requestId: event.data.requestId, report },
         expectedParentOrigin,
