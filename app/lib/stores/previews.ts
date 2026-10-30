@@ -12,6 +12,7 @@ export interface PreviewInfo {
   port: number;
   ready: boolean;
   baseUrl: string;
+  reloadKey?: number;
 }
 
 // Create a broadcast channel for preview updates
@@ -28,6 +29,7 @@ export class PreviewsStore {
   #storageChannel?: BroadcastChannel;
 
   previews = atom<PreviewInfo[]>([]);
+  selectedPort = atom<number | undefined>();
 
   constructor(webcontainerPromise: Promise<WebContainer>) {
     this.#webcontainer = webcontainerPromise;
@@ -172,6 +174,7 @@ export class PreviewsStore {
     // Listen for server ready events
     webcontainer.on('server-ready', (port, url) => {
       console.log('[Preview] Server ready on port:', port, url);
+      this.select(port);
       this.broadcastUpdate(url);
 
       // Initial storage sync when preview is ready
@@ -184,7 +187,13 @@ export class PreviewsStore {
 
       if (type === 'close') {
         this.#availablePreviews.delete(port);
-        this.previews.set(this.previews.get().filter((preview) => preview.port !== port));
+
+        const remaining = this.previews.get().filter((preview) => preview.port !== port);
+        this.previews.set(remaining);
+
+        if (this.selectedPort.get() === port) {
+          this.selectedPort.set(remaining.find((preview) => preview.ready)?.port);
+        }
 
         return;
       }
@@ -203,6 +212,7 @@ export class PreviewsStore {
       this.previews.set([...previews]);
 
       if (type === 'open') {
+        this.selectedPort.set(port);
         this.broadcastUpdate(url);
       }
     });
@@ -284,10 +294,21 @@ export class PreviewsStore {
     this.#refreshTimeouts.set(previewId, timeout);
   }
 
-  refreshAllPreviews() {
-    const previews = this.previews.get();
+  select(port: number) {
+    if (this.previews.get().some((preview) => preview.port === port && preview.ready)) {
+      this.selectedPort.set(port);
+    }
+  }
 
-    for (const preview of previews) {
+  refreshAllPreviews() {
+    // A new object and reload key notify the local iframe as well as other tabs.
+    this.previews.set(
+      this.previews
+        .get()
+        .map((preview) => (preview.ready ? { ...preview, reloadKey: (preview.reloadKey ?? 0) + 1 } : preview)),
+    );
+
+    for (const preview of this.previews.get()) {
       const previewId = this.getPreviewId(preview.baseUrl);
 
       if (previewId) {
@@ -305,6 +326,7 @@ export class PreviewsStore {
     this.#availablePreviews.clear();
     this.#lastUpdate.clear();
     this.previews.set([]);
+    this.selectedPort.set(undefined);
   }
 }
 

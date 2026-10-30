@@ -172,6 +172,18 @@ export class WorkbenchStore {
     return this.#previewsStore.previews;
   }
 
+  get selectedPreviewPort() {
+    return this.#previewsStore.selectedPort;
+  }
+
+  selectPreview(port: number) {
+    this.#previewsStore.select(port);
+  }
+
+  refreshPreviews() {
+    this.#previewsStore.refreshAllPreviews();
+  }
+
   get files() {
     return this.#filesStore.files;
   }

@@ -122,14 +122,19 @@ describe('agent plan and completion tools', () => {
     });
   });
 
-  it('withholds completion until run and test evidence exist', () => {
+  it('keeps verification tools available after planning while completion still requires evidence', () => {
     const loop = createAgentLoopTools(
       [user, { role: 'assistant', parts: [part('agent_plan', { plan })] }],
       true,
       true,
       ['project_read_file', 'project_run_command'],
     );
-    expect(loop.prepareStep({ steps: [] }).activeTools).toEqual(['project_read_file', 'agent_plan', 'agent_complete']);
+    expect(loop.prepareStep({ steps: [] }).activeTools).toEqual([
+      'project_read_file',
+      'project_run_command',
+      'agent_plan',
+      'agent_complete',
+    ]);
   });
 
   it('allows inspecting a follow-up alongside its plan, then exposes edits without requesting an old reference', () => {
@@ -168,7 +173,56 @@ describe('agent plan and completion tools', () => {
     });
     expect(next.activeTools).toContain('project_write_file');
     expect(next.activeTools).toContain('project_read_file');
-    expect(next.activeTools).not.toContain('project_run_command');
+    expect(next.activeTools).toContain('project_run_command');
+  });
+
+  it('keeps command and quality tools available after failure and rejected completion', async () => {
+    const messages: AnyMessage[] = [
+      user,
+      {
+        role: 'assistant',
+        parts: [
+          part('agent_plan', { plan: { ...plan, requiresQualityReport: true } }),
+          part('project_patch_file', { patched: true }),
+          part('project_run_command', { purpose: 'test', processId: 'broken', exitCode: 1, isError: true }),
+        ],
+      },
+    ];
+
+    const names = ['project_patch_file', 'project_run_command', 'project_get_process_output', 'project_quality_report'];
+    const loop = createAgentLoopTools(messages, true, true, names);
+    loop.prepareStep({ steps: [] });
+
+    const rejection = await loop.tools.agent_complete.execute!(completion, executeOptions);
+    expect(rejection).toMatchObject({ completed: false, isError: true });
+    expect(
+      loop.prepareStep({
+        steps: [
+          {
+            toolCalls: [{ toolName: 'agent_complete', toolCallId: 'finish', input: completion }],
+            toolResults: [{ toolCallId: 'finish', output: rejection }],
+          },
+        ],
+      }).activeTools,
+    ).toEqual([...names, 'agent_plan', 'agent_complete']);
+    loop.prepareStep({
+      steps: [
+        {
+          toolCalls: [
+            { toolName: 'project_run_command', toolCallId: 'check', input: { purpose: 'test' } },
+            { toolName: 'project_quality_report', toolCallId: 'quality', input: {} },
+          ],
+          toolResults: [
+            {
+              toolCallId: 'check',
+              output: { processId: 'fixed', purpose: 'test', status: 'exited', exitCode: 0, previewReady: true },
+            },
+            { toolCallId: 'quality', output: { checked: true } },
+          ],
+        },
+      ],
+    });
+    expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: true });
   });
 
   it('rejects completion without actual run and test evidence', async () => {

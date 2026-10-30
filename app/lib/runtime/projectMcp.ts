@@ -26,6 +26,7 @@ interface ProcessRecord {
   done: Promise<void>;
   truncated: boolean;
   outputDone: boolean;
+  previewRefreshed?: boolean;
 }
 
 const processes = new Map<string, ProcessRecord>();
@@ -168,6 +169,11 @@ function failure(error: unknown) {
 
 function processResult(processId: string, record: ProcessRecord, reused = false) {
   const failed = record.exitCode !== undefined && record.exitCode !== 0;
+
+  if (record.purpose === 'test' && record.exitCode === 0 && !record.previewRefreshed) {
+    workbenchStore.refreshPreviews();
+    record.previewRefreshed = true;
+  }
 
   const data = {
     processId,
@@ -705,6 +711,41 @@ export async function createProjectMcpBridge() {
     async ({ command, purpose = 'other' }, extra) => {
       try {
         let reused = false;
+
+        const normalized = command.trim().replace(/^cd\s+(?:\/home\/project|['"]\/home\/project['"])\s*&&\s*/, '');
+
+        /*
+         * Restored servers are started by the action runner, not this bridge's process map.
+         * Reuse only plain development-server commands; never swallow scripts or shell chains.
+         */
+        const reusableServerCommand =
+          /^(?:npm run|pnpm(?: run)?|yarn(?: run)?|bun run) (?:dev|start)(?: --host(?:[ =](?:0\.0\.0\.0|::))?)?$/.test(
+            normalized,
+          );
+
+        const livePreviews = workbenchStore.previews.get().filter((preview) => preview.ready);
+
+        const livePreview =
+          livePreviews.find((preview) => preview.port === workbenchStore.selectedPreviewPort.get()) ?? livePreviews[0];
+
+        if (purpose === 'run' && reusableServerCommand && livePreview) {
+          assertNotAborted(extra.signal);
+          assertProjectCurrent();
+          workbenchStore.selectPreview(livePreview.port);
+          workbenchStore.refreshPreviews();
+
+          return success({
+            command,
+            purpose,
+            status: 'running',
+            reused: true,
+            previewReady: true,
+            previewPort: livePreview.port,
+            previewUrl: livePreview.baseUrl,
+            output:
+              'Reused the running project preview. No new server was started. No polling is needed without a processId.',
+          });
+        }
 
         const processId = await queueMutation(async () => {
           assertNotAborted(extra.signal);

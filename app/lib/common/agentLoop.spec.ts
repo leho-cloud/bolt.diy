@@ -115,7 +115,7 @@ describe('agent build loop', () => {
     expect(progress.status).toBe('pending');
   });
 
-  it('requires a check after execution and does not complete after stopping the app', () => {
+  it('accepts a passing build before server startup but not a stopped app', () => {
     const nonWebPlan = result('agent_plan', { plan: { ...plan, requiresPreview: false } });
     const earlyTest = { ...test, output: { ...test.output, previewReady: false } };
 
@@ -127,7 +127,7 @@ describe('agent build loop', () => {
     });
     expect(
       getAgentLoopProgress([user, response(nonWebPlan, edited, earlyTest, programRun, complete)], true).tested,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       getAgentLoopProgress([user, response(nonWebPlan, edited, programRun, earlyTest, complete)], true).status,
     ).toBe('ready');

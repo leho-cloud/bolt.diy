@@ -60,11 +60,20 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [isPortDropdownOpen, setIsPortDropdownOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const hasSelectedPreview = useRef(false);
   const previews = useStore(workbenchStore.previews);
+  const selectedPort = useStore(workbenchStore.selectedPreviewPort);
+  const selectedIndex = previews.findIndex((preview) => preview.port === selectedPort && preview.ready);
+
+  const activePreviewIndex =
+    selectedIndex >= 0
+      ? selectedIndex
+      : Math.max(
+          0,
+          previews.findIndex((preview) => preview.ready),
+        );
+
   const activePreview = previews[activePreviewIndex];
   const [displayPath, setDisplayPath] = useState('/');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
@@ -110,21 +119,13 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
     const { baseUrl } = activePreview;
     setIframeUrl(baseUrl);
     setDisplayPath('/');
-  }, [activePreview]);
-
-  const findMinPortIndex = useCallback(
-    (minIndex: number, preview: { port: number }, index: number, array: { port: number }[]) => {
-      return preview.port < array[minIndex].port ? index : minIndex;
-    },
-    [],
-  );
+  }, [activePreview?.baseUrl]);
 
   useEffect(() => {
-    if (previews.length > 1 && !hasSelectedPreview.current) {
-      const minPortIndex = previews.reduce(findMinPortIndex, 0);
-      setActivePreviewIndex(minPortIndex);
+    if (activePreview?.reloadKey && iframeRef.current) {
+      iframeRef.current.src = iframeRef.current.src;
     }
-  }, [previews, findMinPortIndex]);
+  }, [activePreview?.reloadKey]);
 
   const reloadPreview = () => {
     if (iframeRef.current) {
@@ -851,9 +852,8 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
         <div className="flex-grow flex items-center gap-1 bg-bolt-elements-preview-addressBar-background border border-bolt-elements-borderColor text-bolt-elements-preview-addressBar-text rounded-full px-1 py-1 text-sm hover:bg-bolt-elements-preview-addressBar-backgroundHover hover:focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within-border-bolt-elements-borderColorActive focus-within:text-bolt-elements-preview-addressBar-textActive">
           <PortDropdown
             activePreviewIndex={activePreviewIndex}
-            setActivePreviewIndex={setActivePreviewIndex}
+            setActivePreviewIndex={(index) => workbenchStore.selectPreview(previews[index].port)}
             isDropdownOpen={isPortDropdownOpen}
-            setHasSelectedPreview={(value) => (hasSelectedPreview.current = value)}
             setIsDropdownOpen={setIsPortDropdownOpen}
             previews={previews}
           />

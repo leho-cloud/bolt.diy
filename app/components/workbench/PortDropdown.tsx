@@ -6,19 +6,11 @@ interface PortDropdownProps {
   setActivePreviewIndex: (index: number) => void;
   isDropdownOpen: boolean;
   setIsDropdownOpen: (value: boolean) => void;
-  setHasSelectedPreview: (value: boolean) => void;
   previews: PreviewInfo[];
 }
 
 export const PortDropdown = memo(
-  ({
-    activePreviewIndex,
-    setActivePreviewIndex,
-    isDropdownOpen,
-    setIsDropdownOpen,
-    setHasSelectedPreview,
-    previews,
-  }: PortDropdownProps) => {
+  ({ activePreviewIndex, setActivePreviewIndex, isDropdownOpen, setIsDropdownOpen, previews }: PortDropdownProps) => {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // sort previews, preserving original index
@@ -69,7 +61,6 @@ export const PortDropdown = memo(
                 onClick={() => {
                   setActivePreviewIndex(preview.index);
                   setIsDropdownOpen(false);
-                  setHasSelectedPreview(true);
                 }}
               >
                 <span

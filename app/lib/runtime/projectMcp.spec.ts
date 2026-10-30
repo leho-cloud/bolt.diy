@@ -29,6 +29,9 @@ vi.mock('~/lib/stores/workbench', () => ({
   workbenchStore: {
     projectGeneration: atom(1),
     previews: atom([]),
+    selectedPreviewPort: atom(undefined),
+    selectPreview: vi.fn(),
+    refreshPreviews: vi.fn(),
     files: atom({}),
     unsavedFiles: atom(new Set<string>()),
     saveFileContent,
@@ -53,6 +56,9 @@ afterEach(async () => {
   bridge = undefined;
   workbenchStore.projectGeneration.set(workbenchStore.projectGeneration.get() + 1);
   workbenchStore.previews.set([]);
+  workbenchStore.selectedPreviewPort.set(undefined);
+  vi.mocked(workbenchStore.refreshPreviews).mockClear();
+  vi.mocked(workbenchStore.selectPreview).mockClear();
   workbenchStore.files.set({});
   workbenchStore.unsavedFiles.set(new Set());
 });
@@ -314,6 +320,43 @@ describe('project command tools', () => {
       reused: true,
     });
   });
+  it('reuses a restored server absent from the MCP process map and selects its visible port', async () => {
+    spawn.mockClear();
+    workbenchStore.previews.set([
+      { port: 5173, ready: true, baseUrl: 'https://first.example' },
+      { port: 5174, ready: true, baseUrl: 'https://selected.example' },
+    ]);
+    workbenchStore.selectedPreviewPort.set(5174);
+    bridge = await createProjectMcpBridge();
+
+    const result = await bridge.callTool('project_run_command', { command: 'npm run dev', purpose: 'run' });
+    expect(spawn).not.toHaveBeenCalled();
+    expect(result.structuredContent).toMatchObject({ reused: true, previewReady: true, previewPort: 5174 });
+    expect(result.structuredContent).not.toHaveProperty('processId');
+    expect(workbenchStore.selectPreview).toHaveBeenCalledWith(5174);
+    expect(workbenchStore.refreshPreviews).toHaveBeenCalledOnce();
+  });
+
+  it('does not replace a chained run command with preview reuse', async () => {
+    spawn.mockClear();
+    spawn.mockResolvedValueOnce(processWithOutput('checked', 0));
+    workbenchStore.previews.set([{ port: 5173, ready: true, baseUrl: 'https://first.example' }]);
+    bridge = await createProjectMcpBridge();
+    await bridge.callTool('project_run_command', { command: 'npm run dev && node check.js', purpose: 'run' });
+    expect(spawn).toHaveBeenCalledOnce();
+  });
+
+  it('refreshes the local preview once after a successful test, including polling', async () => {
+    spawn.mockResolvedValueOnce(processWithOutput('build passed', 0));
+    bridge = await createProjectMcpBridge();
+
+    const result = await bridge.callTool('project_run_command', { command: 'npm run build', purpose: 'test' });
+    await bridge.callTool('project_get_process_output', {
+      processId: (result.structuredContent as { processId: string }).processId,
+    });
+    expect(workbenchStore.refreshPreviews).toHaveBeenCalledOnce();
+  });
+
   it('executes in the default project directory and forwards real output to Bolt Terminal', async () => {
     spawn.mockResolvedValueOnce(processWithOutput('command-marker\n', 0));
     bridge = await createProjectMcpBridge();

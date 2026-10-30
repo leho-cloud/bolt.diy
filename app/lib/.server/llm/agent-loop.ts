@@ -258,24 +258,6 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         };
       }
 
-      const editingTools = new Set([
-        'project_read_file',
-        'project_write_file',
-        'project_patch_file',
-        'project_create_directory',
-        'project_list_paths',
-        'project_search_content',
-        'project_find_related_files',
-        'web_search',
-        'web_fetch',
-      ]);
-
-      const activeProjectTools = taskToolNames?.filter((toolName) => {
-        return progress.needsRepair || !progress.edited
-          ? editingTools.has(toolName) || toolName.startsWith('website_') || toolName.startsWith('design_21st_')
-          : true;
-      });
-
       return {
         ...instructions,
 
@@ -288,7 +270,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         toolChoice: 'auto' as const,
         ...(taskToolNames
           ? {
-              activeTools: [...activeProjectTools!, 'agent_plan' as const, 'agent_complete' as const],
+              activeTools: [...taskToolNames, 'agent_plan' as const, 'agent_complete' as const],
             }
           : {}),
       };
