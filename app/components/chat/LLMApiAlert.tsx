@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function LlmErrorAlert({ alert, clearAlert }: Props) {
-  const { title, description, provider, errorType } = alert;
+  const { title, description, errorType } = alert;
 
   const getErrorIcon = () => {
     switch (errorType) {
@@ -26,13 +26,13 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
   const getErrorMessage = () => {
     switch (errorType) {
       case 'authentication':
-        return `Authentication failed with ${provider}. Please check your API key.`;
+        return 'Az AI-kapcsolatot az üzemeltetőnek kell ellenőriznie. Az elkészült fájlok megmaradtak.';
       case 'rate_limit':
-        return `Rate limit exceeded for ${provider}. Please wait before retrying.`;
+        return 'Az AI-szolgáltató most nem fogad több kérést. Rövid várakozás után folytathatod.';
       case 'quota':
-        return `Quota exceeded for ${provider}. Please check your account limits.`;
+        return 'Az AI-szolgáltatás keretét az üzemeltetőnek kell rendeznie. Az elkészült oldal és a módosításaid megmaradtak.';
       default:
-        return 'An error occurred while processing your request.';
+        return 'A kérés feldolgozása megszakadt. Az elkészült módosítások megmaradtak.';
     }
   };
 
@@ -75,7 +75,7 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
 
               {description && (
                 <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-4 mb-4">
-                  Error Details: {description}
+                  Részletek: {description.replace(/^Custom error:\s*/, '')}
                 </div>
               )}
             </motion.div>
@@ -97,7 +97,7 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
                     'text-bolt-elements-button-secondary-text',
                   )}
                 >
-                  Dismiss
+                  Bezárás
                 </button>
               </div>
             </motion.div>

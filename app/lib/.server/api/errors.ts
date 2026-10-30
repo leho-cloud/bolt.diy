@@ -183,6 +183,10 @@ export function toSafeStreamErrorMessage(error: unknown): string {
     `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable}, reason=${diagnosticReason}, causeType=${causeType}, causeStatus=${causeStatus})`,
   );
 
+  if (statusCode === 402) {
+    return 'Custom error: Az AI-szolgáltató a rendelkezésre álló egyenleg vagy költési keret miatt nem fogadta a kérést (HTTP 402). Az elkészült módosítások megmaradtak; a folytatáshoz az üzemeltetőnek kell ellenőriznie a szolgáltatói keretet.';
+  }
+
   if ((error instanceof Error && error.name === 'TimeoutError') || /timeout|timed\s*out/.test(normalizedMessage)) {
     return 'Custom error: The AI provider stopped responding before the next step completed. Completed file changes and tool results are preserved. Retry to continue, or select a different model.';
   }

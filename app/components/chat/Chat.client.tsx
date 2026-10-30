@@ -858,20 +858,24 @@ export const ChatImpl = memo(
         }
 
         let errorType: LlmErrorAlertType['errorType'] = 'unknown';
-        let title = 'Request Failed';
+        let title = 'A kérés nem fejeződött be';
 
         if (errorInfo.statusCode === 401 || errorInfo.message.toLowerCase().includes('api key')) {
           errorType = 'authentication';
-          title = 'Authentication Error';
+          title = 'Az AI-kapcsolat ellenőrzést igényel';
         } else if (errorInfo.statusCode === 429 || errorInfo.message.toLowerCase().includes('rate limit')) {
           errorType = 'rate_limit';
-          title = 'Rate Limit Exceeded';
-        } else if (errorInfo.message.toLowerCase().includes('quota')) {
+          title = 'Az AI-szolgáltató túlterhelt';
+        } else if (
+          errorInfo.statusCode === 402 ||
+          errorInfo.message.includes('HTTP 402') ||
+          errorInfo.message.toLowerCase().includes('quota')
+        ) {
           errorType = 'quota';
-          title = 'Quota Exceeded';
+          title = 'Az AI-szolgáltatás kerete ellenőrzést igényel';
         } else if (errorInfo.statusCode >= 500) {
           errorType = 'network';
-          title = 'Server Error';
+          title = 'A készítés megszakadt';
         }
 
         logStore.logError(`${context} request failed`, error, {

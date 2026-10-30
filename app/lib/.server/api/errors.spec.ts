@@ -29,6 +29,14 @@ describe('toMissingCredentialError', () => {
 });
 
 describe('toSafeStreamErrorMessage', () => {
+  it('explains a provider funding refusal without blaming customer settings or leaking diagnostics', () => {
+    const error = Object.assign(new Error('secret-value'), { statusCode: 402 });
+    const message = toSafeStreamErrorMessage(error);
+    expect(message).toContain('HTTP 402');
+    expect(message).toContain('módosítások megmaradtak');
+    expect(message).not.toContain('secret-value');
+    expect(message).not.toContain('API key');
+  });
   it('explains tool validation failures without exposing raw arguments or provider details', () => {
     const invalid = new InvalidToolInputError({
       toolName: 'project_list_paths',
