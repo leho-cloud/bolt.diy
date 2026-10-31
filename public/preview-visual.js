@@ -26,6 +26,8 @@
     const controller = new AbortController();
     let deadline;
     const warnings = [];
+    const usedFonts = new Set();
+    const normalizeFont = (font) => font.trim().replace(/[\"']/g, '').toLowerCase();
     const clone = document.body.cloneNode(true);
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-100000px;top:0;pointer-events:none;z-index:-2147483647;overflow:hidden';
@@ -80,6 +82,8 @@
           continue;
         }
         const style = getComputedStyle(original);
+        for (const font of (style.fontFamily || style.getPropertyValue('font-family') || '').split(','))
+          usedFonts.add(normalizeFont(font));
         if (style.cssText) copy.style.cssText = style.cssText;
         else
           for (const property of style)
@@ -146,7 +150,8 @@
         fetchRequestInit: { credentials: 'omit', signal: controller.signal },
       });
       if (controller.signal.aborted) throw Error('Az export időtúllépéssel leállt.');
-      if (document.fonts?.size && !fontEmbedCSS.includes('data:'))
+      const usedWebFonts = Array.from(document.fonts || []).filter((face) => usedFonts.has(normalizeFont(face.family)));
+      if (usedWebFonts.length && !fontEmbedCSS.includes('data:'))
         throw Error('Az egyedi betűtípus nem ágyazható be megbízhatóan.');
       stage = 'render';
       const canvas = await window.htmlToImage.toCanvas(clone, {

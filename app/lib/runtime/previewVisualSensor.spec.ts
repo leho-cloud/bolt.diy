@@ -53,6 +53,34 @@ async function request(
 }
 
 describe('preview image export', () => {
+  it('does not demand embedding unused fonts on a system-font page', async () => {
+    const dom = setup('<main>System font page</main>');
+    Object.defineProperty(dom.window.document, 'fonts', {
+      value: new Set([{ family: 'Unused embedded inspector font' }]),
+    });
+
+    try {
+      expect(await request(dom)).toMatchObject({ checked: true });
+    } finally {
+      dom.window.close();
+    }
+  });
+
+  it('still refuses a used custom font when its embedding is missing', async () => {
+    const dom = setup('<main>Custom font page</main>');
+    Object.defineProperty(dom.window.document, 'fonts', { value: new Set([{ family: 'Custom' }]) });
+    dom.window.getComputedStyle = (() => ({
+      cssText: 'font-family: Custom;',
+      fontFamily: 'Custom',
+      getPropertyValue: () => '',
+    })) as unknown as typeof dom.window.getComputedStyle;
+
+    try {
+      expect(await request(dom)).toMatchObject({ checked: false, code: 'fonts' });
+    } finally {
+      dom.window.close();
+    }
+  });
   it('waits for the actual iframe resize before recording the image dimensions', async () => {
     const dom = setup();
 

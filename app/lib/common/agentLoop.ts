@@ -134,6 +134,20 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         previewReady = false;
       }
 
+      if (failed && output.unavailable === true && ['project_visual_review', 'project_preview_report'].includes(name)) {
+        /*
+         * A capture/transport failure changed no source. Keep successful code checks,
+         * but never reuse a previous visual/browser approval for the failed inspection.
+         */
+        if (name === 'project_visual_review') {
+          lastVisualReview = -1;
+        } else {
+          lastPreviewReport = -1;
+        }
+
+        continue;
+      }
+
       if (failed) {
         if (name.startsWith('project_')) {
           lastFailure = position;

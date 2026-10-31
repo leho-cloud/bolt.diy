@@ -646,7 +646,11 @@ export async function createProjectMcpBridge() {
           };
         });
       } catch (error) {
-        return failure(error);
+        const failed = failure(error);
+        return {
+          ...failed,
+          structuredContent: { isError: true, unavailable: true, checked: false, error: failed.content[0].text },
+        };
       }
     },
   );
@@ -669,7 +673,11 @@ export async function createProjectMcpBridge() {
           return { ...success(report), ...(report.isError ? { isError: true } : {}) };
         });
       } catch (error) {
-        return failure(error);
+        const failed = failure(error);
+        return {
+          ...failed,
+          structuredContent: { isError: true, unavailable: true, checked: false, error: failed.content[0].text },
+        };
       }
     },
   );

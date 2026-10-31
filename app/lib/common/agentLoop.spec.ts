@@ -55,6 +55,30 @@ const complete = result('agent_complete', { completed: true });
 const verifiedMessages = [user, response(planned, edited, run, test)];
 
 describe('agent build loop', () => {
+  it('does not demand paid rebuild loops when image capture itself is unavailable', () => {
+    const visualPlan = result('agent_plan', {
+      plan: { ...plan, requiresVisualReview: true, requiresQualityReport: true, requiresPreviewReport: true },
+    });
+
+    const messages = [
+      user,
+      response(
+        visualPlan,
+        edited,
+        run,
+        test,
+        result('project_quality_report', { checked: true }),
+        result('project_preview_report', { checked: true, browserChecked: true, previewReady: true }),
+        result('project_visual_review', { checked: true, visualChecked: true }),
+        result('project_visual_review', { isError: true, unavailable: true, checked: false }),
+      ),
+    ];
+
+    const progress = getAgentLoopProgress(messages, true);
+    expect(progress).toMatchObject({ tested: true, qualityChecked: true, browserChecked: true, visualChecked: false });
+    expect(getAgentCompletionProblems(progress)).toHaveLength(1);
+    expect(getAgentCompletionProblems(progress)[0]).toContain('project_visual_review');
+  });
   it('requires a fresh successful visual review after edits and visual errors', () => {
     const visualPlan = result('agent_plan', { plan: { ...plan, requiresVisualReview: true } });
     const checked = result('project_visual_review', { checked: true, visualChecked: true });
