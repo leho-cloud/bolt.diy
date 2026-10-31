@@ -83,6 +83,15 @@
   window.addEventListener('message', async (event) => {
     if (event.source !== window.parent || event.origin !== expectedParentOrigin || event.data?.type !== 'MUHELY_PREVIEW_AUDIT_REQUEST' || typeof event.data.requestId !== 'string') return;
     const requestId = event.data.requestId;
+    const viewport = event.data.viewport;
+    const deadline = Date.now() + 2000;
+    while (viewport && (window.innerWidth !== viewport.width || window.innerHeight !== viewport.height)) {
+      if (Date.now() > deadline) {
+        window.parent.postMessage({ type: 'MUHELY_PREVIEW_AUDIT_RESULT', requestId, report: { checked: false, error: 'Az előnézet méretváltása nem fejeződött be.' } }, expectedParentOrigin);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     // Allow layout, fonts and existing image requests to settle without hanging or leaking listeners.
     const cleanups = [];
     const waitFor = (target, events) => new Promise((resolve) => {

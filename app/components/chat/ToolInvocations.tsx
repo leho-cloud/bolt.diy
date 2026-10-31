@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useMemo, useState, useEffect, useRef, createContext, useContext } from 'react';
 import { createHighlighter, type Highlighter } from 'shiki';
 import { Markdown } from './Markdown';
+import { PreviewCaptureRetry } from './PreviewCaptureRetry';
 import { getToolDisplayError, getToolDisplayState } from './toolActivity';
 import { isAgentPlan, isServerAgentTool } from '~/lib/common/agentLoop';
 import {
@@ -636,7 +637,7 @@ function VisualReviewDetails({ tool }: { tool: AnyPart }) {
     | undefined;
 
   if (!Array.isArray(output?.images) || !output.images.length) {
-    return null;
+    return getToolDisplayError(tool) ? <PreviewCaptureRetry /> : null;
   }
 
   return (

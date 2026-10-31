@@ -1,6 +1,14 @@
 (function () {
   const expectedParentOrigin = '__MUHELY_PARENT_ORIGIN__';
   let busy = false;
+  let stage = 'viewport';
+  const stageErrors = {
+    viewport: 'A nézet méretváltása nem fejeződött be.',
+    prepare: 'A képi ellenőrző előkészítése nem sikerült.',
+    asset: 'Egy kép vagy háttér nem ágyazható be az ellenőrzéshez.',
+    fonts: 'A betűtípusok képi rögzítése nem sikerült.',
+    render: 'A böngésző nem tudta elkészíteni az ellenőrző képet.',
+  };
   const capture = async (viewport) => {
     if (!viewport || !Number.isInteger(viewport.width) || !Number.isInteger(viewport.height))
       throw Error('Hiányzó nézetméret.');
@@ -11,6 +19,7 @@
     }
     // postMessage can arrive before the browser has applied the iframe resize.
     await new Promise((resolve) => setTimeout(resolve, 40));
+    stage = 'prepare';
     if (!window.htmlToImage) throw Error('A képi exportáló nem érhető el.');
     const width = window.innerWidth,
       height = window.innerHeight;
@@ -23,6 +32,7 @@
     host.style.width = width + 'px';
     const cache = new Map();
     const asset = async (url) => {
+      stage = 'asset';
       if (!url || url.startsWith('data:')) return url;
       if (!cache.has(url))
         cache.set(
@@ -130,6 +140,7 @@
       if (controller.signal.aborted) throw Error('Az export időtúllépéssel leállt.');
       host.appendChild(clone);
       document.body.appendChild(host);
+      stage = 'fonts';
       const fontEmbedCSS = await window.htmlToImage.getFontEmbedCSS(document.body, {
         preferredFontFormat: 'woff2',
         fetchRequestInit: { credentials: 'omit', signal: controller.signal },
@@ -137,6 +148,7 @@
       if (controller.signal.aborted) throw Error('Az export időtúllépéssel leállt.');
       if (document.fonts?.size && !fontEmbedCSS.includes('data:'))
         throw Error('Az egyedi betűtípus nem ágyazható be megbízhatóan.');
+      stage = 'render';
       const canvas = await window.htmlToImage.toCanvas(clone, {
         width,
         height,
@@ -193,6 +205,7 @@
     )
       return;
     busy = true;
+    stage = 'viewport';
     try {
       const report = await capture(event.data.viewport);
       window.parent.postMessage(
@@ -204,7 +217,11 @@
         {
           type: 'MUHELY_PREVIEW_IMAGE_RESULT',
           requestId: event.data.requestId,
-          report: { checked: false, error: 'A megjelenés nem rögzíthető teljesen. Nem történt képi jóváhagyás.' },
+          report: {
+            checked: false,
+            code: stage,
+            error: (stageErrors[stage] || 'A képrögzítés sikertelen.') + ' Nem történt képi jóváhagyás.',
+          },
         },
         expectedParentOrigin,
       );

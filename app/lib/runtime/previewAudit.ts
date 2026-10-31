@@ -88,7 +88,7 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
       {
         type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST',
         requestId,
-        ...(capture ? { viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) } } : {}),
+        viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) },
       },
       origin,
     );
