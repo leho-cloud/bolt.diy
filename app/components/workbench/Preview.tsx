@@ -5,6 +5,7 @@ import type { ElementInfo } from './Inspector';
 import { InspectorPanel } from './InspectorPanel';
 import { PortDropdown } from './PortDropdown';
 import { ScreenshotSelector } from './ScreenshotSelector';
+import { PreviewCaptureRetry } from '~/components/chat/PreviewCaptureRetry';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { IconButton } from '~/components/ui/IconButton';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
@@ -926,6 +927,18 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
             title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           />
 
+          <details className="relative shrink-0">
+            <summary
+              className="cursor-pointer list-none p-1 text-bolt-elements-textSecondary"
+              aria-label="Képrögzítés (AI nélkül)"
+              title="Képrögzítés (AI nélkül)"
+            >
+              <span aria-hidden="true" className="i-ph:camera" />
+            </summary>
+            <div className="absolute right-0 top-full z-50 mt-2 w-[320px] max-w-[80vw] max-h-[65vh] overflow-auto rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-3 shadow-xl">
+              <PreviewCaptureRetry />
+            </div>
+          </details>
           <div className="flex items-center relative">
             <IconButton
               icon="i-ph:list"
