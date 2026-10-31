@@ -644,7 +644,7 @@ function VisualReviewDetails({ tool }: { tool: AnyPart }) {
     <details className="ml-7 mt-1 text-xs text-bolt-elements-textSecondary">
       <summary className="cursor-pointer">Megvizsgált képek és észrevételek</summary>
       <p className="my-2">Az előnézet képi exportja. Az űrlapértékek kitakarva; a videó poszterképként jelenhet meg.</p>
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="flex items-start gap-2 overflow-x-auto">
         {output.images.map(
           ({ device, image }) =>
             typeof image === 'string' &&
@@ -653,7 +653,7 @@ function VisualReviewDetails({ tool }: { tool: AnyPart }) {
                 key={device}
                 src={image}
                 alt={device === 'desktop' ? 'Megvizsgált asztali nézet' : 'Megvizsgált telefonos nézet'}
-                className="max-w-[70%] rounded border border-bolt-elements-borderColor"
+                className="h-auto shrink-0 max-w-[70%] rounded border border-bolt-elements-borderColor object-contain"
               />
             ),
         )}

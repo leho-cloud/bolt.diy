@@ -37,7 +37,7 @@ export function PreviewCaptureRetry() {
         type="button"
         disabled={busy}
         onClick={retry}
-        className="rounded border border-bolt-elements-borderColor px-2 py-1 disabled:opacity-50"
+        className="rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-3 text-bolt-elements-textPrimary px-2 py-1 disabled:opacity-50"
       >
         {busy ? 'Képrögzítés folyamatban…' : 'Képrögzítés ellenőrzése (AI nélkül)'}
       </button>
@@ -46,7 +46,7 @@ export function PreviewCaptureRetry() {
           {message}
         </p>
       )}
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="flex items-start gap-2 overflow-x-auto">
         {images.map(
           ({ device, image }) =>
             image && (
@@ -54,7 +54,7 @@ export function PreviewCaptureRetry() {
                 key={device}
                 src={image}
                 alt={device === 'desktop' ? 'Rögzített asztali nézet' : 'Rögzített telefonos nézet'}
-                className="mt-2 max-w-[70%] rounded"
+                className="mt-2 h-auto shrink-0 max-w-[70%] rounded object-contain"
               />
             ),
         )}
