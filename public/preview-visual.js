@@ -19,6 +19,25 @@
     }
     // postMessage can arrive before the browser has applied the iframe resize.
     await new Promise((resolve) => setTimeout(resolve, 40));
+    // Media-query changes can animate a desktop menu into its mobile state.
+    // Capture the settled endpoint, not a frozen half-transparent transition.
+    const finiteAnimations = (document.getAnimations?.() || []).filter((animation) => {
+      const end = animation.effect?.getComputedTiming().endTime;
+      return animation.playState === 'running' && Number.isFinite(end) && end <= 1000;
+    });
+    if (finiteAnimations.length) {
+      let animationDeadline;
+      try {
+        await Promise.race([
+          Promise.all(finiteAnimations.map((animation) => animation.finished.catch(() => undefined))),
+          new Promise((_, reject) => {
+            animationDeadline = setTimeout(() => reject(Error('A nézet animációja még nem állt meg.')), 1500);
+          }),
+        ]);
+      } finally {
+        clearTimeout(animationDeadline);
+      }
+    }
     stage = 'prepare';
     if (!window.htmlToImage) throw Error('A képi exportáló nem érhető el.');
     const width = window.innerWidth,

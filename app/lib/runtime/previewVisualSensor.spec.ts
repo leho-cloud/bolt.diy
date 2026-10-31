@@ -53,6 +53,30 @@ async function request(
 }
 
 describe('preview image export', () => {
+  it('waits for finite breakpoint transitions before freezing computed styles', async () => {
+    let settled = false;
+
+    const dom = setup('<nav>Menu</nav>', async () => {
+      expect(settled).toBe(true);
+      return { toDataURL: () => jpeg };
+    });
+
+    const finished = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        settled = true;
+        resolve();
+      }, 100),
+    );
+    Object.defineProperty(dom.window.document, 'getAnimations', {
+      value: () => [{ playState: 'running', effect: { getComputedTiming: () => ({ endTime: 300 }) }, finished }],
+    });
+
+    try {
+      expect(await request(dom)).toMatchObject({ checked: true });
+    } finally {
+      dom.window.close();
+    }
+  });
   it('does not demand embedding unused fonts on a system-font page', async () => {
     const dom = setup('<main>System font page</main>');
     Object.defineProperty(dom.window.document, 'fonts', {
