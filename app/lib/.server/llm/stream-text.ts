@@ -4,6 +4,7 @@ import { MAX_TOKENS, PROVIDER_COMPLETION_LIMITS, isReasoningModel, type FileMap 
 import { managedAI } from './managed-ai';
 import { prepareModelMessages } from './model-messages';
 import { withDevelopmentCommentaryWorkstyle } from './prompt-workstyle';
+import { withHungarianResponse } from './response-language';
 import { createFilesContext } from './utils';
 import { PromptLibrary } from '~/lib/common/prompt-library';
 import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
@@ -355,9 +356,7 @@ export async function streamText(props: {
     forwardedOptions.streamRetries !== undefined ? withAgentStreamDeadlines(selectedModel) : selectedModel;
   const streamParams = {
     model: onToolCallRetry ? withAgentToolCallRecovery(boundedModel, onToolCallRetry) : boundedModel,
-    system: [chatMode === 'build' ? systemPrompt : discussPrompt(), additionalSystemInstructions]
-      .filter((instruction): instruction is string => typeof instruction === 'string' && instruction.length > 0)
-      .join('\n\n'),
+    system: withHungarianResponse(chatMode === 'build' ? systemPrompt : discussPrompt(), additionalSystemInstructions),
     ...tokenParams,
     messages: await prepareModelMessages(processedMessages as UIMessage[], options?.tools),
     ...forwardedOptions,

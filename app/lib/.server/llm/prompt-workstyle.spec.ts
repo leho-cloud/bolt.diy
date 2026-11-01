@@ -9,7 +9,7 @@ describe('withDevelopmentCommentaryWorkstyle', () => {
     expect(enhanced).toContain(basePrompt);
     expect(enhanced).toContain('<workstyle>');
     expect(enhanced).toContain('</workstyle>');
-    expect(enhanced).toContain('provide frequent short progress updates in plain English Markdown');
+    expect(enhanced).toContain('provide frequent short progress updates in plain Hungarian Markdown');
     expect(enhanced).toContain('Keep runtime load lightweight in WebContainer');
   });
 

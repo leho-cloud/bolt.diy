@@ -41,7 +41,7 @@ export function withDevelopmentCommentaryWorkstyle(systemPrompt: string): string
     result = `${result}
 
 <workstyle>
-  While you work, provide frequent short progress updates in plain English Markdown.
+  While you work, provide frequent short progress updates in plain Hungarian Markdown.
 
   Rules:
   - Before each major step, write 1-2 sentences describing what you are about to do and why.
