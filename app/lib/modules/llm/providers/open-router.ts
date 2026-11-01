@@ -126,9 +126,20 @@ export default class OpenRouterProvider extends BaseProvider {
     const openRouter = createOpenRouter({
       apiKey,
       baseURL: OPENROUTER_API_BASE_URL,
+      headers: {
+        'HTTP-Referer': 'https://tzsvtav.com',
+        'X-Title': 'TZSVTAV Muhely Bolt',
+      },
     });
 
-    const instance = openRouter.chat(model);
+    /*
+     * Reuse the unchanged prefix across agent steps without changing the model,
+     * completion budget, tools or generated content. Other providers must not
+     * receive Anthropic-only cache directives.
+     */
+    const instance = openRouter.chat(model, {
+      ...(model.startsWith('anthropic/') ? { cache_control: { type: 'ephemeral' as const } } : {}),
+    });
 
     return instance;
   }

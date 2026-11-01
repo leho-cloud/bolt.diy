@@ -56,6 +56,32 @@ describe('OpenRouter model catalog', () => {
     const result = await generateText({ model, prompt: 'Endpoint test', maxRetries: 0 });
     expect(result.text).toBe('Rendben.');
     expect(String(request.mock.calls[0][0])).toBe('https://eu.openrouter.ai/api/v1/chat/completions');
+
+    const sent = JSON.parse(request.mock.calls[0][1].body);
+    expect(sent.model).toBe('anthropic/claude-sonnet-5.5');
+    expect(sent.cache_control).toEqual({ type: 'ephemeral' });
+    expect(new Headers(request.mock.calls[0][1].headers).get('X-Title')).toBe('TZSVTAV Muhely Bolt');
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send Anthropic cache options to other models', async () => {
+    const request = vi.fn().mockResolvedValue(
+      Response.json({
+        id: 'test',
+        model: 'openai/gpt-4o-mini',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+    );
+    vi.stubGlobal('fetch', request);
+    await generateText({
+      model: new OpenRouterProvider().getModelInstance({
+        model: 'openai/gpt-4o-mini',
+        serverEnv: { OPEN_ROUTER_API_KEY: 'test-key-not-sent' } as Env,
+      }),
+      prompt: 'Test',
+      maxRetries: 0,
+    });
+    expect(JSON.parse(request.mock.calls[0][1].body)).not.toHaveProperty('cache_control');
   });
 });

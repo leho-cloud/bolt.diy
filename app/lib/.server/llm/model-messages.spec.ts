@@ -4,6 +4,49 @@ import { z } from 'zod';
 import { prepareModelMessages } from './model-messages';
 
 describe('prepareModelMessages', () => {
+  it('omits old deliberation but preserves user preferences and the entire current signed tool loop', async () => {
+    const result = await prepareModelMessages([
+      { id: 'original', role: 'user', parts: [{ type: 'text', text: 'Preserve the green design and all pages' }] },
+      {
+        id: 'old',
+        role: 'assistant',
+        parts: [
+          { type: 'reasoning', text: 'old private deliberation' },
+          { type: 'text', text: 'The design is saved.' },
+        ],
+      },
+      { id: 'new', role: 'user', parts: [{ type: 'text', text: 'Fix the menu' }] },
+      {
+        id: 'working',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'reasoning',
+            text: 'current signed reasoning',
+            providerMetadata: { anthropic: { signature: 'signed' } },
+          },
+          {
+            type: 'tool-project_list_paths',
+            toolCallId: 'current-call',
+            state: 'output-available',
+            input: {},
+            output: { entries: [{ path: 'src/App.jsx', type: 'file' }] },
+          },
+        ],
+      },
+    ]);
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('old private deliberation');
+    expect(serialized).toContain('Preserve the green design and all pages');
+    expect(serialized).toContain('The design is saved.');
+    expect(serialized).toContain('current signed reasoning');
+    expect(serialized).toContain('signed');
+    expect(result.at(-1)).toMatchObject({
+      role: 'tool',
+      content: [expect.objectContaining({ toolCallId: 'current-call' })],
+    });
+  });
   it('passes reference screenshots to the vision model rather than flattening them to base64 text', async () => {
     const referenceTool = tool({
       inputSchema: z.object({}),
