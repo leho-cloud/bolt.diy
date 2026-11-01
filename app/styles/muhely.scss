@@ -249,6 +249,45 @@ body {
     border-color 0.15s,
     transform 0.15s;
 }
+.muhely-project-card > a {
+  display: block;
+}
+.muhely-delete-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 16px 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--bolt-elements-borderColor);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bolt-elements-textSecondary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.muhely-delete-project:hover {
+  color: #f29aaa;
+  border-color: #ba455e;
+}
+.muhely-delete-project:focus-visible {
+  outline: 2px solid #e46983;
+  outline-offset: 3px;
+}
+.muhely-conversation-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.muhely-conversation-row > a {
+  flex: 1;
+  min-width: 0;
+}
+.muhely-conversation-row > button {
+  margin: 0;
+  flex-shrink: 0;
+}
 .muhely-project-card:hover {
   border-color: var(--bolt-elements-textTertiary);
   transform: translateY(-2px);
@@ -653,9 +692,15 @@ body {
   background: var(--bolt-elements-bg-depth-2, #17191e);
   color: var(--bolt-elements-textSecondary);
 }
-.muhely-build-status-working { color: #eab6c2; }
-.muhely-build-status-blocked { color: #f0c08a; }
-.muhely-build-status-ready { color: #8ec8ad; }
+.muhely-build-status-working {
+  color: #eab6c2;
+}
+.muhely-build-status-blocked {
+  color: #f0c08a;
+}
+.muhely-build-status-ready {
+  color: #8ec8ad;
+}
 
 .muhely-build-status-message {
   display: flex;
@@ -664,8 +709,12 @@ body {
   min-width: 0;
   flex: 1;
 }
-.muhely-build-status-message > [aria-hidden] { flex-shrink: 0; }
-.muhely-build-status-waiting { color: #f0c08a; }
+.muhely-build-status-message > [aria-hidden] {
+  flex-shrink: 0;
+}
+.muhely-build-status-waiting {
+  color: #f0c08a;
+}
 .muhely-build-time {
   display: inline-flex;
   align-items: center;

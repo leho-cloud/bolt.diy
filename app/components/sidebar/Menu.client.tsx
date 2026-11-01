@@ -111,6 +111,7 @@ export const Menu = () => {
 
       // The IndexedDB helper removes the chat and its snapshot atomically.
       await deleteById(db, id);
+      window.dispatchEvent(new Event('muhely-projects-changed'));
       console.log('Successfully deleted chat:', id);
     },
     [db],
@@ -277,6 +278,11 @@ export const Menu = () => {
       loadEntries();
     }
   }, [open, loadEntries]);
+
+  useEffect(() => {
+    window.addEventListener('muhely-projects-changed', loadEntries);
+    return () => window.removeEventListener('muhely-projects-changed', loadEntries);
+  }, [loadEntries]);
 
   // Exit selection mode when sidebar is closed
   useEffect(() => {
