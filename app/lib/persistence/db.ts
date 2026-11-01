@@ -19,8 +19,38 @@ export async function openDatabase(): Promise<IDBDatabase | undefined> {
     return undefined;
   }
 
+  let databaseName = 'boltHistory';
+
+  try {
+    const response = await fetch('/api/private-access/me', { credentials: 'same-origin', cache: 'no-store' });
+
+    if (response.status === 401 || response.status === 403) {
+      return undefined;
+    }
+
+    if (response.ok) {
+      const profile = (await response.json()) as { database?: string };
+
+      if (!profile.database || !/^boltHistory(?:-[a-f0-9-]{36})?$/.test(profile.database)) {
+        return undefined;
+      }
+
+      databaseName = profile.database;
+    } else if (response.status !== 404 || !import.meta.env.DEV) {
+      return undefined;
+    }
+  } catch {
+    /*
+     * Local development does not run the production preview access middleware.
+     * Never expose an owner's old database when the production identity check fails.
+     */
+    if (!import.meta.env.DEV) {
+      return undefined;
+    }
+  }
+
   return new Promise((resolve) => {
-    const request = indexedDB.open('boltHistory', 2);
+    const request = indexedDB.open(databaseName, 2);
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;

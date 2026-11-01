@@ -5,6 +5,7 @@ import UnoCSS from 'unocss/vite';
 import { defineConfig, type ViteDevServer } from 'vite';
 import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
 import { browserPolyfills } from './scripts/vite/browser-polyfills.ts';
+import { privateAccess } from './scripts/vite/private-access.ts';
 
 /*
  * Prevent miniflare from making an external network request to workers.cloudflare.com
@@ -159,6 +160,8 @@ export default defineConfig((config) => {
       },
     },
     plugins: [
+      privateAccess(),
+
       /*
        * Browser polyfills for `Buffer` / `process` / `global`.
        *

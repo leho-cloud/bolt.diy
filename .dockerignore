@@ -24,3 +24,6 @@ README.md
 logs
 dist-ssr
 .DS_Store
+
+# Private access state and one-time owner enrollment never enter source or images.
+.private-access/

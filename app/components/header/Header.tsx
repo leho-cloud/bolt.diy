@@ -35,6 +35,9 @@ export function Header() {
           </span>
         </a>
       </div>
+      <a href="/fiokom" className="ml-auto px-3 text-xs text-bolt-elements-textSecondary">
+        Belépésem
+      </a>
       {!chat.started && (
         <nav className="muhely-header-nav" aria-label="Fő navigáció">
           <a href="#sajat-projektek">Projektjeim</a>
