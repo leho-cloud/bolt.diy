@@ -32,6 +32,7 @@ test('anonymous welcome is public while deep pages and every sensitive API remai
   const f = await fixture(t);
   const home = await f.gate.handle(request('/'));
   assert.equal(home.status, 200);
+  assert.equal(home.headers.get('Referrer-Policy'), 'same-origin');
   const html = await home.text();
   assert.match(html, /Lépj be a Műhelybe/);
   assert.doesNotMatch(html, new RegExp(f.token));
