@@ -11,9 +11,11 @@ export default [
     file: 'routes/_index.tsx',
     children: [
       { file: 'routes/chat-home.tsx', index: true },
+      { id: 'muhely-home', file: 'routes/chat-home.tsx', path: 'muhely' },
       { file: 'routes/chat.$id.tsx', path: 'chat/:id' },
     ],
   },
+  { file: 'routes/private-welcome.ts', path: '/nyito' },
   { file: 'routes/git.tsx', path: '/git' },
   { file: 'routes/starter.tsx', path: '/starter' },
   { file: 'routes/webcontainer.connect.$id.tsx', path: '/webcontainer/connect/:id' },

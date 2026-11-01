@@ -1,5 +1,6 @@
-import type { MetaFunction } from 'react-router';
+import { redirect, type LoaderFunctionArgs, type MetaFunction } from 'react-router';
 import { ClientOnly } from 'remix-utils/client-only';
+import { welcomeDestination } from './private-welcome';
 import { BaseChat } from '~/components/chat/BaseChat';
 import { Chat } from '~/components/chat/Chat.client';
 import { Header } from '~/components/header/Header';
@@ -13,7 +14,19 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export const loader = () => Response.json({});
+export const loader = ({ request }: LoaderFunctionArgs) => {
+  const destination = welcomeDestination(request.url);
+
+  /*
+   * Keep the old address and saved browser projects unchanged. The private
+   * custom address starts with a small welcome page, without booting a runtime.
+   */
+  if (destination) {
+    return redirect(destination);
+  }
+
+  return Response.json({});
+};
 
 /**
  * Landing page component for Bolt
