@@ -79,6 +79,23 @@ describe('agent build loop', () => {
     expect(getAgentCompletionProblems(progress)).toHaveLength(1);
     expect(getAgentCompletionProblems(progress)[0]).toContain('project_visual_review');
   });
+  it('stops repeating an unavailable check on the same revision and preserves passing source checks', () => {
+    const visualPlan = result('agent_plan', { plan: { ...plan, requiresVisualReview: true } });
+    const unavailable = result('project_visual_review', { isError: true, unavailable: true, checked: false });
+
+    const progress = getAgentLoopProgress(
+      [user, response(visualPlan, edited, run, test, unavailable, unavailable)],
+      true,
+    );
+
+    expect(progress).toMatchObject({ tested: true, visualChecked: false, unavailableCheck: 'project_visual_review' });
+    expect(getAgentLoopInstructions(progress)).toContain('outcome blocked');
+    expect(
+      getAgentLoopProgress([user, response(visualPlan, edited, run, test, unavailable, unavailable, edited)], true)
+        .unavailableCheck,
+    ).toBeUndefined();
+  });
+
   it('requires a fresh successful visual review after edits and visual errors', () => {
     const visualPlan = result('agent_plan', { plan: { ...plan, requiresVisualReview: true } });
     const checked = result('project_visual_review', { checked: true, visualChecked: true });

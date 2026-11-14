@@ -70,6 +70,9 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
   let lastQualityReport = -1;
   let lastPreviewReport = -1;
   let lastVisualReview = -1;
+
+  const unavailableChecks = new Map<string, number>();
+
   let previewReady = false;
   let denied = false;
   let completedAt = -1;
@@ -139,6 +142,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
          * A capture/transport failure changed no source. Keep successful code checks,
          * but never reuse a previous visual/browser approval for the failed inspection.
          */
+        unavailableChecks.set(name, (unavailableChecks.get(name) ?? 0) + 1);
+
         if (name === 'project_visual_review') {
           lastVisualReview = -1;
         } else {
@@ -163,10 +168,12 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
 
       if (name === 'project_visual_review' && output.checked === true && output.visualChecked === true) {
         lastVisualReview = position;
+        unavailableChecks.delete(name);
       }
 
       if (name === 'project_preview_report' && output.checked === true && output.browserChecked === true) {
         lastPreviewReport = position;
+        unavailableChecks.delete(name);
         previewReady = output.previewReady === true;
       }
 
@@ -184,6 +191,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
           (output.written === true || output.patched === true || output.deleted === true)
         ) {
           lastEdit = position;
+          unavailableChecks.clear();
         }
       }
 
@@ -268,6 +276,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     steps,
     evidence,
     pendingProjectCalls,
+    unavailableCheck: [...unavailableChecks].find(([, attempts]) => attempts >= 2)?.[0],
   };
 }
 
@@ -336,6 +345,10 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
     return 'The completion gate accepted this task. Summarize the relevant changed files, passing checks, and fulfilled criteria. Do not start unrelated work.';
   }
 
+  if (progress.unavailableCheck) {
+    return `${progress.unavailableCheck} could not run twice on this revision. Call agent_complete with outcome blocked and report the unavailable check. Preserve the last edited project and the confirmed checks. Do not edit source or retry the unavailable check. Do not claim visual approval.`;
+  }
+
   const nextAction = progress.needsRepair
     ? 'Inspect the latest failed project tool action. Correct its cause, then retry the relevant command or quality check. Verification tools remain available; do not rewrite source unless the failure requires it.'
     : !progress.edited
@@ -351,7 +364,7 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
               : progress.plan?.requiresPreviewReport && !progress.browserChecked
                 ? 'Run project_preview_report now to inspect the rendered desktop/mobile preview. Repair errors and rerun checks before completing. This is DOM inspection, not screenshot-based visual approval.'
                 : progress.plan?.requiresVisualReview && !progress.visualChecked
-                  ? 'Call project_visual_review now. Repair concrete visible errors, preserving content, functionality and existing style. Rerun affected checks after changes. If capture is unavailable, report the blocker; never remove content or media merely to bypass capture.'
+                  ? 'Call project_visual_review now. Repair concrete visible errors, preserving content, functionality and existing style. If only suggestions remain, complete without another edit. Rerun affected checks after changes. If capture is unavailable, report the blocker; never remove content or media merely to bypass capture.'
                   : 'Call agent_complete alone and report every recorded criterion by its exact ID. The server attaches evidence from successful project tool calls automatically; do not provide process IDs, command names, or guessed evidence IDs.';
 
   return `Follow Plan -> edit -> run -> test -> repair. Record a short plan and observable completion criteria with agent_plan. Inspect relevant files, then use small exact patches. Run the app/program with purpose run; use an existing live server for follow-up UI edits. Run the smallest relevant available checks with purpose test and wait for exit code 0. If a check fails, inspect its output, patch the cause, and rerun the check. Any edit after a passing check requires fresh verification. Call agent_complete alone and report each planned criterion by its exact ID; the server attaches evidence from successful project tool calls automatically. A plan or started process alone is not completion. If no automated test script exists, use an available typecheck, lint, focused runtime assertion, or smoke check and explain its limits; do not invent passing tests. If work cannot proceed, report outcome blocked with a concrete reason.

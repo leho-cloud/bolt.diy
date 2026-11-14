@@ -126,6 +126,21 @@ describe('rendered preview audit bridge', () => {
     await expect(inspectProjectPreview(abort.signal, () => true)).rejects.toThrow('megszakították');
     expect(frame.getAttribute('style')).toBe(original);
   });
+  it('resends the DOM request once when the preview listener is late', async () => {
+    vi.useFakeTimers();
+
+    const frame = preview();
+    const post = respond(frame);
+    post.mockImplementationOnce(() => undefined);
+
+    const result = inspectProjectPreview(new AbortController().signal, () => true);
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect((await result).reports).toHaveLength(2);
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post.mock.calls[0][0].requestId).toBe(post.mock.calls[1][0].requestId);
+  });
+
   it('times out missing inspection support and leaves preview unchanged', async () => {
     vi.useFakeTimers();
 

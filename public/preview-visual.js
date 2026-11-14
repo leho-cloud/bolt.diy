@@ -164,12 +164,13 @@
       host.appendChild(clone);
       document.body.appendChild(host);
       stage = 'fonts';
-      const fontEmbedCSS = await window.htmlToImage.getFontEmbedCSS(document.body, {
-        preferredFontFormat: 'woff2',
-        fetchRequestInit: { credentials: 'omit', signal: controller.signal },
-      });
-      if (controller.signal.aborted) throw Error('Az export időtúllépéssel leállt.');
       const usedWebFonts = Array.from(document.fonts || []).filter((face) => usedFonts.has(normalizeFont(face.family)));
+      const fontEmbedCSS = usedWebFonts.length
+        ? await window.htmlToImage.getFontEmbedCSS(document.body, {
+            fetchRequestInit: { credentials: 'omit', signal: controller.signal },
+          })
+        : '';
+      if (controller.signal.aborted) throw Error('Az export időtúllépéssel leállt.');
       if (usedWebFonts.length && !fontEmbedCSS.includes('data:'))
         throw Error('Az egyedi betűtípus nem ágyazható be megbízhatóan.');
       stage = 'render';

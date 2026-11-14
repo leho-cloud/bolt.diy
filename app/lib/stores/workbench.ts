@@ -924,26 +924,25 @@ export class WorkbenchStore {
     const timestampHash = Date.now().toString(36).slice(-6);
     const uniqueProjectName = `${projectName}_${timestampHash}`;
 
-    for (const [filePath, dirent] of Object.entries(files)) {
-      if (dirent?.type === 'file' && !dirent.isBinary) {
-        const relativePath = extractRelativePath(filePath);
+    const generation = this.projectGeneration.get();
 
-        // split the path into segments
-        const pathSegments = relativePath.split('/');
-
-        // if there's more than one segment, we need to create folders
-        if (pathSegments.length > 1) {
-          let currentFolder = zip;
-
-          for (let i = 0; i < pathSegments.length - 1; i++) {
-            currentFolder = currentFolder.folder(pathSegments[i])!;
-          }
-          currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
-        } else {
-          // if there's only one segment, it's a file in the root
-          zip.file(relativePath, dirent.content);
-        }
+    for (const [filePath, entry] of Object.entries(files)) {
+      if (entry?.type !== 'file') {
+        continue;
       }
+
+      const relativePath = extractRelativePath(filePath);
+      const content = entry.isBinary ? await (await webcontainer).fs.readFile(relativePath) : entry.content;
+
+      if (generation !== this.projectGeneration.get()) {
+        throw new Error('The active project changed during export.');
+      }
+
+      zip.file(relativePath, content);
+    }
+
+    if (!Object.keys(zip.files).length) {
+      throw new Error('There are no project files to export.');
     }
 
     // Generate the zip file and save it

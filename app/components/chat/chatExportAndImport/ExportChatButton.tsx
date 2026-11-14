@@ -1,49 +1,160 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { saveAs } from 'file-saver';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
+import { capturePreviewImage, getPreviewMp4MimeType, openPreviewCapture } from '~/lib/runtime/previewExport';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { classNames } from '~/utils/classNames';
 
-export const ExportChatButton = ({ exportChat }: { exportChat?: () => void }) => {
+type ExportFormat = 'zip' | 'png' | 'jpeg' | 'mp4';
+
+const itemClass =
+  'cursor-pointer flex items-center gap-2 px-4 py-2 text-sm text-bolt-elements-textPrimary outline-none data-[highlighted]:bg-bolt-elements-item-backgroundActive data-[disabled]:opacity-50';
+
+export function ExportChatButton({ exportChat, previewVisible }: { exportChat?: () => void; previewVisible: boolean }) {
+  const [saving, setSaving] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const activeCapture = useRef<AbortController | undefined>(undefined);
+  const recorder = useRef<MediaRecorder | undefined>(undefined);
+
+  useEffect(() => {
+    if (!previewVisible) {
+      activeCapture.current?.abort();
+    }
+
+    return () => activeCapture.current?.abort();
+  }, [previewVisible]);
+
+  async function download(format: ExportFormat) {
+    setSaving(true);
+
+    const capture = new AbortController();
+    const stopTracks = (stream: MediaStream) => stream.getTracks().forEach((track) => track.stop());
+
+    try {
+      if (format === 'zip') {
+        await workbenchStore.downloadZip();
+        return;
+      }
+
+      const mp4MimeType = format === 'mp4' ? getPreviewMp4MimeType() : undefined;
+
+      if (format === 'mp4' && !mp4MimeType) {
+        throw new Error('Ez a böngésző nem tud MP4-et rögzíteni.');
+      }
+
+      activeCapture.current = capture;
+
+      const stream = await openPreviewCapture();
+
+      try {
+        if (capture.signal.aborted) {
+          return;
+        }
+
+        capture.signal.addEventListener('abort', () => stopTracks(stream), { once: true });
+
+        const name = `muhely-elonezet-${Date.now()}`;
+
+        if (format === 'png' || format === 'jpeg') {
+          const image = await capturePreviewImage(stream, format === 'png' ? 'image/png' : 'image/jpeg');
+
+          if (!capture.signal.aborted) {
+            saveAs(image, `${name}.${format}`);
+          }
+
+          return;
+        }
+
+        const video = new MediaRecorder(stream, { mimeType: mp4MimeType });
+        const chunks: Blob[] = [];
+
+        const output = new Promise<Blob>((resolve, reject) => {
+          video.ondataavailable = ({ data }) => {
+            if (data.size) {
+              chunks.push(data);
+            }
+          };
+          video.onstop = () => resolve(new Blob(chunks, { type: 'video/mp4' }));
+          video.onerror = () => reject(new Error('Az MP4-felvétel megszakadt.'));
+        });
+        recorder.current = video;
+        video.start(1000);
+        setRecording(true);
+
+        const blob = await output;
+
+        if (!capture.signal.aborted) {
+          if (!blob.size) {
+            throw new Error('A felvétel üres. Indíts új felvételt, és várj néhány másodpercet a mentéssel.');
+          }
+
+          saveAs(blob, `${name}.mp4`);
+        }
+      } finally {
+        stopTracks(stream);
+      }
+    } catch (error) {
+      if (!capture.signal.aborted && !(error instanceof DOMException && error.name === 'NotAllowedError')) {
+        toast.error(format === 'zip' ? 'A projekt letöltése nem sikerült.' : (error as Error).message);
+      }
+    } finally {
+      activeCapture.current = undefined;
+      recorder.current = undefined;
+      setRecording(false);
+      setSaving(false);
+    }
+  }
+
+  if (recording) {
+    return (
+      <button
+        type="button"
+        className="shrink-0 rounded-md bg-accent-500 px-3 py-1.5 text-xs text-white"
+        onClick={() => {
+          if (recorder.current?.state === 'recording') {
+            recorder.current.stop();
+          }
+        }}
+      >
+        MP4 mentése ■
+      </button>
+    );
+  }
+
   return (
-    <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden">
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger className="rounded-md items-center justify-center [&:is(:disabled,.disabled)]:cursor-not-allowed [&:is(:disabled,.disabled)]:opacity-60 px-3 py-1.5 text-xs bg-accent-500 text-white hover:text-bolt-elements-item-contentAccent [&:not(:disabled,.disabled)]:hover:bg-bolt-elements-button-primary-backgroundHover outline-accent-500 flex gap-1.7">
-          Export
-          <span className={classNames('i-ph:caret-down transition-transform')} />
-        </DropdownMenu.Trigger>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        disabled={saving}
+        className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor px-3 py-1.5 text-xs"
+      >
+        {saving ? 'Mentés…' : 'Letöltés'}
+        <span className="i-ph:caret-down" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={classNames(
-            'z-[250]',
-            'bg-bolt-elements-background-depth-2',
-            'rounded-lg shadow-lg',
-            'border border-bolt-elements-borderColor',
-            'animate-in fade-in-0 zoom-in-95',
-            'py-1',
-          )}
+          className="z-[1100] min-w-[190px] rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 py-1 shadow-lg"
           sideOffset={5}
           align="end"
         >
-          <DropdownMenu.Item
-            className={classNames(
-              'cursor-pointer flex items-center w-auto px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-            )}
-            onClick={() => {
-              workbenchStore.downloadZip();
-            }}
-          >
-            <div className="i-ph:code size-4.5"></div>
-            <span>Download Code</span>
+          <DropdownMenu.Item className={itemClass} onSelect={() => void download('zip')}>
+            Projektfájlok (ZIP)
           </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className={classNames(
-              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-            )}
-            onClick={() => exportChat?.()}
-          >
-            <div className="i-ph:chat size-4.5"></div>
-            <span>Export Chat</span>
+          <DropdownMenu.Item className={itemClass} disabled={!previewVisible} onSelect={() => void download('png')}>
+            Előnézet mentése (PNG)
           </DropdownMenu.Item>
+          <DropdownMenu.Item className={itemClass} disabled={!previewVisible} onSelect={() => void download('jpeg')}>
+            Előnézet mentése (JPEG)
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className={itemClass} disabled={!previewVisible} onSelect={() => void download('mp4')}>
+            Felvétel indítása (MP4)
+          </DropdownMenu.Item>
+          {exportChat && (
+            <DropdownMenu.Item className={itemClass} onSelect={exportChat}>
+              Beszélgetés exportálása
+            </DropdownMenu.Item>
+          )}
         </DropdownMenu.Content>
-      </DropdownMenu.Root>
-    </div>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
-};
+}

@@ -410,7 +410,9 @@ export async function createProjectMcpBridge() {
           const currentRevision = await getFileRevision(content);
 
           if (expectedContent === undefined && revisionToCheck === undefined) {
-            throw new Error('Read the file first, then supply its revision as expectedRevision.');
+            throw new Error(
+              'File unchanged. Call project_read_file on this exact path, then retry once with the returned revision as expectedRevision.',
+            );
           }
 
           if (
@@ -1050,15 +1052,27 @@ export async function createProjectMcpBridge() {
           signal: extra.signal,
         });
 
-        const body = (await response.json()) as { success?: boolean; data?: unknown; error?: string };
+        const body = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          data?: unknown;
+          error?: string;
+        } | null;
 
-        if (!response.ok || !body.success) {
-          throw new Error(body.error || `Web fetch failed (${response.status}).`);
+        if (!response.ok || !body?.success) {
+          throw new Error(body?.error || `A weboldal beolvasása sikertelen (HTTP ${response.status}).`);
         }
 
         return success(body.data);
       } catch (error) {
-        return failure(error);
+        const failed = failure(error);
+        return {
+          ...failed,
+          structuredContent: {
+            isError: true,
+            error: `A szöveges beolvasás sikertelen: ${failed.content[0].text}`,
+            next: 'For a visual reference, use website_reference. Do not repeat the same failed URL fetch unchanged.',
+          },
+        };
       }
     },
   );

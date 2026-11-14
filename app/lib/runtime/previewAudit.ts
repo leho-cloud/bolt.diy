@@ -33,6 +33,7 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       clearTimeout(timeout);
+      clearTimeout(retry);
       window.removeEventListener('message', onMessage);
       signal.removeEventListener('abort', onAbort);
     };
@@ -76,6 +77,14 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
       },
       capture ? 30000 : 8000,
     );
+    const request = {
+      type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST',
+      requestId,
+      viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) },
+    };
+
+    // A preview reload can leave the first DOM request without a listener.
+    const retry = capture ? undefined : setTimeout(() => target?.postMessage(request, origin), 1500);
     window.addEventListener('message', onMessage);
     signal.addEventListener('abort', onAbort, { once: true });
 
@@ -84,14 +93,7 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
       return;
     }
 
-    target?.postMessage(
-      {
-        type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST',
-        requestId,
-        viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) },
-      },
-      origin,
-    );
+    target?.postMessage(request, origin);
   });
 }
 

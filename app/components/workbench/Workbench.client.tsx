@@ -314,6 +314,7 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
+    const projectGeneration = useStore(workbenchStore.projectGeneration);
     const showTerminal = useStore(workbenchStore.showTerminal);
     const userSelectedView = useStore(workbenchStore.userSelectedView);
     const { showChat } = useStore(chatStore);
@@ -451,11 +452,13 @@ export const Workbench = memo(
                   />
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
+                  <ExportChatButton
+                    key={projectGeneration}
+                    exportChat={exportChat}
+                    previewVisible={showWorkbench && selectedView === 'preview'}
+                  />
                   {selectedView === 'code' && (
                     <div className="flex overflow-y-auto">
-                      {/* Export Chat Button */}
-                      <ExportChatButton exportChat={exportChat} />
-
                       {/* Sync Button */}
                       <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden ml-1">
                         <DropdownMenu.Root>
