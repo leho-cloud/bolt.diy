@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 
@@ -147,10 +147,20 @@ export function createRenderQueue(directory, ownershipDirectory) {
         } catch (error) {
           return json({ error: error instanceof SyntaxError ? 'Érvénytelen projektcsomag.' : error.message }, 400);
         }
-        await mkdir(join(folder, 'input'), { recursive: true, mode: 0o770 });
+        const input = join(folder, 'input');
+        await mkdir(input, { recursive: true, mode: 0o770 });
+        await Promise.all([chmod(folder, 0o2770), chmod(input, 0o2770)]);
+        const directories = new Set([input]);
         for (const [path, base64] of upload.files) {
-          const destination = join(folder, 'input', path);
-          await mkdir(dirname(destination), { recursive: true, mode: 0o770 });
+          const destination = join(input, path);
+          const parent = dirname(destination);
+          if (!directories.has(parent)) {
+            await mkdir(parent, { recursive: true, mode: 0o770 });
+            for (let current = parent; !directories.has(current); current = dirname(current)) {
+              await chmod(current, 0o2770);
+              directories.add(current);
+            }
+          }
           await writeFile(destination, Buffer.from(base64, 'base64'), { mode: 0o640, flag: 'wx' });
         }
         await writeJson(ownerPath, { actorId: actor.id, created: Date.now() });
