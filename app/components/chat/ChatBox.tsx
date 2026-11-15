@@ -414,7 +414,6 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                       <span className="text-xs text-bolt-elements-textSecondary">Ötletelés, módosítások nélkül</span>
                     </div>
                   </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="my-1 h-px bg-bolt-elements-borderColor" />
                   <LovableHandoffItem draft={props.input} />
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
