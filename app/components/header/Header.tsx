@@ -35,11 +35,8 @@ export function Header() {
           </span>
         </a>
       </div>
-      <a href="/fiokom" className="ml-auto px-3 text-xs text-bolt-elements-textSecondary">
-        Belépésem
-      </a>
       {!chat.started && (
-        <nav className="muhely-header-nav" aria-label="Fő navigáció">
+        <nav className="muhely-header-nav max-[400px]:hidden" aria-label="Fő navigáció">
           <a href="#sajat-projektek">Projektjeim</a>
           <a href="#kesz-alapok">Kész alapok</a>
           <ClientOnly>{() => <ThemeSwitch />}</ClientOnly>
@@ -47,7 +44,7 @@ export function Header() {
       )}
       {chat.started && ( // Display ChatDescription and HeaderActionButtons only when the chat has started.
         <>
-          <span className="flex-1 px-4 truncate text-center text-bolt-elements-textPrimary">
+          <span className="min-w-0 flex-1 truncate text-center text-bolt-elements-textPrimary sm:px-4">
             <ClientOnly>{() => <ChatDescription />}</ClientOnly>
           </span>
           <ClientOnly>
@@ -59,6 +56,19 @@ export function Header() {
           </ClientOnly>
         </>
       )}
+      <nav className="ml-auto flex shrink-0 items-center gap-1" aria-label="Fiók">
+        <a href="/fiokom" className="muhely-header-icon" aria-label="Fiókom" title="Fiókom">
+          <span className="i-ph:user-circle text-lg" aria-hidden="true" />
+        </a>
+        <a
+          href="/kijelentkezes"
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
+          title="Kijelentkezés"
+        >
+          <span className="i-ph:sign-out text-base" aria-hidden="true" />
+          <span className="sr-only sm:not-sr-only">Kijelentkezés</span>
+        </a>
+      </nav>
     </header>
   );
 }
