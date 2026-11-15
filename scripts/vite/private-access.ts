@@ -46,13 +46,14 @@ export function privateAccess(): Plugin {
           }
 
           // Auth checks must not consume chat uploads, streaming requests or tool bodies.
-          const renderUpload = url.pathname === '/api/media-render' && req.method === 'POST';
+          const projectUpload =
+            ['/api/media-render', '/api/project-publish'].includes(url.pathname) && req.method === 'POST';
 
           const request = new Request(url, {
             method: req.method,
             headers,
-            body: renderUpload ? (Readable.toWeb(req) as ReadableStream<Uint8Array>) : body,
-            ...(renderUpload ? { duplex: 'half' } : {}),
+            body: projectUpload ? (Readable.toWeb(req) as ReadableStream<Uint8Array>) : body,
+            ...(projectUpload ? { duplex: 'half' } : {}),
           });
 
           const response = await gate.handle(request);

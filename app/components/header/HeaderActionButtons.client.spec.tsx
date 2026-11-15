@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { atom } from 'nanostores';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,13 +28,12 @@ describe('Műhely project actions', () => {
     render(<HeaderActionButtons chatStarted />);
     fireEvent.click(screen.getByRole('button', { name: 'Kép vagy videó' }));
     expect(mediaExportOpen.get()).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Közzététel' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Közzététel' })).toBeDefined();
   });
 
-  it('has a Hungarian publish action and no upstream bug-report button when a preview is running', () => {
+  it('keeps the publish action unavailable without project files', () => {
     workbenchStore.previews.set([{ port: 5173, baseUrl: 'https://example.test', ready: true }]);
     render(<HeaderActionButtons chatStarted />);
-    expect(screen.getByRole('button', { name: 'Közzététel' })).toBeDefined();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Közzététel' })).toBeNull();
   });
 });

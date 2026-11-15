@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { createRenderQueue } from '../render/queue.mjs';
+import { bundlePrefix, createPublisher, publishPath } from './publish.mjs';
 import { openPrivateAccess } from './store.mjs';
 import { loginPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
 
@@ -50,6 +51,7 @@ export async function createAccessGate(directory, options = {}) {
     options.renderQueueDirectory ?? process.env.MUHELY_RENDER_QUEUE,
     join(directory, 'render-owners'),
   );
+  const publisher = createPublisher(directory);
   const json = (status, data) =>
     new Response(JSON.stringify(data), {
       status,
@@ -104,6 +106,7 @@ export async function createAccessGate(directory, options = {}) {
         return new Response(enrollmentScript, {
           headers: { ...commonHeaders, 'Content-Type': 'text/javascript; charset=utf-8' },
         });
+      if (path.startsWith(bundlePrefix)) return publisher.handleBundle(request);
       if (path === '/api/health' && ['GET', 'HEAD'].includes(request.method)) return null;
       if (path === '/api/private-access/me' && request.method === 'GET')
         return actor
@@ -144,6 +147,10 @@ export async function createAccessGate(directory, options = {}) {
         return path.startsWith('/api/')
           ? json(401, { error: 'Jelentkezz be a Műhelybe.', loginUrl: '/belepes' })
           : redirect('/belepes?next=' + encodeURIComponent(safeDestination(path + url.search)));
+      if (path === publishPath)
+        return actor.role === 'owner'
+          ? publisher.handle(request)
+          : json(403, { error: 'A közzétételt csak a Műhely tulajdonosa indíthatja.' });
       if (path === '/api/media-render') return render(request, actor);
       if (path === '/kijelentkezes') {
         if (request.method !== 'POST')

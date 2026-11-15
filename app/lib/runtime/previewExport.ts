@@ -56,7 +56,7 @@ function toBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-async function collectBuild(wc: WebContainer, directory: string, signal: AbortSignal) {
+async function collectBuild(wc: WebContainer, directory: string, signal: AbortSignal, publication = false) {
   const files: { path: string; base64: string }[] = [];
 
   let total = 0;
@@ -65,7 +65,12 @@ async function collectBuild(wc: WebContainer, directory: string, signal: AbortSi
     for (const entry of await wc.fs.readdir(directory + prefix, { withFileTypes: true })) {
       signal.throwIfAborted();
 
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+      if (
+        entry.name.startsWith('.') ||
+        entry.name === 'node_modules' ||
+        (publication && directory === '.' && /^(?:server|api|tests?|dist|build|config)$/i.test(entry.name)) ||
+        (publication && /(?:^|[.-])config\.[cm]?js$/i.test(entry.name))
+      ) {
         continue;
       }
 
@@ -73,7 +78,10 @@ async function collectBuild(wc: WebContainer, directory: string, signal: AbortSi
 
       if (entry.isDirectory()) {
         await walk(path);
-      } else if (entry.isFile() && mediaFiles.test(path)) {
+      } else if (
+        entry.isFile() &&
+        (mediaFiles.test(path) || (publication && /\.(?:txt|xml|webmanifest|pdf|otf|wasm|mp3|ogg|wav)$/i.test(path)))
+      ) {
         const bytes = await wc.fs.readFile(directory + path);
         total += bytes.length;
 
@@ -95,9 +103,7 @@ async function collectBuild(wc: WebContainer, directory: string, signal: AbortSi
   return files;
 }
 
-export async function createMediaJob(settings: MediaSettings, signal: AbortSignal) {
-  await request(endpoint, signal);
-
+export async function collectProjectBuild(signal: AbortSignal, options?: { publication?: boolean }) {
   const generation = workbenchStore.projectGeneration.get();
 
   const assertCurrent = () => {
@@ -119,7 +125,7 @@ export async function createMediaJob(settings: MediaSettings, signal: AbortSigna
     const packageJson = await wc.fs.readFile('package.json', 'utf-8').catch(() => undefined);
 
     if (!packageJson) {
-      return collectBuild(wc, '.', signal);
+      return collectBuild(wc, '.', signal, options?.publication);
     }
 
     const { scripts, dependencies, devDependencies } = JSON.parse(packageJson);
@@ -153,7 +159,7 @@ export async function createMediaJob(settings: MediaSettings, signal: AbortSigna
       }
 
       try {
-        return await collectBuild(wc, output, signal);
+        return await collectBuild(wc, output, signal, options?.publication);
       } catch (error) {
         if ((error as { code?: string })?.code === 'ENOENT') {
           throw new Error('A fordítás nem hozta létre a várt exportmappát. Ellenőrizd a Vite build beállításait.');
@@ -167,6 +173,14 @@ export async function createMediaJob(settings: MediaSettings, signal: AbortSigna
   });
 
   assertCurrent();
+
+  return files;
+}
+
+export async function createMediaJob(settings: MediaSettings, signal: AbortSignal) {
+  await request(endpoint, signal);
+
+  const files = await collectProjectBuild(signal);
 
   return request<{ id: string }>(endpoint, signal, { ...settings, files });
 }

@@ -117,6 +117,7 @@ test('invites are one-use, owner-only; members have separate browser database na
   );
   for (const path of [
     '/api/coolify-publish',
+    '/api/project-publish',
     '/api/mcp-update-config',
     '/api/export-api-keys',
     '/api/system/diagnostics',
