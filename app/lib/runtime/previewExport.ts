@@ -1,95 +1,160 @@
-type RegionCaptureTrack = MediaStreamTrack & { cropTo?: (target: unknown) => Promise<void> };
-type CaptureWindow = Window & { CropTarget?: { fromElement: (element: Element) => Promise<unknown> } };
-type CaptureOptions = DisplayMediaStreamOptions & { preferCurrentTab: boolean; surfaceSwitching: 'exclude' };
+import type { WebContainer } from '@webcontainer/api';
+import { workbenchStore } from '~/lib/stores/workbench';
+import { webcontainer } from '~/lib/webcontainer';
 
-export function getPreviewMp4MimeType() {
-  return ['video/mp4;codecs=avc1', 'video/mp4'].find((format) => globalThis.MediaRecorder?.isTypeSupported(format));
+export type MediaSettings = {
+  format: 'mp4' | 'png' | 'jpeg';
+  width: number;
+  height: number;
+  seconds: number;
+};
+
+export type MediaJob = MediaSettings & {
+  state: 'queued' | 'running' | 'ready' | 'failed';
+  error?: string;
+};
+
+const endpoint = '/api/media-render';
+const mediaFiles = /\.(html|js|mjs|css|json|svg|png|jpe?g|webp|avif|gif|ico|woff2?|ttf|mp4|webm)$/i;
+const maxBytes = 23 * 1024 * 1024;
+
+async function request<T>(url: string, signal: AbortSignal, settings?: object): Promise<T> {
+  const response = await fetch(url, {
+    signal,
+    ...(settings
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }
+      : {}),
+  });
+
+  const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+  if (!response.ok || !result) {
+    throw new Error(result?.error ?? 'A renderelő szolgáltatás nem érhető el.');
+  }
+
+  return result as T;
 }
 
-export async function openPreviewCapture() {
-  const frame = document.querySelector<HTMLIFrameElement>('iframe[title="preview"]');
-  const cropTarget = (window as CaptureWindow).CropTarget;
+export function mediaDownloadUrl(id: string) {
+  return `${endpoint}?id=${encodeURIComponent(id)}&download=1`;
+}
 
-  if (!frame?.getBoundingClientRect().width || !frame.getBoundingClientRect().height) {
-    throw new Error('Nyisd meg az Előnézetet a mentéshez.');
+export function readMediaJob(id: string, signal: AbortSignal) {
+  return request<MediaJob>(`${endpoint}?id=${encodeURIComponent(id)}`, signal);
+}
+
+function toBase64(bytes: Uint8Array) {
+  let binary = '';
+
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
   }
 
-  if (!cropTarget || !navigator.mediaDevices?.getDisplayMedia) {
-    throw new Error('Az előnézet médiaexportja asztali Chrome-ban érhető el.');
+  return btoa(binary);
+}
+
+async function collectBuild(wc: WebContainer, directory: string, signal: AbortSignal) {
+  const files: { path: string; base64: string }[] = [];
+
+  let total = 0;
+
+  async function walk(prefix: string) {
+    for (const entry of await wc.fs.readdir(directory + prefix, { withFileTypes: true })) {
+      signal.throwIfAborted();
+
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+        continue;
+      }
+
+      const path = prefix + '/' + entry.name;
+
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (entry.isFile() && mediaFiles.test(path)) {
+        const bytes = await wc.fs.readFile(directory + path);
+        total += bytes.length;
+
+        if (total > maxBytes || files.length >= 1000) {
+          throw new Error('A projekt médiafájljai meghaladják a renderelő csomagméretét.');
+        }
+
+        files.push({ path: path.slice(1), base64: toBase64(bytes) });
+      }
+    }
   }
 
-  const options: CaptureOptions = {
-    video: { frameRate: { ideal: 30 } },
-    audio: false,
-    preferCurrentTab: true,
-    surfaceSwitching: 'exclude',
+  await walk('');
+
+  if (!files.some(({ path }) => path === 'index.html')) {
+    throw new Error('Hiányzik a fordításból az index.html. Statikusan buildelhető webes projekt szükséges.');
+  }
+
+  return files;
+}
+
+export async function createMediaJob(settings: MediaSettings, signal: AbortSignal) {
+  await request(endpoint, signal);
+
+  const generation = workbenchStore.projectGeneration.get();
+
+  const assertCurrent = () => {
+    signal.throwIfAborted();
+
+    if (generation !== workbenchStore.projectGeneration.get()) {
+      throw new Error('A projekt megváltozott a fordítás közben.');
+    }
   };
 
-  const stream = await navigator.mediaDevices.getDisplayMedia(options);
+  const files = await workbenchStore.queueProjectMutation(async () => {
+    assertCurrent();
 
-  try {
-    const [track] = stream.getVideoTracks() as RegionCaptureTrack[];
+    const wc = await webcontainer;
 
-    if (!track?.cropTo || track.getSettings().displaySurface !== 'browser') {
-      throw new Error('A megosztásnál a jelenlegi Bolt lapot válaszd.');
+    assertCurrent();
+    await workbenchStore.saveAllFiles();
+
+    const packageJson = await wc.fs.readFile('package.json', 'utf-8').catch(() => undefined);
+
+    if (!packageJson) {
+      return collectBuild(wc, '.', signal);
     }
 
-    await track.cropTo(await cropTarget.fromElement(frame));
+    const { scripts, dependencies, devDependencies } = JSON.parse(packageJson);
 
-    return stream;
-  } catch {
-    for (const track of stream.getTracks()) {
-      track.stop();
+    if (typeof scripts?.build !== 'string' || !(dependencies?.vite || devDependencies?.vite)) {
+      throw new Error('Ehhez a projekthez Vite build vagy önálló HTML szükséges a közvetlen rendereléshez.');
     }
 
-    throw new Error('A megosztásnál a jelenlegi Bolt lapot válaszd.');
-  }
-}
+    const output = '/tmp/muhely-' + crypto.randomUUID();
 
-export async function capturePreviewImage(stream: MediaStream, mimeType: 'image/png' | 'image/jpeg') {
-  const video = document.createElement('video');
-  video.muted = true;
-  video.playsInline = true;
-  video.srcObject = stream;
+    try {
+      const process = await wc.spawn('npm', ['run', 'build', '--', '--outDir', output]);
+      const stop = () => process.kill();
+      signal.addEventListener('abort', stop, { once: true });
 
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        if (signal.aborted) {
+          stop();
+        }
 
-  try {
-    await Promise.race([
-      video.play(),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error('Az előnézetből nem érkezett kép.')), 5000);
-      }),
-    ]);
+        const log = process.output.pipeTo(new WritableStream());
+        const [code] = await Promise.all([process.exit, log]);
+        assertCurrent();
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+        if (code !== 0) {
+          throw new Error('A projekt fordítása sikertelen. Ellenőrizd, hogy a függőségek telepítve vannak-e.');
+        }
+      } finally {
+        signal.removeEventListener('abort', stop);
+      }
 
-    const context = canvas.getContext('2d');
-
-    if (!canvas.width || !canvas.height || !context) {
-      throw new Error('Az előnézetből nem érkezett kép.');
+      return await collectBuild(wc, output, signal);
+    } finally {
+      await wc.fs.rm(output, { recursive: true, force: true });
     }
+  });
 
-    context.drawImage(video, 0, 0);
+  assertCurrent();
 
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob?.type === mimeType) {
-            resolve(blob);
-          } else {
-            reject(new Error('A képfájlt nem sikerült létrehozni.'));
-          }
-        },
-        mimeType,
-        0.95,
-      );
-    });
-  } finally {
-    clearTimeout(timeout);
-    video.pause();
-    video.srcObject = null;
-  }
+  return request<{ id: string }>(endpoint, signal, { ...settings, files });
 }

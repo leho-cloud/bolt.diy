@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { createRenderQueue } from '../render/queue.mjs';
 import { openPrivateAccess } from './store.mjs';
 import { loginPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
 
@@ -44,6 +46,10 @@ export async function createAccessGate(directory, options = {}) {
   const store = await openPrivateAccess(directory, options),
     now = options.now || Date.now,
     buckets = new Map();
+  const render = createRenderQueue(
+    options.renderQueueDirectory ?? process.env.MUHELY_RENDER_QUEUE,
+    join(directory, 'render-owners'),
+  );
   const json = (status, data) =>
     new Response(JSON.stringify(data), {
       status,
@@ -138,6 +144,7 @@ export async function createAccessGate(directory, options = {}) {
         return path.startsWith('/api/')
           ? json(401, { error: 'Jelentkezz be a Műhelybe.', loginUrl: '/belepes' })
           : redirect('/belepes?next=' + encodeURIComponent(safeDestination(path + url.search)));
+      if (path === '/api/media-render') return render(request, actor);
       if (path === '/kijelentkezes') {
         if (request.method !== 'POST')
           return html(

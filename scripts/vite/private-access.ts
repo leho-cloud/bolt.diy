@@ -1,5 +1,7 @@
 import { type IncomingMessage } from 'node:http';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { Plugin } from 'vite';
 
 /* Node-only plugin code lives outside the application's ~/ alias. */
@@ -44,7 +46,15 @@ export function privateAccess(): Plugin {
           }
 
           // Auth checks must not consume chat uploads, streaming requests or tool bodies.
-          const request = new Request(url, { method: req.method, headers, body });
+          const renderUpload = url.pathname === '/api/media-render' && req.method === 'POST';
+
+          const request = new Request(url, {
+            method: req.method,
+            headers,
+            body: renderUpload ? (Readable.toWeb(req) as ReadableStream<Uint8Array>) : body,
+            ...(renderUpload ? { duplex: 'half' } : {}),
+          });
+
           const response = await gate.handle(request);
 
           if (!response) {
@@ -59,8 +69,18 @@ export function privateAccess(): Plugin {
           for (const [name, value] of response.headers) {
             res.setHeader(name, value);
           }
-          res.end(req.method === 'HEAD' ? undefined : Buffer.from(await response.arrayBuffer()));
+
+          if (req.method !== 'HEAD' && response.body) {
+            await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream), res);
+          } else {
+            res.end();
+          }
         } catch {
+          if (res.headersSent || res.destroyed) {
+            res.destroy();
+            return;
+          }
+
           res.statusCode = 503;
           res.setHeader('Cache-Control', 'no-store');
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');

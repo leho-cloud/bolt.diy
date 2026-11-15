@@ -452,11 +452,7 @@ export const Workbench = memo(
                   />
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
-                  <ExportChatButton
-                    key={projectGeneration}
-                    exportChat={exportChat}
-                    previewVisible={showWorkbench && selectedView === 'preview'}
-                  />
+                  <ExportChatButton key={projectGeneration} exportChat={exportChat} streaming={streaming} />
                   {selectedView === 'code' && (
                     <div className="flex overflow-y-auto">
                       {/* Sync Button */}

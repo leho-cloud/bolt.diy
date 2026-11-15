@@ -1,0 +1,26 @@
+services:
+  renderer:
+    build:
+      context: ../..
+      dockerfile: scripts/render/Dockerfile
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:${MUHELY_CHROMIUM_SECCOMP:?Set the path to the Playwright Chromium seccomp profile}
+    cpus: 1.5
+    mem_limit: 2g
+    pids_limit: 256
+    shm_size: 256m
+    tmpfs:
+      - /tmp:mode=1777
+    environment:
+      XDG_CACHE_HOME: /tmp/cache
+      XDG_CONFIG_HOME: /tmp/config
+    volumes:
+      - type: bind
+        source: ${MUHELY_RENDER_HOST_QUEUE:?Set the directory shared with Bolt}
+        target: /var/run/muhely-render
