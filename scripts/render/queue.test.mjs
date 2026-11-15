@@ -59,6 +59,27 @@ test('exposes download only to the job owner and rejects unsafe or invalid packa
   assert.equal(await output.text(), 'fixture');
 });
 
+test('preserves the selected MP4 frame rate and the legacy default', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'bolt-media-fps-test-'));
+  const queue = join(root, 'queue');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(queue);
+  await writeFile(join(queue, 'heartbeat'), '');
+  const handle = createRenderQueue(queue, join(root, 'private'));
+
+  const invalid = await handle(request('', { ...payload('mp4'), fps: 59 }), { id: 'invalid-fps' });
+  assert.equal(invalid.status, 400);
+
+  for (const [index, fps] of [undefined, 30, 50, 60].entries()) {
+    const actor = { id: `fps-test-${index}` };
+    const response = await handle(request('', { ...payload('mp4'), fps }), actor);
+    assert.equal(response.status, 202);
+    const { id } = await response.json();
+    const queued = await (await handle(request('?id=' + id), actor)).json();
+    assert.equal(queued.fps, fps ?? 25);
+  }
+});
+
 test(
   'worker renders an exact nonstandard MP4 and returns a downloadable file',
   {
@@ -80,7 +101,7 @@ test(
     });
     const handle = createRenderQueue(queue, join(root, 'private'));
     for (let attempt = 0; attempt < 30 && (await handle(request(), owner)).status !== 200; attempt++) await wait(100);
-    const queued = await handle(request('', payload('mp4')), owner);
+    const queued = await handle(request('', { ...payload('mp4'), fps: 60 }), owner);
     assert.equal(queued.status, 202);
     const { id } = await queued.json();
     let status;
@@ -102,6 +123,7 @@ test(
       '-',
     ]).toString();
     assert.match(frames, /dimensions 0: 769x257/);
+    assert.equal(frames.split('\n').filter((line) => /^\d/.test(line)).length, 60);
     assert.ok(
       new Set(
         frames

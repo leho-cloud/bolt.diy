@@ -46,7 +46,11 @@ vi.mock('~/lib/stores/workbench', () => ({
     writeToBoltTerminal,
   },
 }));
-vi.mock('./previewExport', () => ({ createMediaJob, agentMediaExport: { set: vi.fn() } }));
+vi.mock('./previewExport', () => ({
+  createMediaJob,
+  agentMediaExport: { set: vi.fn() },
+  videoFrameRates: [25, 30, 50, 60],
+}));
 vi.mock('./ripgrepClient', () => ({ searchWithRipgrep: vi.fn() }));
 
 import { createProjectMcpBridge } from './projectMcp';

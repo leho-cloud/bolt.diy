@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { agentMediaExport, createMediaJob } from './previewExport';
+import { agentMediaExport, createMediaJob, videoFrameRates } from './previewExport';
 import { inspectProjectPreview } from './previewAudit';
 import { assertValidProjectSource, getFileRevision } from './projectFileValidation';
 import { PROJECT_TOOL_NAMES, projectToolDefinitions } from './projectMcp.shared';
@@ -601,15 +601,16 @@ export async function createProjectMcpBridge() {
         width: z.number().int().min(1).max(4096),
         height: z.number().int().min(1).max(4096),
         seconds: z.number().int().min(1).max(60).optional(),
+        fps: z.literal(videoFrameRates).optional(),
       },
     },
-    async ({ format, width, height, seconds }, { signal }) => {
+    async ({ format, width, height, seconds, fps }, { signal }) => {
       try {
         if (width * height > 4096 * 2160 || (format === 'mp4' && seconds === undefined)) {
           throw new Error('Érvénytelen méret vagy hiányzó videóhossz.');
         }
 
-        const settings = { format, width, height, seconds: seconds ?? 1 };
+        const settings = { format, width, height, seconds: seconds ?? 1, ...(fps === undefined ? {} : { fps }) };
         const { id } = await createMediaJob(settings, signal);
 
         if (bridgeChatId && chatId.get() === bridgeChatId) {

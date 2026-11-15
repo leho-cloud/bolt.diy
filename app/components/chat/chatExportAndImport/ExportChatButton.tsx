@@ -11,8 +11,10 @@ import {
   mediaDownloadUrl,
   mediaExportOpen,
   readMediaJob,
+  videoFrameRates,
   type MediaJob,
   type MediaSettings,
+  type VideoFrameRate,
 } from '~/lib/runtime/previewExport';
 import { workbenchStore } from '~/lib/stores/workbench';
 
@@ -27,7 +29,13 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
   const [zipBusy, setZipBusy] = useState(false);
   const open = useStore(mediaExportOpen);
   const agentJob = useStore(agentMediaExport);
-  const [settings, setSettings] = useState<MediaSettings>({ format: 'mp4', width: 1080, height: 1920, seconds: 20 });
+  const [settings, setSettings] = useState<MediaSettings>({
+    format: 'mp4',
+    width: 1080,
+    height: 1920,
+    seconds: 20,
+    fps: 25,
+  });
   const [creating, setCreating] = useState(false);
   const [id, setId] = useState<string>();
   const [job, setJob] = useState<MediaJob>();
@@ -224,19 +232,37 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                   />
                 </label>
                 {settings.format === 'mp4' && (
-                  <label className="col-span-2 grid gap-1">
-                    Videó hossza (másodperc)
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min={1}
-                      max={60}
-                      step={1}
-                      required
-                      value={settings.seconds || ''}
-                      onChange={(event) => setSettings({ ...settings, seconds: event.target.valueAsNumber })}
-                    />
-                  </label>
+                  <>
+                    <label className="grid gap-1">
+                      Videó hossza (másodperc)
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min={1}
+                        max={60}
+                        step={1}
+                        required
+                        value={settings.seconds || ''}
+                        onChange={(event) => setSettings({ ...settings, seconds: event.target.valueAsNumber })}
+                      />
+                    </label>
+                    <label className="grid gap-1">
+                      Képkockasebesség
+                      <select
+                        className={inputClass}
+                        value={settings.fps ?? 25}
+                        onChange={(event) =>
+                          setSettings({ ...settings, fps: Number(event.target.value) as VideoFrameRate })
+                        }
+                      >
+                        {videoFrameRates.map((fps) => (
+                          <option key={fps} value={fps}>
+                            {fps} fps
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
                 )}
               </fieldset>
               {(creating || rendering) && (
@@ -265,9 +291,11 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                 {id && job?.state === 'ready' && (
                   <a
                     href={mediaDownloadUrl(id)}
+                    download
                     className="rounded-md border border-bolt-elements-borderColor px-3 py-2 text-sm"
                   >
-                    {job.width} × {job.height} · {job.format.toUpperCase()} letöltése
+                    {job.width} × {job.height}
+                    {job.format === 'mp4' && job.fps ? ` · ${job.fps} fps` : ''} · {job.format.toUpperCase()} letöltése
                   </a>
                 )}
               </div>

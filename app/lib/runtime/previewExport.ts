@@ -3,11 +3,15 @@ import { atom } from 'nanostores';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { webcontainer } from '~/lib/webcontainer';
 
+export const videoFrameRates = [25, 30, 50, 60] as const;
+export type VideoFrameRate = (typeof videoFrameRates)[number];
+
 export type MediaSettings = {
   format: 'mp4' | 'png' | 'jpeg';
   width: number;
   height: number;
   seconds: number;
+  fps?: VideoFrameRate;
 };
 
 export type MediaJob = MediaSettings & {

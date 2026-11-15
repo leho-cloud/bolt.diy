@@ -45,6 +45,7 @@ export const projectToolDefinitions: Record<ProjectToolName, { description: stri
         width: { type: 'integer', minimum: 1, maximum: 4096 },
         height: { type: 'integer', minimum: 1, maximum: 4096 },
         seconds: { type: 'integer', minimum: 1, maximum: 60, description: 'Required for MP4.' },
+        fps: { type: 'integer', enum: [25, 30, 50, 60], description: 'MP4 frame rate. Defaults to 25.' },
       },
       ['format', 'width', 'height'],
     ),

@@ -29,7 +29,7 @@ export async function writeJson(path, value) {
   await rename(temp, path);
 }
 
-function parseSettings({ format, width, height, seconds }) {
+function parseSettings({ format, width, height, seconds, fps = 25 }) {
   if (
     typeof format !== 'string' ||
     !Object.hasOwn(formats, format) ||
@@ -39,7 +39,10 @@ function parseSettings({ format, width, height, seconds }) {
   ) {
     throw new Error('Érvénytelen formátum, pixelméret vagy videóhossz.');
   }
-  return { format, width, height, seconds: format === 'mp4' ? seconds : 1, fps: 25 };
+  if (format === 'mp4' && ![25, 30, 50, 60].includes(fps)) {
+    throw new Error('MP4-videóhoz 25, 30, 50 vagy 60 fps választható.');
+  }
+  return { format, width, height, seconds: format === 'mp4' ? seconds : 1, fps: format === 'mp4' ? fps : 25 };
 }
 
 async function parseUpload(request) {
@@ -190,12 +193,13 @@ export function createRenderQueue(directory, ownershipDirectory) {
     const path = join(folder, 'output.' + status.format);
     const file = await stat(path).catch(() => null);
     if (!file?.isFile()) return json({ error: 'A kész fájl már nem érhető el.' }, 404);
+    const fpsSuffix = status.format === 'mp4' && status.fps ? `-${status.fps}fps` : '';
     return new Response(Readable.toWeb(createReadStream(path)), {
       headers: {
         'Cache-Control': 'private, no-store',
         'Content-Type': formats[status.format],
         'Content-Length': String(file.size),
-        'Content-Disposition': `attachment; filename="muhely-${status.width}x${status.height}.${status.format}"`,
+        'Content-Disposition': `attachment; filename="muhely-${status.width}x${status.height}${fpsSuffix}.${status.format}"`,
         'X-Content-Type-Options': 'nosniff',
       },
     });
