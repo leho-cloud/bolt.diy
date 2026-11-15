@@ -192,3 +192,95 @@ test('login retries are bounded and unsafe redirects cannot escape the applicati
     assert.equal(safeDestination(path), '/muhely');
   assert.equal(safeDestination('/chat/6?x=1'), '/chat/6?x=1');
 });
+
+test('registration requests survive restart and allow sign-in only after owner approval', async (t) => {
+  const f = await fixture(t);
+  const ownerCookie = cookieOf(await owner(f));
+  const loginPage = await f.gate.handle(request('/belepes'));
+  assert.match(await loginPage.text(), /href="\/regisztracio"/);
+  const registrationPage = await f.gate.handle(request('/regisztracio'));
+  assert.match(await registrationPage.text(), /A regisztráció elfogadása egyeztetést igényel/);
+
+  const details = { username: 'kata', name: 'Kovács Kata', email: 'kata@example.test', password };
+  const requestRegistration = await f.gate.handle(request('/regisztracio', { body: details }));
+  assert.equal(requestRegistration.status, 303);
+  assert.equal(requestRegistration.headers.get('Set-Cookie'), null);
+  const receipt = await f.gate.handle(request(requestRegistration.headers.get('Location')));
+  assert.match(await receipt.text(), /Beérkezett a kérelmed/);
+
+  const gate = await createAccessGate(f.dir);
+  const signIn = () =>
+    gate.handle(request('/belepes', { body: { action: 'login', username: details.username, password } }));
+  assert.equal((await signIn()).status, 401);
+  assert.equal(
+    (
+      await gate.handle(
+        request('/regisztracio', { body: { ...details, email: 'KATA@example.test', username: 'masik' } }),
+      )
+    ).status,
+    409,
+  );
+
+  const adminPage = await gate.handle(request('/hozzaferesek', { cookie: ownerCookie }));
+  const markup = await adminPage.text();
+  assert.match(markup, /mailto:kata@example\.test/);
+  const registrationId = markup.match(/name="registrationId" value="([a-f0-9-]+)"/)?.[1];
+  assert.ok(registrationId);
+  assert.doesNotMatch(markup, new RegExp(password));
+  assert.doesNotMatch(await readFile(join(f.dir, 'access-v1.json'), 'utf8'), new RegExp(password));
+
+  const actor = gate.store.session(ownerCookie.split('=')[1]);
+  const invite = await gate.store.invite(actor, 'meghivott');
+  const member = await gate.store.enroll('meghivott', password, invite.secret);
+  const review = { action: 'approve-registration', registrationId };
+  const unauthorized = await gate.handle(
+    request('/hozzaferesek', {
+      cookie: '__Host-muhely_access=' + member.secret,
+      body: review,
+    }),
+  );
+  assert.equal(unauthorized.status, 403);
+  assert.equal((await signIn()).status, 401);
+
+  const approval = await gate.handle(request('/hozzaferesek', { cookie: ownerCookie, body: review }));
+  assert.equal(approval.status, 303);
+  assert.equal(approval.headers.get('Location'), '/hozzaferesek?allapot=jovahagyva');
+  assert.equal((await gate.handle(request('/hozzaferesek', { cookie: ownerCookie, body: review }))).status, 404);
+  assert.equal(gate.store.list(actor).registrations.length, 0);
+
+  const approvedLogin = await signIn();
+  assert.equal(approvedLogin.status, 303);
+  const profile = await (
+    await gate.handle(request('/api/private-access/me', { cookie: cookieOf(approvedLogin) }))
+  ).json();
+  assert.equal(profile.user.role, 'member');
+  assert.match(profile.database, /^boltHistory-/);
+  assert.equal((await gate.handle(request('/api/project-publish', { cookie: cookieOf(approvedLogin) }))).status, 403);
+});
+
+test('registration rejects foreign submission and the owner can decline a request', async (t) => {
+  const f = await fixture(t);
+  const ownerCookie = cookieOf(await owner(f));
+  const details = { username: 'jelentkezo', name: '<b>Jelentkező</b>', email: 'contact@example.test', password };
+  assert.equal(
+    (await f.gate.handle(request('/regisztracio', { origin: 'https://evil.test', body: details }))).status,
+    403,
+  );
+  assert.equal((await f.gate.handle(request('/regisztracio', { body: details }))).status, 303);
+  const actor = f.gate.store.session(ownerCookie.split('=')[1]);
+  const [entry] = f.gate.store.list(actor).registrations;
+  const markup = await (await f.gate.handle(request('/hozzaferesek', { cookie: ownerCookie }))).text();
+  assert.match(markup, /&lt;b&gt;Jelentkező&lt;\/b&gt;/);
+  const rejection = await f.gate.handle(
+    request('/hozzaferesek', {
+      cookie: ownerCookie,
+      body: { action: 'reject-registration', registrationId: entry.id },
+    }),
+  );
+  assert.equal(rejection.headers.get('Location'), '/hozzaferesek?allapot=elutasitva');
+  assert.equal(f.gate.store.list(actor).registrations.length, 0);
+  const login = await f.gate.handle(
+    request('/belepes', { body: { action: 'login', username: details.username, password } }),
+  );
+  assert.equal(login.status, 401);
+});

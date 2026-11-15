@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { createRenderQueue } from '../render/queue.mjs';
 import { bundlePrefix, createPublisher, publishPath } from './publish.mjs';
 import { openPrivateAccess } from './store.mjs';
-import { loginPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
+import { loginPage, registrationPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
 
 const cookieName = '__Host-muhely_access';
 // Only the product's existing public starters may use the shared template adapter.
@@ -37,7 +37,8 @@ export function safeDestination(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value))
     return '/muhely';
   const url = new URL(value, 'https://local.invalid');
-  return url.origin === 'https://local.invalid' && !['/belepes', '/kijelentkezes'].includes(url.pathname)
+  return url.origin === 'https://local.invalid' &&
+    !['/belepes', '/regisztracio', '/kijelentkezes'].includes(url.pathname)
     ? url.pathname + url.search + url.hash
     : '/muhely';
 }
@@ -143,6 +144,40 @@ export async function createAccessGate(directory, options = {}) {
           );
         }
       }
+      if (path === '/regisztracio') {
+        if (request.method === 'GET')
+          return html(
+            registrationPage({ received: url.searchParams.get('allapot') === 'beerkezett', ready: store.ready() }),
+          );
+        if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
+        if (actor) return redirect('/fiokom');
+        let values = {};
+        try {
+          take('all-registration', 30);
+          const data = new URLSearchParams(await request.text());
+          values = {
+            username: data.get('username')?.slice(0, 40),
+            name: data.get('name')?.slice(0, 100),
+            email: data.get('email')?.slice(0, 254),
+          };
+          await store.register({
+            username: data.get('username'),
+            name: data.get('name'),
+            email: data.get('email'),
+            password: data.get('password'),
+          });
+          return redirect('/regisztracio?allapot=beerkezett');
+        } catch (error) {
+          return html(
+            registrationPage({
+              values,
+              ready: store.ready(),
+              error: error.status ? error.message : 'A kérelem most nem küldhető el. Próbáld újra később.',
+            }),
+            error.status || 503,
+          );
+        }
+      }
       if (!actor)
         return path.startsWith('/api/')
           ? json(401, { error: 'Jelentkezz be a Műhelybe.', loginUrl: '/belepes' })
@@ -187,7 +222,13 @@ export async function createAccessGate(directory, options = {}) {
             ),
             403,
           );
-        if (request.method === 'GET') return html(accessPage(actor, store.list(actor)));
+        if (request.method === 'GET') {
+          const notice = {
+            jovahagyva: 'A fiókot jóváhagytad. A jelentkező már beléphet a saját jelszavával.',
+            elutasitva: 'A regisztrációs kérelmet elutasítottad.',
+          }[url.searchParams.get('allapot')];
+          return html(accessPage(actor, store.list(actor), null, '', typeof notice === 'string' ? notice : ''));
+        }
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
         try {
           const data = new URLSearchParams(await request.text());
@@ -196,6 +237,10 @@ export async function createAccessGate(directory, options = {}) {
             const result = await store.invite(actor, data.get('username'));
             invitation =
               url.origin + '/belepes#' + new URLSearchParams({ meghivo: result.secret, nev: result.username });
+          } else if (['approve-registration', 'reject-registration'].includes(data.get('action'))) {
+            const approve = data.get('action') === 'approve-registration';
+            await store.reviewRegistration(actor, data.get('registrationId'), approve);
+            return redirect('/hozzaferesek?allapot=' + (approve ? 'jovahagyva' : 'elutasitva'));
           } else if (data.get('action') === 'revoke') await store.revoke(actor, data.get('username'));
           else throw Object.assign(Error('Ismeretlen művelet.'), { status: 400 });
           return html(accessPage(actor, store.list(actor), invitation));

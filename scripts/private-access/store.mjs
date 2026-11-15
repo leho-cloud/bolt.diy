@@ -22,6 +22,15 @@ function passwordOf(value) {
     throw fail('Legalább 12 karakteres, legfeljebb 256 bájtos jelszót adj meg.');
   return value;
 }
+function registrationContact(name, email) {
+  name = typeof name === 'string' ? name.trim() : '';
+  email = typeof email === 'string' ? email.trim() : '';
+  if (!name || name.length > 100 || /[\x00-\x1f\x7f]/.test(name))
+    throw fail('Adj meg egy legfeljebb 100 karakteres nevet.');
+  if (email.length > 254 || !/^[^\s@<>\x00-\x1f\x7f]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(email))
+    throw fail('Adj meg egy érvényes e-mail-címet az egyeztetéshez.');
+  return { name, email };
+}
 async function passwordHash(password, salt = token()) {
   return {
     salt,
@@ -56,6 +65,7 @@ export async function openPrivateAccess(directory, { now = Date.now } = {}) {
       !Array.isArray(state.users) ||
       !Array.isArray(state.sessions) ||
       !Array.isArray(state.invites) ||
+      (state.registrations !== undefined && !Array.isArray(state.registrations)) ||
       state.users.filter((u) => u.role === 'owner').length > 1
     )
       throw Error('Invalid access database');
@@ -73,6 +83,7 @@ export async function openPrivateAccess(directory, { now = Date.now } = {}) {
     state = { version: 1, users: [], sessions: [], invites: [], ownerEnrollmentHash: digest(initial) };
     await writeFile(file, JSON.stringify(state), { mode: 0o600, flag: 'wx' });
   }
+  state.registrations ??= [];
   let queue = Promise.resolve();
   async function transaction(fn) {
     const task = queue.then(async () => {
@@ -139,16 +150,71 @@ export async function openPrivateAccess(directory, { now = Date.now } = {}) {
         user.disabled = false;
         next.sessions = next.sessions.filter((s) => s.userId !== user.id);
         next.invites = next.invites.filter((i) => i.username !== username);
+        next.registrations = next.registrations.filter((entry) => entry.username !== username);
         if (ownerSetup) next.ownerEnrollmentHash = null;
         return addSession(next, user);
       });
       if (result.user.role === 'owner') await unlink(enrollment).catch(() => {});
       return result;
     },
+    async register({ username, name, email, password }) {
+      username = usernameOf(username);
+      passwordOf(password);
+      const contact = registrationContact(name, email);
+      return transaction(async (next) => {
+        if (!next.users.some((u) => u.role === 'owner')) throw fail('A regisztráció jelenleg nem érhető el.', 503);
+        const sameEmail = (entry) => entry.email?.toLowerCase() === contact.email.toLowerCase();
+        if (
+          next.users.some((u) => u.username === username || sameEmail(u)) ||
+          next.invites.some((invite) => invite.username === username) ||
+          next.registrations.some((entry) => entry.username === username || sameEmail(entry))
+        ) {
+          throw fail('Ezekkel az adatokkal már van fiók, meghívó vagy függő kérelem.', 409);
+        }
+        next.registrations.push({
+          id: randomUUID(),
+          username,
+          ...contact,
+          password: await passwordHash(password),
+          requestedAt: now(),
+        });
+      });
+    },
+    async reviewRegistration(owner, id, approve) {
+      if (owner?.role !== 'owner') throw fail('Ehhez tulajdonosi hozzáférés szükséges.', 403);
+      return transaction((next) => {
+        const index = next.registrations.findIndex((entry) => entry.id === id);
+        if (index < 0) throw fail('Ez a kérelem már nincs a várakozók között.', 404);
+        const entry = next.registrations[index];
+        if (approve) {
+          if (next.users.some((u) => u.username === entry.username))
+            throw fail('Ez a felhasználónév már foglalt.', 409);
+          next.users.push({
+            id: entry.id,
+            username: entry.username,
+            name: entry.name,
+            email: entry.email,
+            password: entry.password,
+            role: 'member',
+            disabled: false,
+            createdAt: now(),
+          });
+          next.invites = next.invites.filter((invite) => invite.username !== entry.username);
+        }
+        next.registrations.splice(index, 1);
+      });
+    },
     list(owner) {
       if (owner?.role !== 'owner') throw fail('Ehhez tulajdonosi hozzáférés szükséges.', 403);
       return {
-        users: state.users.map(publicUser),
+        users: state.users.map((u) => ({ ...publicUser(u), name: u.name, email: u.email })),
+        registrations: state.registrations.map(({ id, username, name, email, requestedAt }) => ({
+          id,
+          username,
+          name,
+          email,
+          requestedAt,
+        })),
         invites: state.invites
           .filter((i) => i.expiresAt > now())
           .map(({ username, expiresAt }) => ({ username, expiresAt })),

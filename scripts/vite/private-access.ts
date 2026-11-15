@@ -29,7 +29,9 @@ export function privateAccess(): Plugin {
           }
 
           const url = new URL(req.url || '/', `${local ? 'http' : 'https'}://${host}`);
-          const ownPost = ['belepes', 'kijelentkezes', 'fiokom', 'hozzaferesek'].includes(url.pathname.slice(1));
+          const ownPost = ['belepes', 'regisztracio', 'kijelentkezes', 'fiokom', 'hozzaferesek'].includes(
+            url.pathname.slice(1),
+          );
 
           let body: string | undefined;
 
