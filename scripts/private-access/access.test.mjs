@@ -34,7 +34,14 @@ test('anonymous welcome is public while deep pages and every sensitive API remai
   assert.equal(home.status, 200);
   assert.equal(home.headers.get('Referrer-Policy'), 'same-origin');
   const html = await home.text();
-  assert.match(html, /Lépj be a Műhelybe/);
+  assert.match(html, /Az ötletedből/);
+  assert.match(html, /href="\/belepes"/);
+  assert.doesNotMatch(html, /<form/);
+  assert.match(await (await f.gate.handle(request('/belepes'))).text(), /Lépj be a Műhelybe/);
+  const enrolled = await owner(f);
+  const signedIn = await (await f.gate.handle(request('/', { cookie: cookieOf(enrolled) }))).text();
+  assert.match(signedIn, /href="\/muhely"/);
+  assert.doesNotMatch(signedIn, /href="\/regisztracio"/);
   assert.doesNotMatch(html, new RegExp(f.token));
   for (const path of [
     '/api/chat',

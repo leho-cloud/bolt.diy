@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { createRenderQueue } from '../render/queue.mjs';
 import { bundlePrefix, createPublisher, publishPath } from './publish.mjs';
+import { welcomePage } from './welcome.mjs';
 import { openPrivateAccess } from './store.mjs';
 import { loginPage, registrationPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
 
@@ -116,8 +117,8 @@ export async function createAccessGate(directory, options = {}) {
               database: actor.role === 'owner' ? 'boltHistory' : 'boltHistory-' + actor.id,
             })
           : json(401, { error: 'Jelentkezz be a Műhelybe.' });
-      if (['/', '/nyito'].includes(path) && request.method === 'GET')
-        return actor ? redirect('/muhely') : html(loginPage('/muhely', '', store.ready()));
+      if (['/', '/nyito'].includes(path) && ['GET', 'HEAD'].includes(request.method))
+        return html(welcomePage({ signedIn: Boolean(actor), registrationAvailable: store.ready() }));
       if (path === '/belepes') {
         if (request.method === 'GET')
           return actor

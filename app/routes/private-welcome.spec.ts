@@ -16,7 +16,7 @@ describe('private builder entry', () => {
     }
   });
 
-  it('serves a small script-free entry with workspace and legacy-project links', async () => {
+  it('serves a small script-free entry with sign-in and registration links', async () => {
     const response = loader();
     expect(response.headers.get('Content-Type')).toContain('text/html');
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -24,8 +24,9 @@ describe('private builder entry', () => {
     expect(response.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
 
     const html = await response.text();
-    expect(html).toContain('href="/muhely"');
-    expect(html).toContain('https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/');
+    expect(html).toContain('href="/belepes"');
+    expect(html).toContain('href="/regisztracio"');
+    expect(html).not.toContain('<form');
     expect(html).not.toContain('<script');
     expect(html).not.toContain('<iframe');
   });
