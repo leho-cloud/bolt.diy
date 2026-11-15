@@ -165,7 +165,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
   const fetchRecentRepos = async (token: string) => {
     if (!token) {
       logStore.logError('No GitHub token available');
-      toast.error('GitHub authentication required');
+      toast.error('A feltöltéshez GitHub-belépés szükséges.');
 
       return;
     }
@@ -198,7 +198,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           }
 
           if (response.status === 401) {
-            toast.error('GitHub token expired. Please reconnect your account.');
+            toast.error('Lejárt a GitHub-hozzáférés. Csatlakoztasd újra a fiókodat.');
 
             // Clear invalid token
             const connection = getLocalStorage('github_connection');
@@ -211,14 +211,14 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
             // Rate limit exceeded
             const resetTime = response.headers.get('x-ratelimit-reset');
             const resetDate = resetTime ? new Date(parseInt(resetTime) * 1000).toLocaleTimeString() : 'soon';
-            toast.error(`GitHub API rate limit exceeded. Limit resets at ${resetDate}`);
+            toast.error(`A GitHub kéréskorlátja elérve. Újra elérhető ekkor: ${resetDate}`);
           } else {
             logStore.logError('Failed to fetch GitHub repositories', {
               status: response.status,
               statusText: response.statusText,
               error: errorData,
             });
-            toast.error(`Failed to fetch repositories: ${errorData.message || response.statusText}`);
+            toast.error(`A tárolók betöltése sikertelen: ${errorData.message || response.statusText}`);
           }
 
           return;
@@ -235,7 +235,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
           }
         } catch (parseError) {
           logStore.logError('Failed to parse GitHub repositories response', { parseError });
-          toast.error('Failed to parse repository data');
+          toast.error('A tároló adatai nem olvashatók.');
           setRecentRepos([]);
 
           return;
@@ -245,7 +245,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       setRecentRepos(allRepos);
     } catch (error) {
       logStore.logError('Failed to fetch GitHub repositories', { error });
-      toast.error('Failed to fetch recent repositories');
+      toast.error('A legutóbbi tárolókat nem sikerült betölteni.');
     } finally {
       setIsFetchingRepos(false);
     }
@@ -258,12 +258,12 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
     const connection = getLocalStorage('github_connection');
 
     if (!connection?.token || !connection?.user) {
-      toast.error('Please connect your GitHub account in Settings > Connections first');
+      toast.error('Csatlakoztasd a GitHub-fiókodat a Beállítások → Kapcsolatok menüben.');
       return;
     }
 
     if (!repoName.trim()) {
-      toast.error('Repository name is required');
+      toast.error('Add meg a tároló nevét.');
       return;
     }
 
@@ -271,19 +271,19 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
     const sanitizedName = sanitizeRepoName(repoName);
 
     if (!sanitizedName || sanitizedName.length < 1) {
-      toast.error('Repository name must contain at least one alphanumeric character');
+      toast.error('A tároló neve tartalmazzon legalább egy betűt vagy számot.');
       return;
     }
 
     if (sanitizedName.length > 100) {
-      toast.error('Repository name is too long (maximum 100 characters)');
+      toast.error('A tároló neve legfeljebb 100 karakter lehet.');
       return;
     }
 
     // Update the repo name field with the sanitized version if it was changed
     if (sanitizedName !== repoName) {
       setRepoName(sanitizedName);
-      toast.info(`Repository name sanitized to: ${sanitizedName}`);
+      toast.info(`A tároló módosított neve: ${sanitizedName}`);
     }
 
     setIsLoading(true);
@@ -545,34 +545,34 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       console.error('Error pushing to GitHub:', error);
 
       // Attempt to extract more specific error information
-      let errorMessage = 'Failed to push to GitHub';
+      let errorMessage = 'A GitHub-feltöltés sikertelen.';
       let isRetryable = false;
 
       if (error instanceof Error) {
         const errorMsg = error.message.toLowerCase();
 
         if (errorMsg.includes('network') || errorMsg.includes('fetch failed') || errorMsg.includes('connection')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
+          errorMessage = 'Hálózati hiba. Ellenőrizd a kapcsolatot, majd próbáld újra.';
           isRetryable = true;
         } else if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
-          errorMessage = 'GitHub authentication failed. Please check your access token in Settings > Connections.';
+          errorMessage =
+            'A GitHub-hitelesítés sikertelen. Ellenőrizd a hozzáférést a Beállítások → Kapcsolatok menüben.';
         } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
           errorMessage =
-            'Access denied. Your GitHub token may not have sufficient permissions to create/modify repositories.';
+            'A GitHub megtagadta a hozzáférést. Ellenőrizd a tároló létrehozási és módosítási jogosultságát.';
         } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-          errorMessage = 'Repository or resource not found. Please check the repository name and your permissions.';
+          errorMessage = 'A tároló nem található. Ellenőrizd a nevét és a hozzáférést.';
         } else if (errorMsg.includes('422') || errorMsg.includes('validation failed')) {
           if (errorMsg.includes('name already exists')) {
-            errorMessage =
-              'A repository with this name already exists in your account. Please choose a different name.';
+            errorMessage = 'Már van ilyen nevű tároló a fiókodban. Válassz másik nevet.';
           } else {
-            errorMessage = 'Repository validation failed. Please check the repository name and settings.';
+            errorMessage = 'A GitHub nem fogadta el a tároló nevét vagy beállításait.';
           }
         } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
-          errorMessage = 'GitHub API rate limit exceeded. Please wait a moment and try again.';
+          errorMessage = 'A GitHub kéréskorlátja elérve. Próbáld újra később.';
           isRetryable = true;
         } else if (errorMsg.includes('timeout')) {
-          errorMessage = 'Request timed out. Please check your connection and try again.';
+          errorMessage = 'A kérés túllépte az időkorlátot. Ellenőrizd a kapcsolatot, majd próbáld újra.';
           isRetryable = true;
         } else {
           errorMessage = `GitHub error: ${error.message}`;
@@ -590,7 +590,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
       }
 
       // Show error with retry suggestion if applicable
-      const finalMessage = isRetryable ? `${errorMessage} Click to retry.` : errorMessage;
+      const finalMessage = isRetryable ? `${errorMessage} Próbáld újra.` : errorMessage;
       toast.error(finalMessage);
 
       // Log detailed error for debugging
@@ -640,10 +640,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
               className="w-[90vw] md:w-[600px] max-h-[85vh] overflow-y-auto"
             >
               <Dialog.Content
-                className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
+                className="bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="success-dialog-description"
               >
-                <Dialog.Title className="sr-only">Successfully pushed to GitHub</Dialog.Title>
+                <Dialog.Title className="sr-only">A projekt feltöltve a GitHubra</Dialog.Title>
                 <div className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -652,13 +652,13 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       </div>
                       <div>
                         <h3 className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                          Successfully pushed to GitHub
+                          A projekt feltöltve a GitHubra
                         </h3>
                         <p
                           id="success-dialog-description"
                           className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark"
                         >
-                          Your code is now available on GitHub
+                          A forráskód elérhető a GitHub-tárolóban.
                         </p>
                       </div>
                     </div>
@@ -668,15 +668,14 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                         className="p-2 rounded-lg transition-all duration-200 ease-in-out bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary dark:text-bolt-elements-textTertiary-dark dark:hover:text-bolt-elements-textPrimary-dark hover:bg-bolt-elements-background-depth-2 dark:hover:bg-bolt-elements-background-depth-3 focus:outline-none focus:ring-2 focus:ring-bolt-elements-borderColor dark:focus:ring-bolt-elements-borderColor-dark"
                       >
                         <span className="i-ph:x block w-5 h-5" aria-hidden="true" />
-                        <span className="sr-only">Close dialog</span>
+                        <span className="sr-only">Ablak bezárása</span>
                       </button>
                     </Dialog.Close>
                   </div>
 
                   <div className="bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg p-4 text-left border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                     <p className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark mb-2 flex items-center gap-2">
-                      <span className="i-ph:github-logo w-4 h-4 text-purple-500" />
-                      Repository URL
+                      <span className="i-ph:github-logo w-4 h-4 text-purple-500" />A GitHub-tároló címe
                     </p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 text-sm bg-bolt-elements-background-depth-1 dark:bg-bolt-elements-background-depth-4 px-3 py-2 rounded border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark font-mono">
@@ -685,7 +684,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       <motion.button
                         onClick={() => {
                           navigator.clipboard.writeText(createdRepoUrl);
-                          toast.success('URL copied to clipboard');
+                          toast.success('A cím a vágólapra került.');
                         }}
                         className="p-2 text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary dark:text-bolt-elements-textSecondary-dark dark:hover:text-bolt-elements-textPrimary-dark bg-bolt-elements-background-depth-1 dark:bg-bolt-elements-background-depth-4 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark"
                         whileHover={{ scale: 1.05 }}
@@ -706,7 +705,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                     {publishedDomain ? (
                       <div className="space-y-2">
                         <p className="text-sm text-green-500">
-                          Telepítés elindítva. A weboldal a build és DNS-beállítás után lesz elérhető.
+                          Telepítés elindítva. A weboldal a fordítás és a domain beállítása után lesz elérhető.
                         </p>
                         <a
                           href={publishedDomain}
@@ -779,7 +778,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                   <div className="bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg p-4 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark">
                     <p className="text-sm font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark mb-2 flex items-center gap-2">
                       <span className="i-ph:files w-4 h-4 text-purple-500" />
-                      Pushed Files ({pushedFiles.length})
+                      Feltöltött fájlok ({pushedFiles.length})
                     </p>
                     <div className="max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
                       {pushedFiles.slice(0, 100).map((file) => (
@@ -795,7 +794,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       ))}
                       {pushedFiles.length > 100 && (
                         <div className="py-2 text-center text-xs text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark">
-                          +{pushedFiles.length - 100} more files
+                          +{pushedFiles.length - 100} további fájl
                         </div>
                       )}
                     </div>
@@ -811,19 +810,19 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="i-ph:github-logo w-4 h-4" />
-                      View Repository
+                      Tároló megnyitása
                     </motion.a>
                     <motion.button
                       onClick={() => {
                         navigator.clipboard.writeText(createdRepoUrl);
-                        toast.success('URL copied to clipboard');
+                        toast.success('A cím a vágólapra került.');
                       }}
                       className="px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark hover:bg-bolt-elements-background-depth-3 dark:hover:bg-bolt-elements-background-depth-4 text-sm inline-flex items-center gap-2 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="i-ph:copy w-4 h-4" />
-                      Copy URL
+                      Cím másolása
                     </motion.button>
                     <motion.button
                       onClick={handleClose}
@@ -831,7 +830,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      Close
+                      Bezárás
                     </motion.button>
                   </div>
                 </div>
@@ -857,10 +856,10 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
               className="w-[90vw] md:w-[500px]"
             >
               <Dialog.Content
-                className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg p-6 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
+                className="bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary rounded-lg p-6 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
                 aria-describedby="connection-required-description"
               >
-                <Dialog.Title className="sr-only">GitHub Connection Required</Dialog.Title>
+                <Dialog.Title className="sr-only">GitHub-fiók szükséges</Dialog.Title>
                 <div className="relative text-center space-y-4">
                   <Dialog.Close asChild>
                     <button
@@ -868,7 +867,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       className="absolute right-0 top-0 p-2 rounded-lg transition-all duration-200 ease-in-out bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary dark:text-bolt-elements-textTertiary-dark dark:hover:text-bolt-elements-textPrimary-dark hover:bg-bolt-elements-background-depth-2 dark:hover:bg-bolt-elements-background-depth-3 focus:outline-none focus:ring-2 focus:ring-bolt-elements-borderColor dark:focus:ring-bolt-elements-borderColor-dark"
                     >
                       <span className="i-ph:x block w-5 h-5" aria-hidden="true" />
-                      <span className="sr-only">Close dialog</span>
+                      <span className="sr-only">Ablak bezárása</span>
                     </button>
                   </Dialog.Close>
                   <motion.div
@@ -880,13 +879,13 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                     <div className="i-ph:github-logo w-8 h-8" />
                   </motion.div>
                   <h3 className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                    GitHub Connection Required
+                    GitHub-fiók szükséges
                   </h3>
                   <p
                     id="connection-required-description"
                     className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark max-w-md mx-auto"
                   >
-                    To deploy your code to GitHub, you need to connect your GitHub account first.
+                    A közzététel előkészítéséhez csatlakoztasd a GitHub-fiókodat.
                   </p>
                   <div className="pt-2 flex justify-center gap-3">
                     <motion.button
@@ -895,7 +894,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       whileTap={{ scale: 0.98 }}
                       onClick={handleClose}
                     >
-                      Close
+                      Bezárás
                     </motion.button>
                     <motion.button
                       onClick={() => setShowAuthDialog(true)}
@@ -904,7 +903,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="i-ph:github-logo w-4 h-4" />
-                      Connect GitHub Account
+                      GitHub-fiók csatlakoztatása
                     </motion.button>
                   </div>
                 </div>
@@ -932,7 +931,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
             className="w-[90vw] md:w-[500px]"
           >
             <Dialog.Content
-              className="bg-white dark:bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
+              className="bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary rounded-lg border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark shadow-xl"
               aria-describedby="push-dialog-description"
             >
               <div className="p-6">
@@ -947,13 +946,13 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                   </motion.div>
                   <div>
                     <Dialog.Title className="text-lg font-medium text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark">
-                      Deploy to GitHub
+                      Feltöltés a GitHubra
                     </Dialog.Title>
                     <p
                       id="push-dialog-description"
                       className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark"
                     >
-                      Deploy your code to a new or existing GitHub repository
+                      Válassz egy új vagy meglévő GitHub-tárolót a közzétételhez.
                     </p>
                   </div>
                   <Dialog.Close asChild>
@@ -962,7 +961,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       className="ml-auto p-2 rounded-lg transition-all duration-200 ease-in-out bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary dark:text-bolt-elements-textTertiary-dark dark:hover:text-bolt-elements-textPrimary-dark hover:bg-bolt-elements-background-depth-2 dark:hover:bg-bolt-elements-background-depth-3 focus:outline-none focus:ring-2 focus:ring-bolt-elements-borderColor dark:focus:ring-bolt-elements-borderColor-dark"
                     >
                       <span className="i-ph:x block w-5 h-5" aria-hidden="true" />
-                      <span className="sr-only">Close dialog</span>
+                      <span className="sr-only">Ablak bezárása</span>
                     </button>
                   </Dialog.Close>
                 </div>
@@ -990,7 +989,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       htmlFor="repoName"
                       className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark"
                     >
-                      Repository Name
+                      Tároló neve
                     </label>
                     <div className="relative">
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-bolt-elements-textTertiary dark:text-bolt-elements-textTertiary-dark">
@@ -1014,17 +1013,17 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                             e.target.removeAttribute('data-sanitized');
                           }
                         }}
-                        placeholder="my-awesome-project"
+                        placeholder="az-en-projektem"
                         className="w-full pl-10 px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor-dark text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary-dark focus:outline-none focus:ring-2 focus:ring-purple-500"
                         required
                         maxLength={100}
                         pattern="[a-zA-Z0-9\-_\s]+"
-                        title="Repository name can contain letters, numbers, hyphens, underscores, and spaces"
+                        title="A névben betű, szám, kötőjel, aláhúzás és szóköz szerepelhet."
                       />
                     </div>
                     {repoName && sanitizeRepoName(repoName) !== repoName && (
                       <p className="text-xs text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark mt-1">
-                        Will be created as:{' '}
+                        Létrehozandó név:{' '}
                         <span className="font-mono text-purple-600 dark:text-purple-400">
                           {sanitizeRepoName(repoName)}
                         </span>
@@ -1035,7 +1034,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-sm text-bolt-elements-textSecondary dark:text-bolt-elements-textSecondary-dark">
-                        Recent Repositories
+                        Legutóbbi tárolók
                       </label>
                       <span className="text-xs text-bolt-elements-textTertiary dark:text-bolt-elements-textTertiary-dark">
                         {filteredRepos.length} of {recentRepos.length}
@@ -1044,7 +1043,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
                     <div className="mb-2">
                       <SearchInput
-                        placeholder="Search repositories..."
+                        placeholder="Tárolók keresése…"
                         value={repoSearchQuery}
                         onChange={(e) => setRepoSearchQuery(e.target.value)}
                         onClear={() => setRepoSearchQuery('')}
@@ -1055,8 +1054,8 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                     {recentRepos.length === 0 && !isFetchingRepos ? (
                       <EmptyState
                         icon="i-ph:github-logo"
-                        title="No repositories found"
-                        description="We couldn't find any repositories in your GitHub account."
+                        title="Nincs tároló"
+                        description="Ebben a GitHub-fiókban még nincs tároló."
                         variant="compact"
                       />
                     ) : (
@@ -1064,8 +1063,8 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                         {filteredRepos.length === 0 && repoSearchQuery.trim() !== '' ? (
                           <EmptyState
                             icon="i-ph:magnifying-glass"
-                            title="No matching repositories"
-                            description="Try a different search term"
+                            title="Nincs egyező tároló"
+                            description="Próbálj másik keresőkifejezést."
                             variant="compact"
                           />
                         ) : (
@@ -1087,7 +1086,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                                 </div>
                                 {repo.private && (
                                   <Badge variant="primary" size="sm" icon="i-ph:lock w-3 h-3">
-                                    Private
+                                    Privát
                                   </Badge>
                                 )}
                               </div>
@@ -1121,7 +1120,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
 
                   {isFetchingRepos && (
                     <div className="flex items-center justify-center py-4">
-                      <StatusIndicator status="loading" pulse={true} label="Loading repositories..." />
+                      <StatusIndicator status="loading" pulse={true} label="Tárolók betöltése…" />
                     </div>
                   )}
 
@@ -1138,11 +1137,11 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                         htmlFor="private"
                         className="text-sm text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary-dark"
                       >
-                        Make repository private
+                        A tároló legyen privát
                       </label>
                     </div>
                     <p className="text-xs text-bolt-elements-textTertiary dark:text-bolt-elements-textTertiary-dark mt-2 ml-6">
-                      Private repositories are only visible to you and people you share them with
+                      A privát tárolót te és a hozzáféréssel rendelkező felhasználók látjátok.
                     </p>
                   </div>
 
@@ -1154,7 +1153,7 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      Cancel
+                      Mégse
                     </motion.button>
                     <motion.button
                       type="submit"
@@ -1169,12 +1168,12 @@ export function GitHubDeploymentDialog({ isOpen, onClose, projectName, files }: 
                       {isLoading ? (
                         <>
                           <div className="i-ph:spinner-gap animate-spin w-4 h-4" />
-                          Deploying...
+                          Feltöltés…
                         </>
                       ) : (
                         <>
                           <div className="i-ph:github-logo w-4 h-4" />
-                          Deploy to GitHub
+                          Feltöltés a GitHubra
                         </>
                       )}
                     </motion.button>

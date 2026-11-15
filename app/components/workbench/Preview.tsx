@@ -50,11 +50,11 @@ const WINDOW_SIZES: WindowSize[] = [
     hasFrame: true,
     frameType: 'tablet',
   },
-  { name: 'Small Laptop', width: 1280, height: 800, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
+  { name: 'Kis laptop', width: 1280, height: 800, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
   { name: 'Laptop', width: 1366, height: 768, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
-  { name: 'Large Laptop', width: 1440, height: 900, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
-  { name: 'Desktop', width: 1920, height: 1080, icon: 'i-ph:monitor', hasFrame: true, frameType: 'desktop' },
-  { name: '4K Display', width: 3840, height: 2160, icon: 'i-ph:monitor', hasFrame: true, frameType: 'desktop' },
+  { name: 'Nagy laptop', width: 1440, height: 900, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
+  { name: 'Asztali gép', width: 1920, height: 1080, icon: 'i-ph:monitor', hasFrame: true, frameType: 'desktop' },
+  { name: '4K kijelző', width: 3840, height: 2160, icon: 'i-ph:monitor', hasFrame: true, frameType: 'desktop' },
 ];
 
 export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewProps) => {
@@ -210,7 +210,7 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
         onMouseOut={(e) =>
           (e.currentTarget.style.background = 'var(--bolt-elements-background-depth-3, rgba(0,0,0,.15))')
         }
-        title="Drag to resize width"
+        title="A szélesség húzással állítható"
       >
         <GripIcon />
       </div>
@@ -837,20 +837,21 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
       )}
       <div className="bg-bolt-elements-background-depth-2 p-2 flex items-center gap-2">
         <div className="flex items-center gap-2">
-          <IconButton icon="i-ph:arrow-clockwise" onClick={reloadPreview} />
+          <IconButton icon="i-ph:arrow-clockwise" onClick={reloadPreview} title="Előnézet frissítése" />
           <IconButton
             icon={isPreviewPaused ? 'i-ph:play' : 'i-ph:pause'}
             onClick={() => setIsPreviewPaused((prev) => !prev)}
-            title={isPreviewPaused ? 'Resume Preview' : 'Pause Preview'}
+            title={isPreviewPaused ? 'Előnézet folytatása' : 'Előnézet szüneteltetése'}
           />
           <IconButton
             icon="i-ph:selection"
             onClick={() => setIsSelectionMode(!isSelectionMode)}
+            title="Kijelölés az előnézetben"
             className={isSelectionMode ? 'bg-bolt-elements-background-depth-3' : ''}
           />
         </div>
 
-        <div className="flex-grow flex items-center gap-1 bg-bolt-elements-preview-addressBar-background border border-bolt-elements-borderColor text-bolt-elements-preview-addressBar-text rounded-full px-1 py-1 text-sm hover:bg-bolt-elements-preview-addressBar-backgroundHover hover:focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within:bg-bolt-elements-preview-addressBar-backgroundActive focus-within-border-bolt-elements-borderColorActive focus-within:text-bolt-elements-preview-addressBar-textActive">
+        <div className="flex min-w-0 flex-grow items-center gap-1 rounded-full border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-1 py-1 text-sm text-bolt-elements-textPrimary focus-within:border-bolt-elements-focus">
           <PortDropdown
             activePreviewIndex={activePreviewIndex}
             setActivePreviewIndex={(index) => workbenchStore.selectPreview(previews[index].port)}
@@ -859,9 +860,9 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
             previews={previews}
           />
           <input
-            title="URL Path"
+            title="Előnézet útvonala"
             ref={inputRef}
-            className="w-full bg-transparent outline-none"
+            className="min-w-0 w-full bg-transparent text-bolt-elements-textPrimary outline-none"
             type="text"
             value={displayPath}
             onChange={(event) => {
@@ -892,10 +893,12 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
           <IconButton
             icon="i-ph:devices"
             onClick={toggleDeviceMode}
-            title={isDeviceModeOn ? 'Switch to Responsive Mode' : 'Switch to Device Mode'}
+            title={isDeviceModeOn ? 'Rugalmas nézet' : 'Eszköznézet'}
           />
 
-          {expoUrl && <IconButton icon="i-ph:qr-code" onClick={() => setIsExpoQrModalOpen(true)} title="Show QR" />}
+          {expoUrl && (
+            <IconButton icon="i-ph:qr-code" onClick={() => setIsExpoQrModalOpen(true)} title="QR-kód megjelenítése" />
+          )}
 
           <ExpoQrModal open={isExpoQrModalOpen} onClose={() => setIsExpoQrModalOpen(false)} />
 
@@ -904,12 +907,12 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
               <IconButton
                 icon="i-ph:device-rotate"
                 onClick={() => setIsLandscape(!isLandscape)}
-                title={isLandscape ? 'Switch to Portrait' : 'Switch to Landscape'}
+                title={isLandscape ? 'Álló nézet' : 'Fekvő nézet'}
               />
               <IconButton
                 icon={showDeviceFrameInPreview ? 'i-ph:device-mobile' : 'i-ph:device-mobile-slash'}
                 onClick={() => setShowDeviceFrameInPreview(!showDeviceFrameInPreview)}
-                title={showDeviceFrameInPreview ? 'Hide Device Frame' : 'Show Device Frame'}
+                title={showDeviceFrameInPreview ? 'Eszközkeret elrejtése' : 'Eszközkeret megjelenítése'}
               />
             </>
           )}
@@ -919,19 +922,19 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
             className={
               isInspectorMode ? 'bg-bolt-elements-background-depth-3 !text-bolt-elements-item-contentAccent' : ''
             }
-            title={isInspectorMode ? 'Disable Element Inspector' : 'Enable Element Inspector'}
+            title={isInspectorMode ? 'Elemvizsgáló kikapcsolása' : 'Elemvizsgáló bekapcsolása'}
           />
           <IconButton
             icon={isFullscreen ? 'i-ph:arrows-in' : 'i-ph:arrows-out'}
             onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+            title={isFullscreen ? 'Kilépés a teljes képernyőből' : 'Teljes képernyő'}
           />
 
           <details className="relative shrink-0">
             <summary
               className="cursor-pointer list-none p-1 text-bolt-elements-textSecondary"
-              aria-label="Képrögzítés (AI nélkül)"
-              title="Képrögzítés (AI nélkül)"
+              aria-label="Képrögzítés ellenőrzése"
+              title="Képrögzítés ellenőrzése"
             >
               <span aria-hidden="true" className="i-ph:camera" />
             </summary>
@@ -943,16 +946,16 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
             <IconButton
               icon="i-ph:list"
               onClick={() => setIsWindowSizeDropdownOpen(!isWindowSizeDropdownOpen)}
-              title="New Window Options"
+              title="Megnyitási és nézetbeállítások"
             />
 
             {isWindowSizeDropdownOpen && (
               <>
                 <div className="fixed inset-0 z-50" onClick={() => setIsWindowSizeDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 min-w-[240px] max-h-[400px] overflow-y-auto bg-white dark:bg-black rounded-xl shadow-2xl border border-[#E5E7EB] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 z-50 min-w-[240px] max-h-[400px] overflow-y-auto bg-bolt-elements-background-depth-2 rounded-xl shadow-2xl border border-[#E5E7EB] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
                   <div className="p-3 border-b border-[#E5E7EB] dark:border-[rgba(255,255,255,0.1)]">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-[#111827] dark:text-gray-300">Window Options</span>
+                      <span className="text-sm font-medium text-bolt-elements-textPrimary">Nézetbeállítások</span>
                     </div>
                     <div className="flex flex-col gap-2">
                       <button
@@ -961,7 +964,7 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
                           openInNewTab();
                         }}
                       >
-                        <span>Open in new tab</span>
+                        <span>Megnyitás új lapon</span>
                         <div className="i-ph:arrow-square-out h-5 w-4" />
                       </button>
                       <button
@@ -992,11 +995,11 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
                           );
                         }}
                       >
-                        <span>Open in new window</span>
+                        <span>Megnyitás új ablakban</span>
                         <div className="i-ph:browser h-5 w-4" />
                       </button>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-bolt-elements-textTertiary">Show Device Frame</span>
+                        <span className="text-xs text-bolt-elements-textTertiary">Eszközkeret megjelenítése</span>
                         <button
                           className={`w-10 h-5 rounded-full transition-colors duration-200 ${
                             showDeviceFrame ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'
@@ -1014,7 +1017,7 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-bolt-elements-textTertiary">Landscape Mode</span>
+                        <span className="text-xs text-bolt-elements-textTertiary">Fekvő nézet</span>
                         <button
                           className={`w-10 h-5 rounded-full transition-colors duration-200 ${
                             isLandscape ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'
@@ -1036,7 +1039,7 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
                   {WINDOW_SIZES.map((size) => (
                     <button
                       key={size.name}
-                      className="w-full px-4 py-3.5 text-left text-[#111827] dark:text-gray-300 text-sm whitespace-nowrap flex items-center gap-3 group hover:bg-[#F5EEFF] dark:hover:bg-gray-900 bg-white dark:bg-black"
+                      className="w-full px-4 py-3.5 text-left text-bolt-elements-textPrimary text-sm whitespace-nowrap flex items-center gap-3 group hover:bg-[#F5EEFF] dark:hover:bg-gray-900 bg-bolt-elements-background-depth-2"
                       onClick={() => {
                         setSelectedWindowSize(size);
                         setIsWindowSizeDropdownOpen(false);

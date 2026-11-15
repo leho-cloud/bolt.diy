@@ -1,4 +1,5 @@
 import type { WebContainer } from '@webcontainer/api';
+import { atom } from 'nanostores';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { webcontainer } from '~/lib/webcontainer';
 
@@ -13,6 +14,8 @@ export type MediaJob = MediaSettings & {
   state: 'queued' | 'running' | 'ready' | 'failed';
   error?: string;
 };
+
+export const mediaExportOpen = atom(false);
 
 const endpoint = '/api/media-render';
 const mediaFiles = /\.(html|js|mjs|css|json|svg|png|jpe?g|webp|avif|gif|ico|woff2?|ttf|mp4|webm)$/i;

@@ -54,9 +54,10 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
           >
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-bolt-elements-textPrimary">Connect to GitHub</h2>
+                <h2 className="text-lg font-semibold text-bolt-elements-textPrimary">GitHub-fiók csatlakoztatása</h2>
                 <button
                   onClick={handleClose}
+                  aria-label="Bezárás"
                   className="p-1 rounded-md hover:bg-bolt-elements-item-backgroundActive/10"
                 >
                   <div className="i-ph:x w-4 h-4 text-bolt-elements-textSecondary" />
@@ -66,14 +67,14 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
               <div className="text-xs text-bolt-elements-textSecondary bg-bolt-elements-background-depth-1 p-3 rounded-lg">
                 <p className="flex items-center gap-1 mb-1">
                   <span className="i-ph:lightbulb w-3.5 h-3.5 text-bolt-elements-icon-success" />
-                  <span className="font-medium">Tip:</span> You need a GitHub token to deploy repositories.
+                  <span className="font-medium">Tipp:</span> A feltöltéshez GitHub-hozzáférési kulcs szükséges.
                 </p>
-                <p>Required scopes: repo, read:org, read:user</p>
+                <p>Szükséges jogosultságok: repo, read:org, read:user</p>
               </div>
 
               <form onSubmit={handleConnect} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-bolt-elements-textSecondary mb-2">Token Type</label>
+                  <label className="block text-sm text-bolt-elements-textSecondary mb-2">Kulcs típusa</label>
                   <select
                     value={tokenType}
                     onChange={(e) => setTokenType(e.target.value as 'classic' | 'fine-grained')}
@@ -87,23 +88,21 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
                       'disabled:opacity-50',
                     )}
                   >
-                    <option value="classic">Personal Access Token (Classic)</option>
-                    <option value="fine-grained">Fine-grained Token</option>
+                    <option value="classic">Klasszikus hozzáférési kulcs</option>
+                    <option value="fine-grained">Korlátozott hozzáférési kulcs</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm text-bolt-elements-textSecondary mb-2">
-                    {tokenType === 'classic' ? 'Personal Access Token' : 'Fine-grained Token'}
+                    {tokenType === 'classic' ? 'Személyes hozzáférési kulcs' : 'Korlátozott hozzáférési kulcs'}
                   </label>
                   <input
                     type="password"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     disabled={isConnecting}
-                    placeholder={`Enter your GitHub ${
-                      tokenType === 'classic' ? 'personal access token' : 'fine-grained token'
-                    }`}
+                    placeholder="GitHub-hozzáférési kulcs"
                     className={classNames(
                       'w-full px-3 py-2 rounded-lg text-sm',
                       'bg-bolt-elements-background-depth-1',
@@ -120,7 +119,7 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
                       rel="noopener noreferrer"
                       className="text-bolt-elements-borderColorActive hover:underline inline-flex items-center gap-1"
                     >
-                      Get your token
+                      Hozzáférési kulcs létrehozása
                       <div className="i-ph:arrow-square-out w-4 h-4" />
                     </a>
                   </div>
@@ -138,7 +137,7 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
                     onClick={handleClose}
                     className="px-4 py-2 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
                   >
-                    Cancel
+                    Mégse
                   </button>
                   <button
                     type="submit"
@@ -153,12 +152,12 @@ export function GitHubAuthDialog({ isOpen, onClose, onSuccess }: GitHubAuthDialo
                     {isConnecting ? (
                       <>
                         <div className="i-ph:spinner-gap animate-spin" />
-                        Connecting...
+                        Csatlakoztatás…
                       </>
                     ) : (
                       <>
                         <div className="i-ph:plug-charging w-4 h-4" />
-                        Connect
+                        Csatlakoztatás
                       </>
                     )}
                   </button>

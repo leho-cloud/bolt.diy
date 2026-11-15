@@ -1,40 +1,30 @@
 import { useStore } from '@nanostores/react';
-import { useState } from 'react';
 import { DeployButton } from '~/components/deploy/DeployButton';
-import { ReportBugPanel } from '~/components/header/ReportBugPanel';
+import { mediaExportOpen } from '~/lib/runtime/previewExport';
 import { workbenchStore } from '~/lib/stores/workbench';
 
-interface HeaderActionButtonsProps {
-  chatStarted: boolean;
-}
-
-export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionButtonsProps) {
-  const [activePreviewIndex] = useState(0);
-  const [isReportBugOpen, setIsReportBugOpen] = useState(false);
+export function HeaderActionButtons({ chatStarted }: { chatStarted: boolean }) {
   const previews = useStore(workbenchStore.previews);
-  const activePreview = previews[activePreviewIndex];
+  const files = useStore(workbenchStore.files);
+  const hasProject = Object.values(files).some((file) => file?.type === 'file');
 
-  const shouldShowButtons = activePreview;
+  if (!chatStarted || (!hasProject && !previews.length)) {
+    return null;
+  }
 
   return (
-    <div className="flex items-center gap-1">
-      {/* Deploy Button */}
-      {shouldShowButtons && <DeployButton />}
-
-      {/* Project Actions */}
-      {shouldShowButtons && (
-        <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden text-sm">
-          <button
-            onClick={() => setIsReportBugOpen(true)}
-            className="rounded-md items-center justify-center [&:is(:disabled,.disabled)]:cursor-not-allowed [&:is(:disabled,.disabled)]:opacity-60 px-3 py-1.5 text-xs bg-accent-500 text-white hover:text-bolt-elements-item-contentAccent [&:not(:disabled,.disabled)]:hover:bg-bolt-elements-button-primary-backgroundHover outline-accent-500 flex gap-1.5"
-            title="Report Bug"
-          >
-            <div className="i-ph:bug" />
-            <span>Report Bug</span>
-          </button>
-        </div>
+    <div className="flex shrink-0 items-center gap-1.5">
+      {hasProject && (
+        <button
+          type="button"
+          onClick={() => mediaExportOpen.set(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-3 py-1.5 text-xs font-medium text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <span aria-hidden="true" className="i-ph:download-simple" />
+          Kép vagy videó
+        </button>
       )}
-      <ReportBugPanel open={isReportBugOpen} onClose={() => setIsReportBugOpen(false)} />
+      {previews.length > 0 && <DeployButton />}
     </div>
   );
 }

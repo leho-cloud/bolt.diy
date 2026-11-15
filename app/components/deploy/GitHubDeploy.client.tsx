@@ -17,12 +17,12 @@ export function useGitHubDeploy() {
     const connection = getLocalStorage('github_connection');
 
     if (!connection?.token || !connection?.user) {
-      toast.error('Please connect your GitHub account in Settings > Connections first');
+      toast.error('A szerveres közzétételhez csatlakoztasd a GitHub-fiókodat a Beállítások → Kapcsolatok menüben.');
       return false;
     }
 
     if (!currentChatId) {
-      toast.error('No active chat found');
+      toast.error('Nincs megnyitott beszélgetés.');
       return false;
     }
 
@@ -32,7 +32,7 @@ export function useGitHubDeploy() {
       const artifact = workbenchStore.firstArtifact;
 
       if (!artifact) {
-        throw new Error('No active project found');
+        throw new Error('Nincs megnyitott projekt.');
       }
 
       // Create a deployment artifact for visual feedback
@@ -40,7 +40,7 @@ export function useGitHubDeploy() {
       workbenchStore.addArtifact({
         id: deploymentId,
         messageId: deploymentId,
-        title: 'GitHub Deployment',
+        title: 'Közzététel előkészítése',
         type: 'standalone',
       });
 
@@ -75,7 +75,7 @@ export function useGitHubDeploy() {
           error: formatBuildFailureOutput(buildOutput?.output),
           source: 'github',
         });
-        throw new Error('Build failed');
+        throw new Error('A projekt fordítása sikertelen.');
       }
 
       // Notify that build succeeded and deployment preparation is starting
@@ -150,7 +150,7 @@ export function useGitHubDeploy() {
       });
 
       // Show success toast notification
-      toast.success(`🚀 GitHub deployment preparation completed successfully!`);
+      toast.success(`A projekt elkészült a feltöltéshez.`);
 
       return {
         success: true,
@@ -159,7 +159,7 @@ export function useGitHubDeploy() {
       };
     } catch (err) {
       console.error('GitHub deploy error:', err);
-      toast.error(err instanceof Error ? err.message : 'GitHub deployment preparation failed');
+      toast.error(err instanceof Error ? err.message : 'A közzétételt nem sikerült előkészíteni.');
 
       return false;
     } finally {

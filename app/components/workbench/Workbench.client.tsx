@@ -116,7 +116,7 @@ const FileModifiedDropdown = memo(
         <Popover.Root>
           <Popover.Trigger asChild>
             <button className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-bolt-elements-background-depth-2 hover:bg-bolt-elements-background-depth-3 transition-colors text-bolt-elements-item-contentDefault">
-              <span>File Changes</span>
+              <span>Fájlváltozások</span>
               {hasChanges && (
                 <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-500 text-xs flex items-center justify-center border border-accent-500/30">
                   {modifiedFiles.length}
@@ -134,7 +134,7 @@ const FileModifiedDropdown = memo(
                 <div className="relative mx-2 mb-2">
                   <input
                     type="text"
-                    placeholder="Search files..."
+                    placeholder="Fájlok keresése…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg bg-bolt-elements-background-depth-1 border border-bolt-elements-borderColor focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -258,10 +258,10 @@ const FileModifiedDropdown = memo(
                         <div className="i-ph:file-dashed" />
                       </div>
                       <p className="text-sm font-medium text-bolt-elements-textPrimary">
-                        {searchQuery ? 'No matching files' : 'No modified files'}
+                        {searchQuery ? 'Nincs egyező fájl' : 'Nincs módosított fájl'}
                       </p>
                       <p className="text-xs text-bolt-elements-textTertiary mt-1">
-                        {searchQuery ? 'Try another search' : 'Changes will appear here as you edit'}
+                        {searchQuery ? 'Próbálj másik keresőkifejezést' : 'A szerkesztés módosításai itt jelennek meg.'}
                       </p>
                     </div>
                   )}
@@ -273,13 +273,13 @@ const FileModifiedDropdown = memo(
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(filteredFiles.map(([filePath]) => filePath).join('\n'));
-                      toast('File list copied to clipboard', {
+                      toast('A fájllista a vágólapra került.', {
                         icon: <div className="i-ph:check-circle text-accent-500" />,
                       });
                     }}
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-bolt-elements-background-depth-1 hover:bg-bolt-elements-background-depth-3 transition-colors text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
                   >
-                    Copy File List
+                    Fájllista másolása
                   </button>
                 </div>
               )}
@@ -391,7 +391,7 @@ export const Workbench = memo(
           previewStore.refreshAllPreviews();
         })
         .catch(() => {
-          toast.error('Failed to update file content');
+          toast.error('A fájl tartalmát nem sikerült frissíteni.');
         });
     }, []);
 
@@ -410,10 +410,10 @@ export const Workbench = memo(
       try {
         const directoryHandle = await window.showDirectoryPicker();
         await workbenchStore.syncFiles(directoryHandle);
-        toast.success('Files synced successfully');
+        toast.success('A fájlok szinkronizálása sikerült.');
       } catch (error) {
         console.error('Error syncing files:', error);
-        toast.error('Failed to sync files');
+        toast.error('A fájlok szinkronizálása sikertelen.');
       } finally {
         setIsSyncing(false);
       }
@@ -462,7 +462,7 @@ export const Workbench = memo(
                             disabled={isSyncing || streaming}
                             className="rounded-md items-center justify-center [&:is(:disabled,.disabled)]:cursor-not-allowed [&:is(:disabled,.disabled)]:opacity-60 px-3 py-1.5 text-xs bg-accent-500 text-white hover:text-bolt-elements-item-contentAccent [&:not(:disabled,.disabled)]:hover:bg-bolt-elements-button-primary-backgroundHover outline-accent-500 flex gap-1.7"
                           >
-                            {isSyncing ? 'Syncing...' : 'Sync'}
+                            {isSyncing ? 'Szinkronizálás…' : 'Szinkronizálás'}
                             <span className={classNames('i-ph:caret-down transition-transform')} />
                           </DropdownMenu.Trigger>
                           <DropdownMenu.Content
@@ -490,7 +490,7 @@ export const Workbench = memo(
                                 ) : (
                                   <div className="i-ph:cloud-arrow-down" />
                                 )}
-                                <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
+                                <span>{isSyncing ? 'Szinkronizálás…' : 'Fájlok szinkronizálása'}</span>
                               </div>
                             </DropdownMenu.Item>
                           </DropdownMenu.Content>

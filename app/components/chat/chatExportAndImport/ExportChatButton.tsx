@@ -8,6 +8,7 @@ import { chatId } from '~/lib/persistence/useChatHistory';
 import {
   createMediaJob,
   mediaDownloadUrl,
+  mediaExportOpen,
   readMediaJob,
   type MediaJob,
   type MediaSettings,
@@ -23,7 +24,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
   const projectId = useStore(chatId);
   const storageKey = projectId ? 'muhely-render:' + projectId : undefined;
   const [zipBusy, setZipBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const open = useStore(mediaExportOpen);
   const [settings, setSettings] = useState<MediaSettings>({ format: 'mp4', width: 1080, height: 1920, seconds: 20 });
   const [creating, setCreating] = useState(false);
   const [id, setId] = useState<string>();
@@ -31,7 +32,13 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
   const [error, setError] = useState('');
   const submit = useRef<AbortController | undefined>(undefined);
 
-  useEffect(() => () => submit.current?.abort(), []);
+  useEffect(
+    () => () => {
+      submit.current?.abort();
+      mediaExportOpen.set(false);
+    },
+    [],
+  );
   useEffect(() => {
     if (storageKey) {
       setId(window.sessionStorage.getItem(storageKey) ?? undefined);
@@ -138,7 +145,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
             <DropdownMenu.Item className={itemClass} onSelect={() => void downloadZip()}>
               Projektfájlok (ZIP)
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={itemClass} onSelect={() => setOpen(true)}>
+            <DropdownMenu.Item className={itemClass} onSelect={() => mediaExportOpen.set(true)}>
               {job?.state === 'ready' ? 'Kész kép vagy videó letöltése' : 'Kép vagy videó készítése'}
             </DropdownMenu.Item>
             {exportChat && (
@@ -149,7 +156,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
-      <RadixDialog.Root open={open} onOpenChange={setOpen}>
+      <RadixDialog.Root open={open} onOpenChange={mediaExportOpen.set}>
         {open && (
           <Dialog className="max-w-[calc(100vw-2rem)]">
             <form
