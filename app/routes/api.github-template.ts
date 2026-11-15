@@ -78,6 +78,10 @@ async function fetchRepoContentsCloudflare(repo: string, githubToken?: string) {
   });
 
   if (!treeResponse.ok) {
+    if (treeResponse.status === 403 || treeResponse.status === 429) {
+      return fetchRepoContentsBranchArchive(repo);
+    }
+
     throw new Error(`Failed to fetch repository tree: ${treeResponse.status}`);
   }
 
@@ -113,6 +117,7 @@ async function fetchRepoContentsCloudflare(repo: string, githubToken?: string) {
 
   for (let i = 0; i < files.length; i += batchSize) {
     const batch = files.slice(i, i + batchSize);
+    let rateLimited = false;
 
     const batchPromises = batch.map(async (file: any) => {
       try {
@@ -125,6 +130,7 @@ async function fetchRepoContentsCloudflare(repo: string, githubToken?: string) {
         });
 
         if (!contentResponse.ok) {
+          rateLimited ||= contentResponse.status === 403 || contentResponse.status === 429;
           console.warn(`Failed to fetch ${file.path}: ${contentResponse.status}`);
           return null;
         }
@@ -150,6 +156,12 @@ async function fetchRepoContentsCloudflare(repo: string, githubToken?: string) {
     });
 
     const batchResults = await Promise.all(batchPromises);
+
+    // A partial JSON result cannot produce a runnable starter.
+    if (rateLimited) {
+      return fetchRepoContentsBranchArchive(repo);
+    }
+
     fileContents.push(...batchResults.filter(Boolean));
 
     // Add a small delay between batches to be respectful to the API
@@ -318,6 +330,10 @@ export async function loader({ request, context }: { request: Request; context: 
       }
     } else {
       fileList = await fetchRepoContentsZip(repo, githubToken);
+    }
+
+    if (/^blueberry-llm\/[\w-]+$/.test(repo) && !fileList.some((file: any) => file.path === 'package.json')) {
+      fileList = await fetchRepoContentsBranchArchive(repo);
     }
 
     // Filter out Git metadata for both methods

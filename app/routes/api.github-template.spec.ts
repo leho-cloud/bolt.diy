@@ -35,4 +35,29 @@ describe('GitHub template loader', () => {
       'https://codeload.github.com/blueberry-llm/bolt-astro-basic-template/zip/refs/heads/main',
     );
   });
+
+  it('replaces a partial Cloudflare response with the complete public branch archive', async () => {
+    const repo = 'blueberry-llm/bolt-nextjs-shadcn-template';
+    const zip = new JSZip();
+    zip.file('starter-main/package.json', '{"scripts":{"dev":"next dev"}}');
+    zip.file('starter-main/app/page.tsx', 'export default function Page() {}');
+    const archive = await zip.generateAsync({ type: 'arraybuffer' });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ default_branch: 'main' }))
+      .mockResolvedValueOnce(Response.json({ tree: [{ type: 'blob', path: 'package.json', size: 50 }] }))
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(new Response(archive));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await loader({
+      request: new Request(`http://localhost/api/github-template?repo=${repo}`),
+      context: { cloudflare: { ctx: { waitUntil: () => undefined } } },
+    });
+
+    expect(response.status).toBe(200);
+    const files = (await response.json()) as Array<{ path: string }>;
+    expect(files.map(({ path }) => path)).toEqual(['package.json', 'app/page.tsx']);
+    expect(fetchMock).toHaveBeenLastCalledWith(`https://codeload.github.com/${repo}/zip/refs/heads/main`);
+  });
 });
