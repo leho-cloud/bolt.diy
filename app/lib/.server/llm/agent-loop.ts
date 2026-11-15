@@ -75,6 +75,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
   enabled: boolean,
   requiresPreview: boolean,
   taskToolNames?: TaskToolName[],
+  repairSettings?: { repairEnabled: boolean; repairRounds: number },
 ) {
   let currentMessages = messages;
   const lastUser = messages.findLastIndex((message) => message.role === 'user');
@@ -115,7 +116,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           return { completed: false, blocked: true, reason: input.summary };
         }
 
-        const progress = getAgentLoopProgress(currentMessages, enabled);
+        const progress = getAgentLoopProgress(currentMessages, enabled, repairSettings?.repairRounds);
         const problems = getAgentCompletionProblems(progress);
         const plannedCriteria = progress.plan?.criteria ?? [];
         const plannedIds = new Set(plannedCriteria.map((criterion) => criterion.id));
@@ -197,7 +198,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         })),
       ];
 
-      const progress = getAgentLoopProgress(currentMessages, enabled);
+      const progress = getAgentLoopProgress(currentMessages, enabled, repairSettings?.repairRounds);
 
       const pendingVisualUrls = requestedVisualUrls.filter(
         (url) =>
@@ -228,8 +229,11 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       );
 
       const repair = pendingVisualUrls.length === 0 && progress.plan ? progress.automaticRepair : undefined;
+      const repairDisabled = repairSettings?.repairEnabled === false;
       const repairGuidance = repair && (
-        repair.phase === 'exhausted'
+        repairDisabled
+          ? 'Automatic repair is switched off in the account. Call agent_complete with outcome blocked and report the confirmed failure without editing files.'
+          : repair.phase === 'exhausted'
           ? 'The automatic repair cannot verify a fix within its allowed attempts. Call agent_complete with outcome blocked and identify the failed check. Preserve the project files.'
           : repair.phase === 'checking'
             ? 'You are the automatic repair agent. Rerun the failing check on the edited project. For a command, repeat the original command and purpose and wait for the result. Do not change files until the check returns.'
@@ -309,7 +313,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       }
 
       if (repair && taskToolNames) {
-        if (repair.phase === 'exhausted') {
+        if (repairDisabled || repair.phase === 'exhausted') {
           return { ...instructions, toolChoice: { type: 'tool', toolName: 'agent_complete' } as const, activeTools: ['agent_complete'] };
         }
 

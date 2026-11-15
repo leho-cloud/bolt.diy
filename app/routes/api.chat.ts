@@ -39,6 +39,7 @@ import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
 import { getStarterBuildProgress } from '~/lib/common/starterBuild';
 import { visualReviewModelOutput } from '~/lib/common/visualReview';
 import { websiteWorkflowInstructions } from '~/lib/common/websiteWorkflow';
+import { readWorkspaceContext, workspaceInstructions } from '~/lib/common/workspacePreferences';
 import { createMessage, getMessageText } from '~/lib/persistence/messageMigration';
 import { getPluginToolDescriptions, getPluginTools } from '~/lib/plugins/adapters';
 import { getProjectToolNames, projectToolDefinitions } from '~/lib/runtime/projectMcp.shared';
@@ -86,7 +87,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   const messages = asMessages(body.messages);
   const starterBuild = chatMode === 'build' ? getStarterBuildProgress(messages) : getStarterBuildProgress([]);
   const agentLoopEnabled = chatMode === 'build';
-  const agentProgress = getAgentLoopProgress(messages, agentLoopEnabled);
+  const workspace = readWorkspaceContext(request);
+  const agentProgress = getAgentLoopProgress(messages, agentLoopEnabled, workspace?.repairRounds);
   const files = asFileMap(body.files);
   const designScheme = asDesignScheme(body.designScheme);
 
@@ -398,6 +400,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             ...Object.keys(pluginTools),
             ...Object.keys(websiteTools),
           ],
+          workspace,
         );
 
         const agentTools = agentProgress.status !== 'inactive' ? agentLoop.tools : {};
@@ -462,6 +465,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             }),
             getAgentLoopInstructions(agentProgress),
             chatMode === 'build' ? websiteWorkflowInstructions(Object.keys(websiteTools)) : '',
+            workspaceInstructions(workspace),
           ]
             .filter(Boolean)
             .join('\n\n'),

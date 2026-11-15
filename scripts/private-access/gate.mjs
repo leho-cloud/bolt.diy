@@ -3,6 +3,7 @@ import { createRenderQueue } from '../render/queue.mjs';
 import { bundlePrefix, createPublisher, publishPath } from './publish.mjs';
 import { welcomePage } from './welcome.mjs';
 import { openPrivateAccess } from './store.mjs';
+import { parseProjectPreferences, parseWorkspacePreferences, workspaceProjectId } from './workspace-preferences.mjs';
 import { loginPage, registrationPage, accountPage, accessPage, page, enrollmentScript } from './pages.mjs';
 
 const cookieName = '__Host-muhely_access';
@@ -89,18 +90,31 @@ export async function createAccessGate(directory, options = {}) {
     '/api/check-env-key',
     '/api/models',
   ]);
+  function sessionToken(request) {
+    return request.headers.get('cookie')?.split(';').map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
+  }
+
+  function workspaceContext(request) {
+    const actor = store.session(sessionToken(request));
+    if (!actor) return undefined;
+    const project = workspaceProjectId(request.headers.get('x-muhely-project'));
+    const { preferences, memory } = store.workspace(actor, project);
+    return {
+      memoryEnabled: preferences.memoryEnabled,
+      repairEnabled: preferences.repairEnabled,
+      repairRounds: preferences.repairRounds,
+      ...(preferences.ledEnabled ? { led: (preferences.memoryEnabled && memory?.led) || preferences.led } : {}),
+      ...(preferences.memoryEnabled && memory ? { notes: memory.notes, repairs: memory.repairs } : {}),
+    };
+  }
+
   return {
     store,
+    workspaceContext,
     async handle(request) {
-      const url = new URL(request.url),
-        path = url.pathname,
-        raw = request.headers
-          .get('cookie')
-          ?.split(';')
-          .map((c) => c.trim())
-          .find((c) => c.startsWith(cookieName + '='))
-          ?.slice(cookieName.length + 1),
-        actor = store.session(raw);
+      const url = new URL(request.url), path = url.pathname, raw = sessionToken(request);
+      const actor = store.session(raw);
       const mutating = !['GET', 'HEAD'].includes(request.method);
       if (mutating && request.headers.get('origin') !== url.origin)
         return json(403, { error: 'Idegen oldalról érkező kérés nem engedélyezett.' });
@@ -187,6 +201,24 @@ export async function createAccessGate(directory, options = {}) {
         return actor.role === 'owner'
           ? publisher.handle(request)
           : json(403, { error: 'A közzétételt csak a Műhely tulajdonosa indíthatja.' });
+      if (path === '/api/workspace-preferences') {
+        if (request.method === 'GET') return json(200, workspaceContext(request));
+        if (request.method !== 'POST') return json(405, { error: 'A művelet nem érhető el.' });
+        const project = workspaceProjectId(request.headers.get('x-muhely-project'));
+        if (!project) return json(400, { error: 'Érvénytelen projekt.' });
+        try {
+          const repair = JSON.parse(await request.text());
+          const checks = ['project_run_command', 'project_quality_report', 'project_preview_report', 'project_visual_review'];
+          if (!repair || typeof repair.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(repair.id) ||
+            !checks.includes(repair.check) || !Array.isArray(repair.files) || repair.files.length > 5 ||
+            !repair.files.every((file) => typeof file === 'string' && /^[\w./ @+-]{1,100}$/.test(file)))
+            return json(400, { error: 'Érvénytelen javítási bejegyzés.' });
+          await store.rememberRepair(actor, project, { id: repair.id, check: repair.check, files: repair.files });
+          return json(200, { saved: true });
+        } catch {
+          return json(400, { error: 'A javítás nem menthető.' });
+        }
+      }
       if (path === '/api/media-render') return render(request, actor);
       if (path === '/kijelentkezes') {
         if (request.method !== 'POST')
@@ -200,18 +232,30 @@ export async function createAccessGate(directory, options = {}) {
         return redirect('/belepes', '');
       }
       if (path === '/fiokom') {
-        if (request.method === 'GET') return html(accountPage(actor));
+        const project = workspaceProjectId(url.searchParams.get('projekt'));
+        const destination = project ? '/fiokom?projekt=' + encodeURIComponent(project) : '/fiokom';
+        const account = (error = '', status = 200, notice = '') =>
+          html(accountPage(actor, error, { ...store.workspace(actor, project), project, notice }), status);
+        if (request.method === 'GET')
+          return account('', 200, url.searchParams.get('mentve') === '1' ? 'A beállítások mentve.' : '');
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
         try {
-          take('password:' + actor.id, 8);
           const data = new URLSearchParams(await request.text());
+          const action = data.get('action');
+          if (action === 'workspace') {
+            await store.updateWorkspace(actor, parseWorkspacePreferences(data));
+            return redirect(destination + (project ? '&' : '?') + 'mentve=1#muhelybeallitasok');
+          }
+          if (action === 'memory' || action === 'forget') {
+            if (!project) return account('Nyisd meg ezt a beállítást a projektből.', 400);
+            await store.updateProjectMemory(actor, project, action === 'forget' ? null : parseProjectPreferences(data));
+            return redirect(destination + '&mentve=1#projektmemoria');
+          }
+          take('password:' + actor.id, 8);
           await store.changePassword(actor, data.get('oldPassword'), data.get('password'));
           return redirect('/belepes', '');
         } catch (error) {
-          return html(
-            accountPage(actor, error.status ? error.message : 'A jelszó most nem módosítható.'),
-            error.status || 503,
-          );
+          return account(error.status ? error.message : 'A módosítás most nem menthető.', error.status || 503);
         }
       }
       if (path === '/hozzaferesek') {

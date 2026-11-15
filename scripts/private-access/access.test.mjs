@@ -291,3 +291,53 @@ test('registration rejects foreign submission and the owner can decline a reques
   );
   assert.equal(login.status, 401);
 });
+
+test('keeps workspace settings and private project notes independent per account and project', async (t) => {
+  const f = await fixture(t);
+  const ownerCookie = cookieOf(await owner(f));
+  const actor = f.gate.store.session(ownerCookie.split('=')[1]);
+  const invite = await f.gate.store.invite(actor, 'anna');
+  const memberCookie = cookieOf(await f.gate.handle(
+    request('/belepes', { body: { action: 'enroll', username: 'anna', password, token: invite.secret } }),
+  ));
+  const project = 'project-766-1';
+  const memoryPath = '/fiokom?projekt=' + project;
+  const contextRequest = (cookie, projectId = project) => new Request(origin + '/api/workspace-preferences', {
+    headers: { cookie, 'x-muhely-project': projectId },
+  });
+  const context = async (cookie, projectId) => (await f.gate.handle(contextRequest(cookie, projectId))).json();
+  const preferences = {
+    action: 'workspace', memoryEnabled: 'on', ledEnabled: 'on', repairRounds: '3',
+    width: '768', height: '256', fps: '60', seconds: '20',
+  };
+  assert.equal((await f.gate.handle(request('/fiokom', { cookie: ownerCookie, body: preferences }))).status, 303);
+  const memory = {
+    action: 'memory', notes: 'Törtfehér <teszt>', useProjectLed: 'on',
+    width: '192', height: '768', fps: '50', seconds: '10',
+  };
+  assert.equal((await f.gate.handle(request(memoryPath, { cookie: ownerCookie, body: memory }))).status, 303);
+  assert.match(await (await f.gate.handle(request(memoryPath, { cookie: ownerCookie }))).text(), /Törtfehér &lt;teszt&gt;/);
+
+  const repairRequest = new Request(origin + '/api/workspace-preferences', {
+    method: 'POST',
+    headers: { cookie: ownerCookie, origin, 'x-muhely-project': project, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'toolu_passed', check: 'project_run_command', files: ['src/App.tsx'] }),
+  });
+  assert.equal((await f.gate.handle(repairRequest)).status, 200);
+  assert.deepEqual(await context(ownerCookie), {
+    memoryEnabled: true, repairEnabled: false, repairRounds: 3,
+    led: { width: 192, height: 768, fps: 50, seconds: 10 },
+    notes: memory.notes,
+    repairs: [{ id: 'toolu_passed', check: 'project_run_command', files: ['src/App.tsx'] }],
+  });
+  assert.equal((await context(ownerCookie, 'another-project')).led.width, 768);
+  assert.equal((await context(memberCookie)).memoryEnabled, false);
+  assert.equal((await context(memberCookie)).notes, undefined);
+
+  await f.gate.handle(request('/fiokom', { cookie: ownerCookie, body: { ...preferences, memoryEnabled: '' } }));
+  assert.equal((await context(ownerCookie)).notes, undefined);
+  assert.equal((await context(ownerCookie)).led.fps, 60);
+  assert.match(await (await f.gate.handle(request(memoryPath, { cookie: ownerCookie }))).text(), /Törtfehér/);
+  await f.gate.handle(request(memoryPath, { cookie: ownerCookie, body: { action: 'forget' } }));
+  assert.doesNotMatch(await (await f.gate.handle(request(memoryPath, { cookie: ownerCookie }))).text(), /Törtfehér/);
+});

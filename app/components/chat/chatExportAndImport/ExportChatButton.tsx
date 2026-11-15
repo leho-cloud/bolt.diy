@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Dialog, DialogDescription, DialogTitle } from '~/components/ui/Dialog';
 import { chatId } from '~/lib/persistence/useChatHistory';
+import { useWorkspacePreferences } from '~/lib/hooks/useWorkspacePreferences';
 import {
   agentMediaExport,
   createMediaJob,
@@ -25,6 +26,8 @@ const inputClass =
 
 export function ExportChatButton({ exportChat, streaming }: { exportChat?: () => void; streaming: boolean }) {
   const projectId = useStore(chatId);
+  const workspace = useWorkspacePreferences(projectId);
+  const manuallyConfigured = useRef(false);
   const storageKey = projectId ? 'muhely-render:' + projectId : undefined;
   const [zipBusy, setZipBusy] = useState(false);
   const open = useStore(mediaExportOpen);
@@ -50,12 +53,19 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
     [],
   );
   useEffect(() => {
+    if (workspace?.led && !manuallyConfigured.current) {
+      setSettings({ format: 'mp4', ...workspace.led });
+    }
+  }, [workspace]);
+
+  useEffect(() => {
     if (storageKey) {
       setId(window.sessionStorage.getItem(storageKey) ?? undefined);
     }
   }, [storageKey]);
   useEffect(() => {
     if (agentJob && storageKey && agentJob.projectId === projectId) {
+      manuallyConfigured.current = true;
       setId(agentJob.id);
       setSettings(agentJob.settings);
       setError('');
@@ -170,6 +180,11 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
             <DropdownMenu.Item className={itemClass} onSelect={() => mediaExportOpen.set(true)}>
               {job?.state === 'ready' ? 'Kész kép vagy videó letöltése' : 'Kép vagy videó készítése'}
             </DropdownMenu.Item>
+            {projectId && (
+              <DropdownMenu.Item asChild className={itemClass}>
+                <a href={`/fiokom?projekt=${encodeURIComponent(projectId)}#projektmemoria`}>Projektmemória</a>
+              </DropdownMenu.Item>
+            )}
             {exportChat && (
               <DropdownMenu.Item className={itemClass} onSelect={exportChat}>
                 Beszélgetés exportálása
@@ -190,7 +205,11 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
             >
               <DialogTitle>Kép vagy videó készítése</DialogTitle>
               <DialogDescription>Add meg a kész fájl pontos méretét képpontban.</DialogDescription>
-              <fieldset disabled={creating || rendering} className="grid grid-cols-2 gap-3 text-sm">
+              <fieldset
+                disabled={creating || rendering}
+                className="grid grid-cols-2 gap-3 text-sm"
+                onChange={() => { manuallyConfigured.current = true; }}
+              >
                 <label className="col-span-2 grid gap-1">
                   Fájlformátum
                   <select

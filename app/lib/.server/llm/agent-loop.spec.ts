@@ -410,6 +410,17 @@ describe('agent plan and completion tools', () => {
     expect(capped.activeTools).toEqual(['agent_complete']);
     expect(capped.toolChoice).toEqual({ type: 'tool', toolName: 'agent_complete' });
 
+    const disabledLoop = createAgentLoopTools(
+      [user, { role: 'assistant', parts: [planned, failure] }], true, true, tools,
+      { repairEnabled: false, repairRounds: 1 },
+    );
+    expect(disabledLoop.prepareStep({ steps: [] }).activeTools).toEqual(['agent_complete']);
+    const oneRound = createAgentLoopTools(
+      [user, { role: 'assistant', parts: [planned, failure, patch, failure] }], true, true, tools,
+      { repairEnabled: true, repairRounds: 1 },
+    );
+    expect(oneRound.prepareStep({ steps: [] }).activeTools).toEqual(['agent_complete']);
+
     const inaccessible = part('project_preview_report', { isError: true, checked: false, unavailable: true });
     const recovery = makeLoop(inaccessible, inaccessible).prepareStep({ steps: [], initialInstructions: '' });
     expect(recovery.instructions).not.toContain('You are the automatic repair agent');

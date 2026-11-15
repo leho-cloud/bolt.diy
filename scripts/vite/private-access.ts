@@ -35,7 +35,7 @@ export function privateAccess(): Plugin {
 
           let body: string | undefined;
 
-          if (ownPost && req.method === 'POST') {
+          if ((ownPost || url.pathname === '/api/workspace-preferences') && req.method === 'POST') {
             body = await readBody(req);
           }
 
@@ -62,6 +62,15 @@ export function privateAccess(): Plugin {
 
           if (!response) {
             delete req.headers.authorization;
+            delete req.headers['x-muhely-workspace-context'];
+
+            if (url.pathname === '/api/chat') {
+              const workspace = gate.workspaceContext(request);
+
+              if (workspace) {
+                req.headers['x-muhely-workspace-context'] = Buffer.from(JSON.stringify(workspace)).toString('base64');
+              }
+            }
             next();
 
             return;

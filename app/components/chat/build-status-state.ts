@@ -83,7 +83,14 @@ function workingPhase(parts: unknown[]) {
   return 'Dolgozom az oldaladon…';
 }
 
-export function buildStatus(messages: AnyMessage[], active: boolean, preview: boolean, error = false) {
+export function buildStatus(
+  messages: AnyMessage[],
+  active: boolean,
+  preview: boolean,
+  error = false,
+  repairEnabled = true,
+  repairRounds?: number,
+) {
   const lastUser = messages.findLastIndex((message) => message.role === 'user');
   const parts = messages.slice(lastUser + 1).flatMap((message) => getMessageParts(message) ?? []);
 
@@ -92,7 +99,7 @@ export function buildStatus(messages: AnyMessage[], active: boolean, preview: bo
   }
 
   if (active) {
-    const repair = getAgentLoopProgress(messages, true).automaticRepair;
+    const repair = repairEnabled ? getAgentLoopProgress(messages, true, repairRounds).automaticRepair : undefined;
 
     if (repair?.phase === 'fixing') {
       return { kind: 'working', text: 'Automatikus javítás folyik…' };

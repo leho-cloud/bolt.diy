@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, unlink, chmod } from 'node:fs/promi
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
+import { workspaceDefaults } from './workspace-preferences.mjs';
 
 const derive = promisify(scrypt);
 const digest = (value) => createHash('sha256').update(value).digest('hex');
@@ -111,6 +112,52 @@ export async function openPrivateAccess(directory, { now = Date.now } = {}) {
     return { secret, user: publicUser(user) };
   }
   return {
+    workspace(actor, project) {
+      const user = state.users.find((entry) => entry.id === actor.id && !entry.disabled);
+      const preferences = user?.workspacePreferences || workspaceDefaults;
+      const memory = project && user?.projectMemory && Object.hasOwn(user.projectMemory, project)
+        ? user.projectMemory[project]
+        : undefined;
+      return { preferences, memory, projects: Object.keys(user?.projectMemory || {}) };
+    },
+    async updateWorkspace(actor, preferences) {
+      await transaction((next) => {
+        const user = next.users.find((entry) => entry.id === actor.id && !entry.disabled);
+        if (!user) throw fail('Jelentkezz be újra.', 401);
+        user.workspacePreferences = preferences;
+      });
+    },
+    async updateProjectMemory(actor, project, value) {
+      await transaction((next) => {
+        const user = next.users.find((entry) => entry.id === actor.id && !entry.disabled);
+        if (!user) throw fail('Jelentkezz be újra.', 401);
+        user.projectMemory ??= {};
+        if (value === null) {
+          delete user.projectMemory[project];
+          return;
+        }
+        if (!Object.hasOwn(user.projectMemory, project) && Object.keys(user.projectMemory).length >= 100)
+          throw fail('Elérted a 100 mentett projektmemória határát. Törölj egy meglévő projektmemóriát.');
+        const previous = Object.hasOwn(user.projectMemory, project) ? user.projectMemory[project] : {};
+        Object.defineProperty(user.projectMemory, project, {
+          value: { ...value, repairs: previous.repairs || [] }, enumerable: true, configurable: true, writable: true,
+        });
+      });
+    },
+    async rememberRepair(actor, project, repair) {
+      await transaction((next) => {
+        const user = next.users.find((entry) => entry.id === actor.id && !entry.disabled);
+        if (!user?.workspacePreferences?.memoryEnabled) return;
+        user.projectMemory ??= {};
+        const previous = Object.hasOwn(user.projectMemory, project) ? user.projectMemory[project] : { notes: '' };
+        if (previous.repairs?.some((item) => item.id === repair.id)) return;
+        if (!Object.hasOwn(user.projectMemory, project) && Object.keys(user.projectMemory).length >= 100) return;
+        Object.defineProperty(user.projectMemory, project, {
+          value: { ...previous, repairs: [...(previous.repairs || []), repair].slice(-5) },
+          enumerable: true, configurable: true, writable: true,
+        });
+      });
+    },
     ready: () => state.users.some((u) => u.role === 'owner'),
     session(secret) {
       if (typeof secret !== 'string' || !/^[a-f0-9]{64}$/.test(secret)) return null;

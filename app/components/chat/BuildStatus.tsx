@@ -2,6 +2,8 @@ import { useStore } from '@nanostores/react';
 import { useEffect, useRef, useState } from 'react';
 import { buildStatus, formatBuildDuration } from './build-status-state';
 import type { AnyMessage } from '~/lib/persistence/messageMigration';
+import { useWorkspacePreferences } from '~/lib/hooks/useWorkspacePreferences';
+import { chatId } from '~/lib/persistence/useChatHistory';
 import { workbenchStore } from '~/lib/stores/workbench';
 import type { ProgressAnnotation } from '~/types/context';
 
@@ -16,12 +18,15 @@ export function BuildStatus({
   progress?: ProgressAnnotation[];
 }) {
   const previews = useStore(workbenchStore.previews);
+  const workspace = useWorkspacePreferences(useStore(chatId));
 
   const state = buildStatus(
     messages,
     active,
     previews.some((preview) => preview.ready),
     error,
+    workspace?.repairEnabled,
+    workspace?.repairRounds,
   );
 
   const lastUser = messages.findLastIndex((message) => message.role === 'user');

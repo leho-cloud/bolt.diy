@@ -52,7 +52,7 @@ export function isAgentPlan(value: unknown): value is AgentPlan {
   );
 }
 
-export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
+export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean, repairRounds = MAX_REPAIR_ROUNDS) {
   const userIndex = messages.findLastIndex((message) => message.role === 'user');
 
   const text =
@@ -91,6 +91,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
   const starts = new Map<string, number>();
   const commands = new Map<string, RepairCheck>();
   let repair: { check: RepairCheck; failedAt: number; rounds: number } | undefined;
+  let repairFiles = new Set<string>();
+  const verifiedRepairs: Array<{ id: string; check: string; files: string[] }> = [];
 
   let pendingProjectCalls = false;
 
@@ -204,11 +206,18 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
 
         if (repairableFailure && !repair) {
           repair = { check, failedAt: position, rounds: 0 };
+          repairFiles = new Set();
         } else if (repair && sameCheck) {
           const startedAt = commandResult && processId ? starts.get(processId) : undefined;
           const freshCheck = startedAt === undefined || startedAt > repair.failedAt;
 
           if (passed && freshCheck) {
+            const id = getToolCallId(part);
+
+            if (id && repairFiles.size > 0) {
+              verifiedRepairs.push({ id, check: check.tool, files: [...repairFiles].slice(0, 5) });
+            }
+
             repair = undefined;
           } else if (repairableFailure && freshCheck && lastEdit > repair.failedAt) {
             repair = { check, failedAt: position, rounds: repair.rounds + 1 };
@@ -254,6 +263,15 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
           (output.written === true || output.patched === true || output.deleted === true)
         ) {
           lastEdit = position;
+
+          if (repair && typeof input?.path === 'string') {
+            const path = input.path.replace(/^\/home\/project\//, '');
+
+            if (/^[\w./ @+-]{1,100}$/.test(path)) {
+              repairFiles.add(path);
+            }
+          }
+
           unavailableChecks.clear();
           mediaRequested = false;
           mediaQueued = false;
@@ -329,9 +347,10 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     status,
     plan,
     edited: lastEdit >= 0,
+    verifiedRepairs,
     automaticRepair: repair && {
       ...repair,
-      phase: repair.rounds >= MAX_REPAIR_ROUNDS || (unavailableChecks.get(repair.check.tool) ?? 0) >= 2
+      phase: repair.rounds >= repairRounds || (unavailableChecks.get(repair.check.tool) ?? 0) >= 2
         ? 'exhausted' as const
         : lastEdit > repair.failedAt ? 'checking' as const : 'fixing' as const,
     },

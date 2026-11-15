@@ -5,7 +5,7 @@ export const escapeHTML = (value) =>
   );
 const css = `*{box-sizing:border-box}body{margin:0;background:#101114;color:#f2f2f5;font:14px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header,footer{max-width:1080px;margin:auto;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}header{border-bottom:1px solid #282930}.brand{display:flex;gap:10px;align-items:center;font-weight:650}.mark{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#df1945;color:#fff;font-size:18px}.brand small,footer,.muted{color:#9696a3;font-weight:400}a{color:#dddde5;text-decoration:none}a:hover{color:white}main{max-width:1080px;min-height:calc(100svh - 154px);margin:auto;padding:70px 28px;display:grid;align-content:center;gap:32px}.intro{max-width:480px}.eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#e68a9f}h1{font-size:clamp(27px,4vw,38px);line-height:1.22;letter-spacing:-.035em;margin:14px 0 18px;font-weight:650}h2{font-size:20px;line-height:1.3;margin:0 0 12px;letter-spacing:-.02em}p{color:#aaaab7;margin:10px 0 20px}.card{border:1px solid #303139;background:#17181d;border-radius:16px;padding:28px;min-width:0}.login-grid{grid-template-columns:1.1fr .9fr;align-items:center}.card form{display:grid;gap:17px}label{display:grid;gap:7px;font-size:13px;color:#d3d3dc}input,textarea{width:100%;min-width:0;background:#101115;border:1px solid #3d3f49;border-radius:8px;padding:11px 12px;font:inherit;color:white}input:focus{outline:2px solid #e15a7b;outline-offset:2px}button,.button{cursor:pointer;font:inherit;border:1px solid #42434e;background:#24252d;border-radius:8px;padding:10px 15px;color:#f7f7fa;text-align:center;display:inline-block}.primary{background:#da1944;border-color:#da1944;font-weight:600}.primary:hover{background:#ed2550}.small{font-size:12px;padding:7px 10px}.error{padding:12px 14px;background:#401e29;border-radius:8px;color:#ffc7d4}.success{padding:14px;border:1px solid #28684f;background:#172f27;border-radius:10px}.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.person{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:17px 0;border-bottom:1px solid #2c2d34}.person form{display:block}.person b{font-weight:600}.person small{display:block;color:#a6a6b3;overflow-wrap:anywhere}.registration-row{flex-wrap:wrap}.registration-row .actions{gap:8px}.contact{color:#ecd3db;text-decoration:underline;text-underline-offset:2px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.inline{display:flex;gap:12px}.note{font-size:12px}.back{font-size:13px}.hidden,[hidden]{display:none!important}footer{border-top:1px solid #282930;font-size:12px}a:focus-visible,button:focus-visible{outline:2px solid #f0a3b6;outline-offset:4px}@media(max-width:720px){.login-grid,.grid{grid-template-columns:1fr}main{padding:36px 20px;gap:24px}.card{padding:24px}header,footer{padding:20px}.person{align-items:flex-start}.inline{flex-direction:column}}`;
 export function page(title, body, { error = '', script = false, user = null } = {}) {
-  return `<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHTML(title)} · Műhely</title><style>${css}</style>${script ? '<script src="/private-access.js" defer></script>' : ''}</head><body><header><a class="brand" href="/nyito"><span class="mark">T</span>Műhely <small>by TZSVTAV</small></a>${user ? '<a class="back" href="/muhely">Vissza a Műhelybe →</a>' : '<span class="muted note">Saját alkotói tér</span>'}</header>${body.replace('<!--feedback-->', error ? `<p class="error" role="alert">${escapeHTML(error)}</p>` : '')}<footer><span>TZSVT Hosting</span><span>Műhely</span></footer></body></html>`;
+  return `<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHTML(title)} · Műhely</title><style>${css}.setting-toggle{display:flex;align-items:center;gap:10px}.setting-toggle input{width:auto;accent-color:#e92b55}textarea,select{width:100%;padding:10px;border:1px solid #393a43;border-radius:8px;background:#17181e;color:inherit;font:inherit}details{margin-top:14px}</style>${script ? '<script src="/private-access.js" defer></script>' : ''}</head><body><header><a class="brand" href="/nyito"><span class="mark">T</span>Műhely <small>by TZSVTAV</small></a>${user ? '<a class="back" href="/muhely">Vissza a Műhelybe →</a>' : '<span class="muted note">Saját alkotói tér</span>'}</header>${body.replace('<!--feedback-->', error ? `<p class="error" role="alert">${escapeHTML(error)}</p>` : '')}<footer><span>TZSVT Hosting</span><span>Műhely</span></footer></body></html>`;
 }
 export function loginPage(next = '/muhely', error = '', ready = true) {
   return page(
@@ -50,12 +50,77 @@ export function registrationPage({ received = false, ready = true, values = {}, 
 }
 
 export const enrollmentScript = `const query=new URLSearchParams(location.hash.slice(1)),secret=query.get('elso')||query.get('meghivo');if(secret&&/^[a-f0-9]{64}$/.test(secret)){history.replaceState(null,'',location.pathname+location.search);document.querySelector('#access-action').value='enroll';document.querySelector('#access-token').value=secret;document.querySelector('#login-title').textContent=query.has('elso')?'Állítsd be saját belépésedet.':'Üdv a Műhelyben.';const registration=document.querySelector('#registration-link');if(registration)registration.hidden=true;document.querySelector('#login-note').textContent='Válassz legalább 12 karakteres saját jelszót.';const password=document.querySelector('#access-password');password.minLength=12;password.autocomplete='new-password';document.querySelector('#access-submit').textContent='Belépés beállítása →';document.querySelector('#access-help').textContent='A meghívó egyszer használható. A jelszavadat nem kell elküldened senkinek.';if(query.get('nev')){const name=document.querySelector('#access-username');name.value=query.get('nev');name.readOnly=true;}}`;
-export function accountPage(user, error = '') {
+const repairLabels = {
+  project_run_command: 'Fordítás vagy működési ellenőrzés',
+  project_quality_report: 'Kódellenőrzés',
+  project_preview_report: 'Előnézet ellenőrzése',
+  project_visual_review: 'Képi ellenőrzés',
+};
+
+function ledFields(led) {
+  const numeric = (name, label, value, max) =>
+    `<label>${label}<input type="number" name="${name}" min="1" max="${max}" required value="${value}"></label>`;
+  return `<div class="grid">${numeric('width', 'Szélesség (px)', led.width, 4096)}
+    ${numeric('height', 'Magasság (px)', led.height, 4096)}
+    ${numeric('seconds', 'Videó hossza (mp)', led.seconds, 60)}
+    <label>Képkockasebesség<select name="fps"><option value="50"${led.fps === 50 ? ' selected' : ''}>50 fps</option>
+      <option value="60"${led.fps === 60 ? ' selected' : ''}>60 fps</option></select></label></div>`;
+}
+
+function workspaceCards({ preferences, memory, projects = [], project, notice = '' }) {
+  if (!preferences) return '';
+  const action = project ? '/fiokom?projekt=' + encodeURIComponent(project) : '/fiokom';
+  const toggle = (name, label, checked) =>
+    `<label class="setting-toggle"><input type="checkbox" name="${name}"${checked ? ' checked' : ''}><span>${label}</span></label>`;
+  return `
+    <section class="card" id="muhelybeallitasok">
+      <h2>Memória és skillek</h2>
+      ${notice ? `<p class="success" role="status">${escapeHTML(notice)}</p>` : ''}
+      <!--workspace-feedback-->
+      <form method="post" action="${action}">
+        <input type="hidden" name="action" value="workspace">
+        ${toggle('memoryEnabled', 'Projektmemória', preferences.memoryEnabled)}
+        <p class="note">A Builder a projektjegyzeteket és az ellenőrzött javításokat elküldheti a kiválasztott AI-nak. Kikapcsolva a mentett adatok megmaradnak.</p>
+        ${toggle('repairEnabled', 'Automatikus javítás skill', preferences.repairEnabled)}
+        <label>Javítási körök hibánként
+          <select name="repairRounds">${[1, 2, 3].map((n) => `<option value="${n}"${preferences.repairRounds === n ? ' selected' : ''}>${n}</option>`).join('')}</select>
+        </label>
+        ${toggle('ledEnabled', 'LED-fal videó skill', preferences.ledEnabled)}
+        <p class="note">Alapértékek az MP4-exporthoz. Az exportablakban módosíthatod őket.</p>
+        ${ledFields(preferences.led)}
+        <button class="primary">Beállítások mentése</button>
+      </form>
+    </section>
+    <section class="card" id="projektmemoria">
+      <h2>Projektmemória</h2>
+      ${project ? `
+        <p class="note">${escapeHTML(project)} · <a class="contact" href="/chat/${encodeURIComponent(project)}">Vissza a projekthez →</a></p>
+        <form method="post" action="${action}">
+          <input type="hidden" name="action" value="memory">
+          <label>Megjegyzések a projekthez
+            <textarea name="notes" rows="5" maxlength="2000" placeholder="Jóváhagyott stílus, méretek vagy tartalmi döntések">${escapeHTML(memory?.notes || '')}</textarea>
+          </label>
+          ${toggle('useProjectLed', 'Saját LED-exportbeállítás ehhez a projekthez', Boolean(memory?.led))}
+          ${ledFields(memory?.led || preferences.led)}
+          <button class="primary">Projektmemória mentése</button>
+        </form>
+        ${memory?.repairs?.length ? `<h3>Ellenőrzött javítások</h3><ul>${memory.repairs.map((repair) =>
+          `<li>${escapeHTML(repairLabels[repair.check] || 'Ellenőrzés')}${repair.files.length ? ` · ${escapeHTML(repair.files.join(', '))}` : ''}</li>`
+        ).join('')}</ul>` : ''}
+        ${memory ? `<form method="post" action="${action}"><button name="action" value="forget">Projektmemória törlése</button></form>` : ''}
+      ` : '<p class="note">Új projektmemóriát az adott munka „Projektmemória” gombjáról nyithatsz meg.</p>'}
+      ${projects.length ? `<details><summary>Mentett projektmemóriák (${projects.length})</summary><ul>${projects.map((id) =>
+        `<li><a class="contact" href="/fiokom?projekt=${encodeURIComponent(id)}#projektmemoria">${escapeHTML(id)}</a></li>`
+      ).join('')}</ul></details>` : ''}
+    </section>`;
+}
+
+export function accountPage(user, error = '', workspace = {}) {
   return page(
     'Saját belépésem',
-    `<main><section class="intro"><span class="eyebrow">Saját belépésem</span><h1>${escapeHTML(user.username)}</h1><p>A belépésed egy hétig megmarad. Bármikor kijelentkezhetsz.</p><div class="actions"><a class="button primary" href="/muhely">Műhely megnyitása →</a>${user.role === 'owner' ? '<a class="button" href="/hozzaferesek">Hozzáférések kezelése</a><a class="button" href="https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/" target="_blank" rel="noopener noreferrer">Korábbi munkák ↗</a>' : ''}<form method="post" action="/kijelentkezes"><button>Kijelentkezés</button></form></div></section><section class="card"><h2>Jelszó módosítása</h2><!--feedback--><form method="post" action="/fiokom"><label>Jelenlegi jelszó<input name="oldPassword" type="password" required autocomplete="current-password" maxlength="256"></label><label>Új jelszó<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label><p class="note">A módosítás után az új jelszóval kell belépned az eszközeiden.</p><button class="primary">Új jelszó mentése</button></form></section></main>`,
+    `<main><section class="intro"><span class="eyebrow">Saját belépésem</span><h1>${escapeHTML(user.username)}</h1><p>A belépésed egy hétig megmarad. Bármikor kijelentkezhetsz.</p><div class="actions"><a class="button primary" href="/muhely">Műhely megnyitása →</a>${user.role === 'owner' ? '<a class="button" href="/hozzaferesek">Hozzáférések kezelése</a><a class="button" href="https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/" target="_blank" rel="noopener noreferrer">Korábbi munkák ↗</a>' : ''}<form method="post" action="/kijelentkezes"><button>Kijelentkezés</button></form></div></section>${workspaceCards(workspace)}<section class="card"><h2>Jelszó módosítása</h2>${workspace.preferences ? '' : '<!--feedback-->'}<form method="post" action="/fiokom"><label>Jelenlegi jelszó<input name="oldPassword" type="password" required autocomplete="current-password" maxlength="256"></label><label>Új jelszó<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label><p class="note">A módosítás után az új jelszóval kell belépned az eszközeiden.</p><button class="primary">Új jelszó mentése</button></form></section></main>`,
     { user, error },
-  );
+  ).replace('<!--workspace-feedback-->', error ? `<p class="error" role="alert">${escapeHTML(error)}</p>` : '');
 }
 export function accessPage(user, data, invitation = null, error = '', notice = '') {
   const emailLink = (email) =>

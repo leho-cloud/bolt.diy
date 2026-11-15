@@ -9,11 +9,13 @@ import { toast } from 'react-toastify';
 import { BaseChat } from './BaseChat';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import { API_KEYS_UPDATED_EVENT, type ApiKeysUpdatedDetail } from '~/lib/api/apiKeys';
-import { isServerAgentTool } from '~/lib/common/agentLoop';
+import { getAgentLoopProgress, isServerAgentTool } from '~/lib/common/agentLoop';
+import { workspaceHeaders } from '~/lib/common/workspacePreferences';
 import { STARTER_BUILD_FLAG } from '~/lib/common/starterBuild';
 import { selectTaskModel } from '~/lib/common/taskModel';
 import { useMessageParser, usePromptEnhancer, useShortcuts } from '~/lib/hooks';
 import { useSettings } from '~/lib/hooks/useSettings';
+import { useWorkspacePreferences } from '~/lib/hooks/useWorkspacePreferences';
 import { description, useChatHistory } from '~/lib/persistence';
 import {
   createMessage,
@@ -289,6 +291,10 @@ export const ChatImpl = memo(
         .filter((plugin) => plugin.tools.length > 0),
     };
 
+    const workspace = useWorkspacePreferences(useStore(chatId));
+    const repairProjectRef = useRef<string | undefined>(undefined);
+    const savedRepairs = useRef(new Set<string>());
+
     const {
       messages,
       status,
@@ -300,6 +306,10 @@ export const ChatImpl = memo(
     } = useChat({
       transport: new DefaultChatTransport({
         api: '/api/chat',
+        headers: () => {
+          repairProjectRef.current = chatId.get();
+          return workspaceHeaders(repairProjectRef.current) ?? {};
+        },
 
         /*
          * body is resolved per request, but only if it is a function. Passing a
@@ -338,6 +348,27 @@ export const ChatImpl = memo(
       },
       onFinish: ({ message }) => {
         setProgressAnnotations([]);
+
+        const project = repairProjectRef.current;
+        const headers = workspaceHeaders(project);
+
+        if (workspace?.memoryEnabled && workspace.repairEnabled && headers && project === chatId.get()) {
+          const history = [...messagesRef.current.filter((item) => item.id !== message.id), message];
+          for (const repair of getAgentLoopProgress(history, true).verifiedRepairs) {
+            const key = project + ':' + repair.id;
+
+            if (!savedRepairs.current.has(key)) {
+              savedRepairs.current.add(key);
+              void fetch('/api/workspace-preferences', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(repair),
+              }).then((response) => {
+                if (!response.ok) savedRepairs.current.delete(key);
+              }).catch(() => savedRepairs.current.delete(key));
+            }
+          }
+        }
 
         const userMessages = messagesRef.current.filter((item) => item.role === 'user');
 
