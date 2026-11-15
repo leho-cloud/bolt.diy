@@ -128,7 +128,8 @@ export async function createMediaJob(settings: MediaSettings, signal: AbortSigna
       throw new Error('Ehhez a projekthez Vite build vagy önálló HTML szükséges a közvetlen rendereléshez.');
     }
 
-    const output = '/tmp/muhely-' + crypto.randomUUID();
+    // Run Vite and read its files through the same project-relative WebContainer path.
+    const output = 'node_modules/.cache/muhely-render-' + crypto.randomUUID();
 
     try {
       const process = await wc.spawn('npm', ['run', 'build', '--', '--outDir', output]);
@@ -151,7 +152,15 @@ export async function createMediaJob(settings: MediaSettings, signal: AbortSigna
         signal.removeEventListener('abort', stop);
       }
 
-      return await collectBuild(wc, output, signal);
+      try {
+        return await collectBuild(wc, output, signal);
+      } catch (error) {
+        if ((error as { code?: string })?.code === 'ENOENT') {
+          throw new Error('A fordítás nem hozta létre a várt exportmappát. Ellenőrizd a Vite build beállításait.');
+        }
+
+        throw error;
+      }
     } finally {
       await wc.fs.rm(output, { recursive: true, force: true });
     }

@@ -130,8 +130,9 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
     <>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
+          type="button"
           disabled={zipBusy}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor px-3 py-1.5 text-xs"
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-3 py-1.5 text-xs font-medium text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
         >
           {zipBusy ? 'Mentés…' : 'Letöltés'}
           <span className="i-ph:caret-down" />
