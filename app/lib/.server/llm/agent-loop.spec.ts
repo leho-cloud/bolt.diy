@@ -223,6 +223,33 @@ describe('agent plan and completion tools', () => {
     });
   });
 
+  it('allows Oxylabs and its text fallback before planning a video from an external source', () => {
+    const request: AnyMessage = {
+      role: 'user',
+      content: 'Készíts egy TikTok-reklámvideót a https://tzsvtavcloud.com/tartalom/. oldal tartalmából.',
+    };
+    const loop = createAgentLoopTools([request], true, true, [
+      'project_read_file',
+      'project_patch_file',
+      'project_run_command',
+      'website_reference',
+      'website_tools_status',
+      'web_fetch',
+      'web_search',
+    ]);
+
+    const step = loop.prepareStep({ steps: [], initialInstructions: 'Build workflow' });
+    expect(step.activeTools).toEqual([
+      'agent_plan',
+      'project_read_file',
+      'website_reference',
+      'website_tools_status',
+      'web_fetch',
+      'web_search',
+    ]);
+    expect(step.instructions).toContain('available while planning');
+  });
+
   it('keeps verification tools available after planning while completion still requires evidence', () => {
     const loop = createAgentLoopTools(
       [user, { role: 'assistant', parts: [part('agent_plan', { plan })] }],
@@ -256,6 +283,8 @@ describe('agent plan and completion tools', () => {
       'agent_plan',
       'project_read_file',
       'project_list_paths',
+      'website_reference',
+      'website_tools_status',
     ]);
 
     const next = loop.prepareStep({

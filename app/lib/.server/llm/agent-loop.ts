@@ -41,6 +41,8 @@ const PROJECT_INSPECTION_TOOLS = new Set([
   'project_find_related_files',
 ]);
 
+const PROJECT_RESEARCH_TOOLS = new Set(['website_reference', 'website_tools_status', 'web_fetch', 'web_search']);
+
 const VISUAL_REFERENCE_REQUEST =
   /\b(?:visual references?|design references?|reference screenshots?|reference sites?|match (?:the |this |its )?(?:design|layout|look|style)|clone (?:the |this |its )?(?:page|site|website)|inspired by)\b|(?:a minta\s*[:=]|mint[áa](?:nak|ként|oldal)|vizuális referenci|dizájnreferenci|stílusmint|(?:kinézet|elrendezés|stílus)[ée]t (?:kövesd|vedd át|másold)|(?:ehhez|ahhoz) hasonló)/iu;
 
@@ -230,6 +232,9 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         progress.status === 'pending'
           ? 'Use the supplied tools interface to make actual tool calls. Never print tool-call JSON or a promise to act in place of calling a tool. Follow each tool input schema exactly.'
           : '',
+        !progress.plan && taskToolNames?.includes('website_reference' as TaskToolName)
+          ? 'The website_reference tool is available while planning. For public HTTPS pages supplied as material, gather the needed content before or alongside agent_plan. If the capture is unavailable, use web_fetch when available.'
+          : '',
         pendingVisualUrls.length > 0
           ? `The user requested a visual reference. Call website_reference for the remaining reference URLs before writing or running commands: ${JSON.stringify(pendingVisualUrls)}. Project inspection can continue meanwhile. If capture fails, explain which reference could not be captured.`
           : '',
@@ -266,12 +271,15 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
            * Planning may inspect the existing project. Models commonly batch
            * agent_plan with these reads; hiding them turns harmless inspection
            * into invalid tool calls and can strand a follow-up before editing.
+           * Research is available here because the source can inform the plan.
            * Writes and commands still require a recorded plan.
            */
           toolChoice: 'auto' as const,
           activeTools: [
             'agent_plan' as const,
-            ...(taskToolNames?.filter((name) => PROJECT_INSPECTION_TOOLS.has(name)) ?? []),
+            ...(taskToolNames?.filter(
+              (name) => PROJECT_INSPECTION_TOOLS.has(name) || PROJECT_RESEARCH_TOOLS.has(name),
+            ) ?? []),
           ],
         };
       }
