@@ -5,6 +5,7 @@ import { ClientOnly } from 'remix-utils/client-only';
 import { AttachmentMenu } from './AttachmentMenu';
 import styles from './BaseChat.module.scss';
 import FilePreview from './FilePreview';
+import { LovableHandoffItem } from './LovableHandoffItem';
 import { McpTools } from './MCPTools';
 import { ScreenshotStateManager } from './ScreenshotStateManager';
 import { SendButton } from './SendButton.client';
@@ -413,6 +414,8 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                       <span className="text-xs text-bolt-elements-textSecondary">Ötletelés, módosítások nélkül</span>
                     </div>
                   </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="my-1 h-px bg-bolt-elements-borderColor" />
+                  <LovableHandoffItem draft={props.input} />
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
