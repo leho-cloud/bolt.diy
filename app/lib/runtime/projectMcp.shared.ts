@@ -14,6 +14,7 @@ export const PROJECT_TOOL_NAMES = [
   'project_quality_report',
   'project_preview_report',
   'project_visual_review',
+  'project_render_media',
   'project_stop_process',
   'web_search',
   'web_fetch',
@@ -35,6 +36,19 @@ const objectSchema = (properties: JsonSchema, required: string[]): JsonSchema =>
 
 /** JSON Schema contracts shared by the server chat route and browser MCP bridge. */
 export const projectToolDefinitions: Record<ProjectToolName, { description: string; inputSchema: JsonSchema }> = {
+  project_render_media: {
+    description:
+      'Queue a private image or video export for the current checked project. The Builder displays the job and a download once ready. Queue only one job for the requested deliverable. The renderer is offline; include required fonts, images and other assets in the project. A queued job is not a finished file.',
+    inputSchema: objectSchema(
+      {
+        format: { type: 'string', enum: ['png', 'jpeg', 'mp4'] },
+        width: { type: 'integer', minimum: 1, maximum: 4096 },
+        height: { type: 'integer', minimum: 1, maximum: 4096 },
+        seconds: { type: 'integer', minimum: 1, maximum: 60, description: 'Required for MP4.' },
+      },
+      ['format', 'width', 'height'],
+    ),
+  },
   project_visual_review: {
     description:
       'Export desktop/mobile images of the existing rendered preview and request an independent AI review of typography, spacing, contrast and visual consistency. Uses the existing server AI connection. This is a DOM image export, not native browser screenshots; unavailable captures do not count as approval. Fix concrete issues with small style patches, preserve content/functionality, then rerun code/browser/visual checks.',

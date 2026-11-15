@@ -16,6 +16,7 @@ import {
   isToolResultPart,
   type AnyPart,
 } from '~/lib/persistence/messageMigration';
+import { mediaDownloadUrl, readMediaJob, type MediaJob } from '~/lib/runtime/previewExport';
 import { themeStore, type Theme } from '~/lib/stores/theme';
 import { useToolAccessStore } from '~/lib/stores/toolAccess';
 import type { ToolCallAnnotation } from '~/types/context';
@@ -499,6 +500,7 @@ const ToolCallsList = memo(
                   {error && <p className="ml-7 mt-1 break-words text-xs text-red-500">{error}</p>}
                   <AgentPlanDetails tool={tool} />
                   <VisualReviewDetails tool={tool} />
+                  <MediaRenderDetails tool={tool} />
                 </div>
               </motion.li>
             );
@@ -532,6 +534,8 @@ function activityLabel(toolName: string, rawInput: unknown, rawOutput?: unknown,
   }
 
   switch (toolName) {
+    case 'project_render_media':
+      return state === 'output-available' ? 'A fájl renderelése elindult' : 'Előkészítem a fájlt a rendereléshez…';
     case 'website_reference':
       return state === 'output-available' ? 'A mintaoldal képe és szerkezete beolvasva' : 'Mintaoldal beolvasása…';
     case 'website_tools_status':
@@ -624,6 +628,66 @@ function AgentPlanDetails({ tool }: { tool: AnyPart }) {
         ))}
       </ul>
     </details>
+  );
+}
+
+function MediaRenderDetails({ tool }: { tool: AnyPart }) {
+  const output = getToolOutput(tool) as { renderId?: unknown } | undefined;
+  const id =
+    getToolName(tool) === 'project_render_media' &&
+    typeof output?.renderId === 'string' &&
+    /^[a-f0-9-]{36}$/.test(output.renderId)
+      ? output.renderId
+      : undefined;
+
+  return id ? <MediaRenderJob key={id} id={id} /> : null;
+}
+
+function MediaRenderJob({ id }: { id: string }) {
+  const [state, setState] = useState<MediaJob>();
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function poll() {
+      try {
+        const job = await readMediaJob(id, controller.signal);
+
+        if (controller.signal.aborted) return;
+        setState(job);
+
+        if (job.state === 'queued' || job.state === 'running') {
+          timer = setTimeout(() => void poll(), 2000);
+        }
+      } catch (failure) {
+        if (!controller.signal.aborted) {
+          setError(failure instanceof Error ? failure.message : 'A renderelés állapota nem érhető el.');
+        }
+      }
+    }
+
+    void poll();
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [id]);
+
+  return (
+    <div className="ml-7 mt-2 text-xs" role="status">
+      {state?.state === 'ready' ? (
+        <a className="font-semibold underline" href={mediaDownloadUrl(id)} download>
+          {state.format.toUpperCase()} letöltése · {state.width} × {state.height}
+        </a>
+      ) : error || state?.state === 'failed' ? (
+        <p className="break-words text-red-500">{error || state?.error || 'A fájl renderelése sikertelen.'}</p>
+      ) : (
+        <p>{state?.state === 'running' ? 'A fájl renderelése folyamatban…' : 'A fájl a renderelésre vár…'}</p>
+      )}
+    </div>
   );
 }
 
@@ -751,6 +815,7 @@ function ToolActivityRow({
       )}
       <AgentPlanDetails tool={tool} />
       <VisualReviewDetails tool={tool} />
+      <MediaRenderDetails tool={tool} />
     </div>
   );
 }

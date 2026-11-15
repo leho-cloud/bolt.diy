@@ -1,6 +1,12 @@
 import { tool, type Instructions } from 'ai';
 import { z } from 'zod';
-import { getAgentCompletionProblems, getAgentLoopInstructions, getAgentLoopProgress } from '~/lib/common/agentLoop';
+import { normalizeReferenceUrl, referenceUrls } from '~/lib/.server/website/reference';
+import {
+  getAgentCompletionProblems,
+  getAgentLoopInstructions,
+  getAgentLoopProgress,
+  shouldRenderMedia,
+} from '~/lib/common/agentLoop';
 import {
   getMessageText,
   getMessageParts,
@@ -20,12 +26,46 @@ const planSchema = z
       .min(1)
       .max(8),
     requiresPreview: z.boolean(),
+    deliverable: z.enum(['design', 'image', 'video', 'website', 'app']).optional(),
     requiresVisualReview: z.boolean().optional(),
   })
   .refine(
     (plan) => new Set(plan.criteria.map((criterion) => criterion.id)).size === plan.criteria.length,
     'Criterion IDs must be unique.',
   );
+
+const PROJECT_INSPECTION_TOOLS = new Set([
+  'project_read_file',
+  'project_list_paths',
+  'project_search_content',
+  'project_find_related_files',
+]);
+
+const VISUAL_REFERENCE_REQUEST =
+  /\b(?:visual references?|design references?|reference screenshots?|reference sites?|match (?:the |this |its )?(?:design|layout|look|style)|clone (?:the |this |its )?(?:page|site|website)|inspired by)\b|(?:a minta\s*[:=]|mint[áa](?:nak|ként|oldal)|vizuális referenci|dizájnreferenci|stílusmint|(?:kinézet|elrendezés|stílus)[ée]t (?:kövesd|vedd át|másold)|(?:ehhez|ahhoz) hasonló)/iu;
+
+function visualReferenceUrls(text: string): string[] {
+  const urls = referenceUrls(text);
+  const instruction = urls.reduce((value, url) => value.replaceAll(url, ''), text);
+
+  if (!VISUAL_REFERENCE_REQUEST.test(instruction)) {
+    return [];
+  }
+
+  // Reuse the capture tool's URL validation so the gate cannot wait on a URL
+  // that the capture tool will always reject.
+  return [
+    ...new Set(
+      urls.flatMap((url) => {
+        try {
+          return [normalizeReferenceUrl(url)];
+        } catch {
+          return [];
+        }
+      }),
+    ),
+  ];
+}
 
 /** Plan and completion tools execute on the server; project effects remain in the browser. */
 export function createAgentLoopTools<TaskToolName extends string = never>(
@@ -35,11 +75,13 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
   taskToolNames?: TaskToolName[],
 ) {
   let currentMessages = messages;
+  const lastUser = messages.findLastIndex((message) => message.role === 'user');
+  const requestedVisualUrls = visualReferenceUrls(getMessageText(messages[lastUser] ?? {}));
 
   const tools = {
     agent_plan: tool({
       description:
-        'Record a concise task plan and observable completion criteria before editing. Use stable criterion IDs. Require a preview for a web app, and preserve the existing project on follow-up requests.',
+        'Record a concise plan and observable criteria before editing. Set deliverable to design, image, video, website, or app according to the user request. Use image or video for a requested media file. Use stable criterion IDs and preserve the existing project on follow-ups.',
       inputSchema: planSchema,
       execute: async (plan) => ({
         plan: {
@@ -155,10 +197,41 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
 
       const progress = getAgentLoopProgress(currentMessages, enabled);
 
+      const pendingVisualUrls = requestedVisualUrls.filter(
+        (url) =>
+          taskToolNames?.includes('website_reference' as TaskToolName) &&
+          !currentMessages.slice(lastUser + 1).some((message) =>
+            (getMessageParts(message) ?? []).some((part) => {
+              const output = getToolOutput(part) as { method?: string; image?: string; isError?: boolean } | undefined;
+              const input = getToolInput(part) as { url?: string } | undefined;
+
+              if (
+                getToolName(part) !== 'website_reference' ||
+                getToolState(part) !== 'output-available' ||
+                output?.method !== 'oxylabs-screenshot' ||
+                !output.image ||
+                output.isError ||
+                !input?.url
+              ) {
+                return false;
+              }
+
+              try {
+                return normalizeReferenceUrl(input.url) === url;
+              } catch {
+                return false;
+              }
+            }),
+          ),
+      );
+
       const guidance = [
-        getAgentLoopInstructions(progress),
+        pendingVisualUrls.length > 0 && progress.plan ? '' : getAgentLoopInstructions(progress),
         progress.status === 'pending'
           ? 'Use the supplied tools interface to make actual tool calls. Never print tool-call JSON or a promise to act in place of calling a tool. Follow each tool input schema exactly.'
+          : '',
+        pendingVisualUrls.length > 0
+          ? `The user requested a visual reference. Call website_reference for the remaining reference URLs before writing or running commands: ${JSON.stringify(pendingVisualUrls)}. Project inspection can continue meanwhile. If capture fails, explain which reference could not be captured.`
           : '',
       ]
         .filter(Boolean)
@@ -198,64 +271,20 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           toolChoice: 'auto' as const,
           activeTools: [
             'agent_plan' as const,
-            ...(taskToolNames?.filter((name) =>
-              [
-                'project_read_file',
-                'project_list_paths',
-                'project_search_content',
-                'project_find_related_files',
-              ].includes(name),
-            ) ?? []),
+            ...(taskToolNames?.filter((name) => PROJECT_INSPECTION_TOOLS.has(name)) ?? []),
           ],
         };
       }
 
-      /*
-       * A reference is an actual prerequisite, not just a sentence in the system prompt.
-       * Only the current user's URLs require a fresh tool result; old references are available for reuse.
-       */
-      const lastUser = messages.findLastIndex((message) => message.role === 'user');
-
-      const canonicalUrl = (value: string) => {
-        try {
-          const parsed = new URL(value);
-          parsed.hash = '';
-
-          return parsed.href;
-        } catch {
-          return value;
-        }
-      };
-
-      const requested = [
-        ...new Set(
-          (getMessageText(messages[lastUser] ?? {}).match(/https:\/\/[^\s<>"'\]\)]+/g) ?? []).map((url) =>
-            canonicalUrl(url.replace(/[.,;!?]+$/, '')),
-          ),
-        ),
-      ];
-
-      const captured = new Set<string>();
-
-      for (const message of currentMessages.slice(lastUser + 1)) {
-        for (const part of getMessageParts(message) ?? []) {
-          if (getToolName(part) === 'website_reference' && getToolState(part) === 'output-available') {
-            const output = getToolOutput(part) as { method?: string; image?: string; isError?: boolean } | undefined;
-            const input = getToolInput(part) as { url?: string } | undefined;
-
-            if (output?.method === 'oxylabs-screenshot' && output.image && !output.isError && input?.url) {
-              captured.add(canonicalUrl(input.url));
-            }
-          }
-        }
-      }
-
-      if (taskToolNames?.includes('website_reference' as TaskToolName) && requested.some((url) => !captured.has(url))) {
+      if (pendingVisualUrls.length > 0) {
         return {
           ...instructions,
           toolChoice: 'auto' as const,
           activeTools: [
-            ...taskToolNames.filter((name) => name === 'website_reference' || name === 'website_tools_status'),
+            ...(taskToolNames?.filter(
+              (name) =>
+                name === 'website_reference' || name === 'website_tools_status' || PROJECT_INSPECTION_TOOLS.has(name),
+            ) ?? []),
             'agent_complete' as const,
           ],
         };
@@ -273,7 +302,23 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
         toolChoice: 'auto' as const,
         ...(taskToolNames
           ? {
-              activeTools: [...taskToolNames, 'agent_plan' as const, 'agent_complete' as const],
+              activeTools: [
+                ...taskToolNames.filter(
+                  (name) =>
+                    name !== 'project_render_media' ||
+                    (shouldRenderMedia(progress) &&
+                      !progress.mediaRequested &&
+                      progress.previewReady &&
+                      progress.tested &&
+                      (!progress.plan?.requiresQualityReport || progress.qualityChecked) &&
+                      (!progress.plan?.requiresPreviewReport || progress.browserChecked) &&
+                      (!progress.plan?.requiresVisualReview ||
+                        progress.visualChecked ||
+                        progress.unavailableCheck === 'project_visual_review')),
+                ),
+                'agent_plan' as const,
+                'agent_complete' as const,
+              ],
             }
           : {}),
       };

@@ -63,6 +63,16 @@ describe('toSafeStreamErrorMessage', () => {
     expect(toSafeStreamErrorMessage(error)).not.toContain('secret-value');
   });
 
+  it('keeps the status from a wrapped SDK failure without exposing the provider response', () => {
+    const provider = Object.assign(new Error('secret-value'), { statusCode: 403 });
+    const wrapped = Object.assign(new Error('retry failed'), { lastError: provider });
+    expect(toSafeStreamErrorMessage(wrapped)).toContain('HTTP 403');
+    expect(toSafeStreamErrorMessage(wrapped)).not.toContain('secret-value');
+    expect(toSafeStreamErrorMessage(new Error(toSafeStreamErrorMessage(wrapped)))).toBe(
+      toSafeStreamErrorMessage(wrapped),
+    );
+  });
+
   it('recognizes capitalized rate-limit messages', () => {
     expect(toSafeStreamErrorMessage(new Error('Rate limit exceeded: free-models-per-day'))).toContain(
       'API rate limit exceeded',
@@ -74,7 +84,7 @@ describe('toSafeStreamErrorMessage', () => {
     const responseMessage = toSafeStreamErrorMessage(new Error(diagnostic));
 
     expect(responseMessage).toBe(
-      'Custom error: The AI provider request failed. Check your provider settings and try again.',
+      'Custom error: Az AI-kérés megszakadt. A szolgáltató nem adott pontos hibakódot. Az elkészült módosítások megmaradtak.',
     );
     expect(responseMessage).not.toContain(diagnostic);
     expect(responseMessage).not.toContain('secret-value');
@@ -122,7 +132,7 @@ describe('toSafeTextStream', () => {
     const body = await response.text();
 
     expect(body).toContain('partial response');
-    expect(body).toContain('The AI provider request failed');
+    expect(body).toContain('Az AI-kérés megszakadt');
     expect(body).not.toContain(diagnostic);
     expect(body).not.toContain('secret-value');
   });

@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { createMediaJob } from './previewExport';
 import { inspectProjectPreview } from './previewAudit';
 import { assertValidProjectSource, getFileRevision } from './projectFileValidation';
 import { PROJECT_TOOL_NAMES, projectToolDefinitions } from './projectMcp.shared';
@@ -585,6 +586,31 @@ export async function createProjectMcpBridge() {
           .map(([entryPath, entry]) => ({ path: entryPath.slice(`${WORK_DIR}/`.length), type: entry!.type }));
 
         return success({ entries, truncated: entries.length === limit });
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'project_render_media',
+    {
+      description: projectToolDefinitions.project_render_media.description,
+      inputSchema: {
+        format: z.enum(['png', 'jpeg', 'mp4']),
+        width: z.number().int().min(1).max(4096),
+        height: z.number().int().min(1).max(4096),
+        seconds: z.number().int().min(1).max(60).optional(),
+      },
+    },
+    async ({ format, width, height, seconds }, { signal }) => {
+      try {
+        if (width * height > 4096 * 2160 || (format === 'mp4' && seconds === undefined)) {
+          throw new Error('Érvénytelen méret vagy hiányzó videóhossz.');
+        }
+
+        const { id } = await createMediaJob({ format, width, height, seconds: seconds ?? 1 }, signal);
+        return success({ renderId: id, state: 'queued', format, width, height });
       } catch (error) {
         return failure(error);
       }

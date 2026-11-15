@@ -17,8 +17,8 @@ main{flex:1;display:grid;place-items:center;padding:48px 28px}.welcome{width:min
 </style></head><body>
 <header><span class="mark" aria-hidden="true">T</span><span class="brand">Műhely</span><span class="muted">by TZSVTAV</span></header>
 <main><section class="welcome" aria-labelledby="welcome-title"><div class="eyebrow"><span class="dot"></span>Saját munkatér</div>
-<h1 id="welcome-title">Ötletből kész weboldal.</h1>
-<p>Írd le, mit szeretnél létrehozni. Készíts weboldalt vagy alkalmazást, és alakítsd tovább a saját elképzelésed szerint.</p>
+<h1 id="welcome-title">Ötlettől a kész munkáig.</h1>
+<p>Készíts dizájnt, képet, videót, weboldalt vagy alkalmazást. Írd le az ötleted, és alakítsd tovább az előnézetben.</p>
 <div class="actions"><a class="primary" href="/muhely">Műhely megnyitása <span aria-hidden="true">→</span></a>
 <a class="secondary" href="https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/" target="_blank" rel="noopener noreferrer">Korábbi munkák megnyitása <span aria-hidden="true">↗</span></a></div>
 <p class="note">A korábbi címen mentett projektjeid továbbra is ott érhetők el. Az új munkákat már itt készítheted.</p>

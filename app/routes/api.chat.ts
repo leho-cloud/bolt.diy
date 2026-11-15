@@ -328,21 +328,23 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         const projectTools =
           chatMode === 'build'
             ? Object.fromEntries(
-                getProjectToolNames(webSearchEnabled).map((name) => [
-                  name,
-                  {
-                    description: projectToolDefinitions[name].description,
-                    inputSchema: jsonSchema(projectToolDefinitions[name].inputSchema as JSONSchema7),
-                    ...(name === 'project_visual_review'
-                      ? {
-                          toModelOutput: ({ output }: { output: unknown }) => ({
-                            type: 'json' as const,
-                            value: visualReviewModelOutput(output),
-                          }),
-                        }
-                      : {}),
-                  },
-                ]),
+                getProjectToolNames(webSearchEnabled)
+                  .filter((name) => name !== 'project_render_media' || agentProgress.status === 'pending')
+                  .map((name) => [
+                    name,
+                    {
+                      description: projectToolDefinitions[name].description,
+                      inputSchema: jsonSchema(projectToolDefinitions[name].inputSchema as JSONSchema7),
+                      ...(name === 'project_visual_review'
+                        ? {
+                            toModelOutput: ({ output }: { output: unknown }) => ({
+                              type: 'json' as const,
+                              value: visualReviewModelOutput(output),
+                            }),
+                          }
+                        : {}),
+                    },
+                  ]),
               )
             : {};
 

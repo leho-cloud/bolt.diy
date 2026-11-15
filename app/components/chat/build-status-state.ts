@@ -43,6 +43,10 @@ function workingPhase(parts: unknown[]) {
     return 'Átnézem az oldal fájljait…';
   }
 
+  if (name === 'project_render_media') {
+    return 'Előkészítem a letölthető fájlt…';
+  }
+
   if (name === 'project_visual_review') {
     return 'Átnézem az oldal megjelenését…';
   }
@@ -99,7 +103,12 @@ export function buildStatus(messages: AnyMessage[], active: boolean, preview: bo
   const blocked = parts.some((part) => (getToolOutput(part) as any)?.blocked === true);
 
   if (error || incomplete || blocked) {
-    return { kind: 'blocked', text: 'A készítés megállt · az oldal még nincs kész.' };
+    return {
+      kind: 'blocked',
+      text: preview
+        ? 'A készítés megállt · az előnézet megnyitható.'
+        : 'A készítés megállt · a részletek a beszélgetésben láthatók.',
+    };
   }
 
   if (completed && preview) {

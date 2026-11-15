@@ -401,12 +401,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   <span className="i-ph:sparkle" /> A SAJÁT MŰHELYED
                 </span>
                 <h1>
-                  Jó ötletből. <span>Kész weboldal.</span>
+                  Mit szeretnél <span>készíteni?</span>
                 </h1>
-                <p>
-                  Írd le, mire gondoltál. Adj hozzá képet vagy egy mintaoldalt,
-                  <br className="hidden sm:block" /> és alakítsuk a sajátodra.
-                </p>
+                <p>Írd le az ötleted. Készíthetsz dizájnt, képet, videót, weboldalt vagy alkalmazást.</p>
               </div>
             )}
             <StickToBottom

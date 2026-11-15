@@ -86,6 +86,77 @@ describe('agent plan and completion tools', () => {
     });
     expect(missing.activeTools).not.toContain('project_write_file');
   });
+  it.each([
+    'Készíts videót a https://example.com/tartalom oldal szövege alapján.',
+    'Make a video using the content on https://example.com/design-reference.',
+    'A gomb célja legyen https://example.com/mintaoldal.',
+  ])('keeps file and runtime tools available for content or destination links: %s', (content) => {
+    const loop = createAgentLoopTools(
+      [
+        { role: 'user', content },
+        { role: 'assistant', parts: [part('agent_plan', { plan })] },
+      ],
+      true,
+      true,
+      ['project_read_file', 'project_write_file', 'project_run_command', 'website_reference'],
+    );
+    expect(loop.prepareStep({ steps: [] }).activeTools).toEqual(
+      expect.arrayContaining(['project_read_file', 'project_write_file', 'project_run_command']),
+    );
+  });
+
+  it('keeps inspection available while awaiting a visual reference and rejects incomplete capture', () => {
+    const request: AnyMessage = {
+      role: 'user',
+      content: 'Kövesd ezt vizuális referenciaként: https://example.com/#front',
+    };
+    const messages: AnyMessage[] = [request, { role: 'assistant', parts: [part('agent_plan', { plan })] }];
+    const loop = createAgentLoopTools(messages, true, true, [
+      'website_reference',
+      'project_read_file',
+      'project_write_file',
+    ]);
+    const step = loop.prepareStep({ steps: [], initialInstructions: 'build' });
+    expect(step.activeTools).toContain('project_read_file');
+    expect(step.activeTools).not.toContain('project_write_file');
+    expect(step.instructions).toContain('Call website_reference');
+  });
+
+  it.each(['image', 'video', 'design', 'website', 'app'] as const)(
+    'offers media export only for a checked image or video request: %s',
+    async (deliverable) => {
+      const [request, assistant] = verified;
+      const checked: AnyMessage[] = [
+        request,
+        {
+          role: 'assistant',
+          parts: [
+            part('agent_plan', { plan: { ...plan, deliverable } }),
+            ...(assistant as { parts: ReturnType<typeof part>[] }).parts.slice(1),
+          ],
+        },
+      ];
+      const loop = createAgentLoopTools(checked, true, true, ['project_render_media']);
+      const step = loop.prepareStep({ steps: [] });
+      if (deliverable !== 'image' && deliverable !== 'video') {
+        expect(step.activeTools).not.toContain('project_render_media');
+        return;
+      }
+      expect(step.activeTools).toContain('project_render_media');
+      expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: false });
+      const followUp = loop.prepareStep({
+        steps: [
+          {
+            toolCalls: [{ toolName: 'project_render_media', toolCallId: 'render', input: {} }],
+            toolResults: [{ toolCallId: 'render', output: { renderId: 'stored-by-server', state: 'queued' } }],
+          },
+        ],
+      });
+      expect(followUp.activeTools).not.toContain('project_render_media');
+      expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: true });
+    },
+  );
+
   it('requires a fresh static report as well as real build checks on newly recorded web plans', async () => {
     const strictPlan = { ...plan, requiresQualityReport: true };
 

@@ -22,6 +22,7 @@ export interface AgentPlan {
   steps: string[];
   criteria: Array<{ id: string; description: string }>;
   requiresPreview: boolean;
+  deliverable?: 'design' | 'image' | 'video' | 'website' | 'app';
   requiresQualityReport?: boolean;
   requiresPreviewReport?: boolean;
   requiresVisualReview?: boolean;
@@ -77,6 +78,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
   let denied = false;
   let completedAt = -1;
   let blocked = false;
+  let mediaRequested = false;
+  let mediaQueued = false;
   let steps = 0;
   let position = 0;
 
@@ -112,6 +115,17 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         (state === 'input-available' || state === 'input-streaming' || state === 'approval-requested')
       ) {
         pendingProjectCalls = true;
+      }
+
+      if (name === 'project_render_media') {
+        if (state === 'output-available' || state === 'output-error' || state === 'output-denied') {
+          mediaRequested = true;
+          mediaQueued ||=
+            state === 'output-available' && typeof output?.renderId === 'string' && output.isError !== true;
+        }
+
+        // Export service failures do not invalidate running previews or code checks.
+        continue;
       }
 
       if (name.startsWith('project_') && state === 'output-error') {
@@ -192,6 +206,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         ) {
           lastEdit = position;
           unavailableChecks.clear();
+          mediaRequested = false;
+          mediaQueued = false;
         }
       }
 
@@ -247,6 +263,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     tested &&
     ran &&
     Boolean(plan) &&
+    (!(plan?.deliverable === 'image' || plan?.deliverable === 'video') || mediaQueued) &&
     (!plan?.requiresQualityReport || (lastQualityReport > lastEdit && lastQualityReport > lastFailure)) &&
     (!plan?.requiresPreview || previewReady) &&
     (!plan?.requiresPreviewReport || (lastPreviewReport > lastEdit && lastPreviewReport > lastFailure)) &&
@@ -269,6 +286,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     needsRepair: lastFailure > Math.max(lastEdit, lastPassingTest),
     ran,
     previewReady,
+    mediaRequested,
+    mediaQueued,
     tested,
     qualityChecked: lastQualityReport > lastEdit && lastQualityReport > lastFailure,
     browserChecked: lastPreviewReport > lastEdit && lastPreviewReport > lastFailure,
@@ -319,6 +338,10 @@ export function getAgentCompletionProblems(progress: ReturnType<typeof getAgentL
     );
   }
 
+  if (shouldRenderMedia(progress) && !progress.mediaQueued) {
+    problems.push('Queue the requested media with project_render_media and report its actual status.');
+  }
+
   if (progress.plan?.requiresVisualReview && !progress.visualChecked) {
     problems.push(
       'Run project_visual_review after the latest edit and repair confirmed visual errors. An unavailable image export is not visual approval.',
@@ -326,6 +349,10 @@ export function getAgentCompletionProblems(progress: ReturnType<typeof getAgentL
   }
 
   return problems;
+}
+
+export function shouldRenderMedia(progress: ReturnType<typeof getAgentLoopProgress>) {
+  return progress.plan?.deliverable === 'image' || progress.plan?.deliverable === 'video';
 }
 
 export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoopProgress>) {
@@ -345,7 +372,24 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
     return 'The completion gate accepted this task. Summarize the relevant changed files, passing checks, and fulfilled criteria. Do not start unrelated work.';
   }
 
+  if (!progress.plan) {
+    return 'Record the plan and the requested deliverable with agent_plan before editing. You can inspect existing project files to prepare the plan.';
+  }
+
+  if (shouldRenderMedia(progress) && progress.mediaRequested && !progress.mediaQueued) {
+    return 'The media export did not start. Report the actual export error and preserve the preview and files. Call agent_complete with outcome blocked. Do not submit the same export repeatedly.';
+  }
+
   if (progress.unavailableCheck) {
+    if (
+      progress.unavailableCheck === 'project_visual_review' &&
+      shouldRenderMedia(progress) &&
+      progress.browserChecked &&
+      progress.tested &&
+      !progress.mediaRequested
+    ) {
+      return 'The independent image review is unavailable, but the preview and code checks passed. Call project_render_media now to queue the requested file. Report that the visual review could not run.';
+    }
     return `${progress.unavailableCheck} could not run twice on this revision. Call agent_complete with outcome blocked and report the unavailable check. Preserve the last edited project and the confirmed checks. Do not edit source or retry the unavailable check. Do not claim visual approval.`;
   }
 
@@ -365,7 +409,9 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
                 ? 'Run project_preview_report now to inspect the rendered desktop/mobile preview. Repair errors and rerun checks before completing. This is DOM inspection, not screenshot-based visual approval.'
                 : progress.plan?.requiresVisualReview && !progress.visualChecked
                   ? 'Call project_visual_review now. Repair concrete visible errors, preserving content, functionality and existing style. If only suggestions remain, complete without another edit. Rerun affected checks after changes. If capture is unavailable, report the blocker; never remove content or media merely to bypass capture.'
-                  : 'Call agent_complete alone and report every recorded criterion by its exact ID. The server attaches evidence from successful project tool calls automatically; do not provide process IDs, command names, or guessed evidence IDs.';
+                  : shouldRenderMedia(progress) && !progress.mediaRequested
+                    ? 'Call project_render_media with the requested format, dimensions and video duration. Use PNG for an image with no specified format and MP4 for video.'
+                    : 'Call agent_complete alone and report every recorded criterion by its exact ID. The server attaches evidence from successful project tool calls automatically; do not provide process IDs, command names, or guessed evidence IDs.';
 
   return `Follow Plan -> edit -> run -> test -> repair. Record a short plan and observable completion criteria with agent_plan. Inspect relevant files, then use small exact patches. Run the app/program with purpose run; use an existing live server for follow-up UI edits. Run the smallest relevant available checks with purpose test and wait for exit code 0. If a check fails, inspect its output, patch the cause, and rerun the check. Any edit after a passing check requires fresh verification. Call agent_complete alone and report each planned criterion by its exact ID; the server attaches evidence from successful project tool calls automatically. A plan or started process alone is not completion. If no automated test script exists, use an available typecheck, lint, focused runtime assertion, or smoke check and explain its limits; do not invent passing tests. If work cannot proceed, report outcome blocked with a concrete reason.
 NEXT REQUIRED ACTION: ${nextAction}

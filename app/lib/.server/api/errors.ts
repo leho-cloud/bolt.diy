@@ -128,15 +128,32 @@ export function toMissingCredentialError(provider: string, providerMessage?: str
   });
 }
 
+const genericProviderFailure =
+  'Custom error: Az AI-kérés megszakadt. A szolgáltató nem adott pontos hibakódot. Az elkészült módosítások megmaradtak.';
+
+function providerHttpStatus(error: unknown): number | undefined {
+  // The SDK may wrap a provider error either as cause or as the last retry error.
+  for (let depth = 0; depth < 5 && error && typeof error === 'object'; depth++) {
+    const value = error as { statusCode?: number; status?: number; cause?: unknown; lastError?: unknown };
+    const candidate = value.statusCode ?? value.status;
+
+    if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) {
+      return candidate;
+    }
+
+    error = value.lastError ?? value.cause;
+  }
+
+  return undefined;
+}
+
 /** Converts a streaming provider error to a client-safe hint without forwarding diagnostics. */
 export function toSafeStreamErrorMessage(error: unknown): string {
   const providerMessage = error instanceof Error ? error.message : String(error);
   const normalizedMessage = providerMessage.toLowerCase();
 
-  const statusCode =
-    typeof error === 'object' && error !== null && 'statusCode' in error ? error.statusCode : undefined;
-
-  const diagnosticStatus = typeof statusCode === 'number' && Number.isInteger(statusCode) ? statusCode : 'unknown';
+  const statusCode = providerHttpStatus(error) ?? Number(/\bHTTP ([45]\d{2})\b/i.exec(providerMessage)?.[1] ?? 0);
+  const diagnosticStatus = statusCode || 'unknown';
 
   const diagnosticRetryable =
     typeof error === 'object' && error !== null && 'isRetryable' in error && typeof error.isRetryable === 'boolean'
@@ -183,7 +200,7 @@ export function toSafeStreamErrorMessage(error: unknown): string {
     `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable}, reason=${diagnosticReason}, causeType=${causeType}, causeStatus=${causeStatus})`,
   );
 
-  if (statusCode === 402 || normalizedMessage.includes('http 402')) {
+  if (statusCode === 402) {
     return 'Custom error: Az AI-szolgáltató a rendelkezésre álló egyenleg vagy költési keret miatt nem fogadta a kérést (HTTP 402). Az elkészült módosítások megmaradtak; a folytatáshoz az üzemeltetőnek kell ellenőriznie a szolgáltatói keretet.';
   }
 
@@ -212,10 +229,16 @@ export function toSafeStreamErrorMessage(error: unknown): string {
   }
 
   if (
+    statusCode === 401 ||
+    statusCode === 403 ||
     providerMessage.includes('API key') ||
     providerMessage.includes('unauthorized') ||
     providerMessage.includes('authentication')
   ) {
+    if (statusCode === 403) {
+      return 'Custom error: Az AI-szolgáltató megtagadta a hozzáférést (HTTP 403). Az üzemeltető ellenőrizheti a hozzáférési szabályokat és a modell jogosultságát.';
+    }
+
     return 'Custom error: Invalid or missing API key. Please check your API key configuration.';
   }
 
@@ -231,7 +254,9 @@ export function toSafeStreamErrorMessage(error: unknown): string {
     return 'Custom error: Network error. Please check your internet connection and try again.';
   }
 
-  return 'Custom error: The AI provider request failed. Check your provider settings and try again.';
+  return statusCode
+    ? `Custom error: Az AI-szolgáltató elutasította a kérést (HTTP ${statusCode}). Az elkészült módosítások megmaradtak.`
+    : genericProviderFailure;
 }
 
 /** Wraps a plain-text provider stream so late failures become a safe text chunk. */
@@ -259,13 +284,10 @@ export function toSafeTextStream(stream: ReadableStream<string>): ReadableStream
         }
 
         controller.enqueue(encoder.encode(value));
-      } catch {
+      } catch (error) {
         failed = true;
-        logger.error('Streaming provider error');
         reader.releaseLock();
-        controller.enqueue(
-          encoder.encode('Custom error: The AI provider request failed. Check your provider settings and try again.'),
-        );
+        controller.enqueue(encoder.encode(toSafeStreamErrorMessage(error)));
         controller.close();
       }
     },

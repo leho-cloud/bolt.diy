@@ -1,14 +1,16 @@
 import { atom } from 'nanostores';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { spawn, writeToBoltTerminal, toggleTerminal, readFile, saveFileContent, createFile } = vi.hoisted(() => ({
-  spawn: vi.fn(),
-  writeToBoltTerminal: vi.fn(),
-  toggleTerminal: vi.fn(),
-  readFile: vi.fn(),
-  saveFileContent: vi.fn(),
-  createFile: vi.fn(),
-}));
+const { spawn, writeToBoltTerminal, toggleTerminal, readFile, saveFileContent, createFile, createMediaJob } =
+  vi.hoisted(() => ({
+    spawn: vi.fn(),
+    createMediaJob: vi.fn(),
+    writeToBoltTerminal: vi.fn(),
+    toggleTerminal: vi.fn(),
+    readFile: vi.fn(),
+    saveFileContent: vi.fn(),
+    createFile: vi.fn(),
+  }));
 
 const serializeMutation = vi.hoisted(() => {
   let tail: Promise<unknown> = Promise.resolve();
@@ -44,6 +46,7 @@ vi.mock('~/lib/stores/workbench', () => ({
     writeToBoltTerminal,
   },
 }));
+vi.mock('./previewExport', () => ({ createMediaJob }));
 vi.mock('./ripgrepClient', () => ({ searchWithRipgrep: vi.fn() }));
 
 import { createProjectMcpBridge } from './projectMcp';
@@ -61,6 +64,26 @@ afterEach(async () => {
   vi.mocked(workbenchStore.selectPreview).mockClear();
   workbenchStore.files.set({});
   workbenchStore.unsavedFiles.set(new Set());
+});
+
+describe('project media export', () => {
+  it('queues an exact-size MP4 and returns its private render job ID', async () => {
+    bridge = await createProjectMcpBridge();
+    const id = '0f3fd41a-c8ad-4d62-9ef4-5525b49c9253';
+    createMediaJob.mockResolvedValueOnce({ id });
+    const input = { format: 'mp4', width: 437, height: 777, seconds: 14 };
+    const output = await bridge.callTool('project_render_media', input);
+    expect(createMediaJob).toHaveBeenCalledWith(input, expect.any(AbortSignal));
+    expect(output.structuredContent).toMatchObject({ renderId: id, state: 'queued', width: 437, height: 777 });
+  });
+
+  it('rejects a render without the requested video duration', async () => {
+    bridge = await createProjectMcpBridge();
+    createMediaJob.mockClear();
+    const output = await bridge.callTool('project_render_media', { format: 'mp4', width: 437, height: 777 });
+    expect(output.isError).toBe(true);
+    expect(createMediaJob).not.toHaveBeenCalled();
+  });
 });
 
 describe('multiple edits to one project file', () => {

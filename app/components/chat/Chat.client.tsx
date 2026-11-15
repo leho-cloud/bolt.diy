@@ -860,7 +860,11 @@ export const ChatImpl = memo(
         let errorType: LlmErrorAlertType['errorType'] = 'unknown';
         let title = 'A kérés nem fejeződött be';
 
-        if (errorInfo.statusCode === 401 || errorInfo.message.toLowerCase().includes('api key')) {
+        if (
+          errorInfo.statusCode === 401 ||
+          errorInfo.statusCode === 403 ||
+          /HTTP 40[13]|api key/i.test(errorInfo.message)
+        ) {
           errorType = 'authentication';
           title = 'Az AI-kapcsolat ellenőrzést igényel';
         } else if (errorInfo.statusCode === 429 || errorInfo.message.toLowerCase().includes('rate limit')) {
