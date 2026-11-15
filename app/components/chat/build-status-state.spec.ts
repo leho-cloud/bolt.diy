@@ -40,6 +40,17 @@ describe('clear work phases', () => {
     const message = { role: 'assistant', parts: [{ type: `tool-${tool}`, state: 'input-available', input }] };
     expect(buildStatus([user, message], true, true).text).toContain(expected);
   });
+  it('tracks automatic repair through the patch and its recheck', () => {
+    const failed = {
+      type: 'tool-project_quality_report',
+      state: 'output-available',
+      output: { checked: true, isError: true },
+    };
+    const fixed = { type: 'tool-project_patch_file', state: 'output-available', output: { patched: true } };
+    const message = { role: 'assistant', parts: [failed] };
+    expect(buildStatus([user, message], true, true).text).toBe('Automatikus javítás folyik…');
+    expect(buildStatus([user, { ...message, parts: [failed, fixed] }], true, true).text).toBe('Újraellenőrzöm a javítást…');
+  });
   it('shows approval waiting instead of pretending to work', () => {
     const message = { role: 'assistant', parts: [{ type: 'tool-project_run_command', state: 'approval-requested' }] };
     expect(buildStatus([user, message], true, true)).toMatchObject({ kind: 'waiting' });

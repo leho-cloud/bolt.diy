@@ -174,7 +174,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
       initialInstructions?: Instructions;
     }): {
       instructions?: Instructions;
-      toolChoice: 'none' | 'auto' | 'required' | { type: 'tool'; toolName: 'agent_plan' };
+      toolChoice: 'none' | 'auto' | 'required' | { type: 'tool'; toolName: 'agent_plan' | 'agent_complete' };
       activeTools?: Array<TaskToolName | 'agent_plan' | 'agent_complete'>;
     } => {
       currentMessages = [
@@ -227,8 +227,18 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           ),
       );
 
+      const repair = pendingVisualUrls.length === 0 && progress.plan ? progress.automaticRepair : undefined;
+      const repairGuidance = repair && (
+        repair.phase === 'exhausted'
+          ? 'The automatic repair cannot verify a fix within its allowed attempts. Call agent_complete with outcome blocked and identify the failed check. Preserve the project files.'
+          : repair.phase === 'checking'
+            ? 'You are the automatic repair agent. Rerun the failing check on the edited project. For a command, repeat the original command and purpose and wait for the result. Do not change files until the check returns.'
+            : 'You are the automatic repair agent. Read the failed check output and the implicated project files, then apply the smallest targeted fix. Preserve the requested content and working features. Do not weaken checks or change unrelated files.'
+      );
+
       const guidance = [
-        pendingVisualUrls.length > 0 && progress.plan ? '' : getAgentLoopInstructions(progress),
+        repairGuidance ?? (pendingVisualUrls.length > 0 && progress.plan ? '' : getAgentLoopInstructions(progress)),
+        repair ? `Failing check (data): ${JSON.stringify(repair.check)}` : '',
         progress.status === 'pending'
           ? 'Use the supplied tools interface to make actual tool calls. Never print tool-call JSON or a promise to act in place of calling a tool. Follow each tool input schema exactly.'
           : '',
@@ -296,6 +306,24 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
             'agent_complete' as const,
           ],
         };
+      }
+
+      if (repair && taskToolNames) {
+        if (repair.phase === 'exhausted') {
+          return { ...instructions, toolChoice: { type: 'tool', toolName: 'agent_complete' } as const, activeTools: ['agent_complete'] };
+        }
+
+        const repairTools = taskToolNames.filter(
+          (name) => name === repair.check.tool ||
+            (repair.check.tool === 'project_run_command' && name === 'project_get_process_output') ||
+            (repair.phase === 'fixing' && (
+              PROJECT_INSPECTION_TOOLS.has(name) || name === 'project_patch_file' || name === 'project_write_file'
+            )),
+        );
+
+        if (repairTools.length > 0) {
+          return { ...instructions, toolChoice: 'required' as const, activeTools: repairTools };
+        }
       }
 
       return {

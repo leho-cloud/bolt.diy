@@ -11,6 +11,10 @@ import {
 } from '~/lib/persistence/messageMigration';
 
 export const MAX_AGENT_STEPS = 32;
+const MAX_REPAIR_ROUNDS = 2;
+
+const repairReports = new Set(['project_quality_report', 'project_preview_report', 'project_visual_review']);
+type RepairCheck = { tool: string; command?: string; purpose?: string };
 
 /** These tools execute on the server and must never receive a client approval result. */
 export function isServerAgentTool(name: string | undefined): boolean {
@@ -85,6 +89,8 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
 
   const evidence: string[] = [];
   const starts = new Map<string, number>();
+  const commands = new Map<string, RepairCheck>();
+  let repair: { check: RepairCheck; failedAt: number; rounds: number } | undefined;
 
   let pendingProjectCalls = false;
 
@@ -142,6 +148,25 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
 
       const failed = output.isError === true || (typeof output.exitCode === 'number' && output.exitCode !== 0);
       const commandResult = name === 'project_run_command' || name === 'project_get_process_output';
+      const input = getToolInput(part) as Record<string, unknown> | undefined;
+      const processId = typeof output.processId === 'string' ? output.processId : undefined;
+      const purpose = output.purpose ?? input?.purpose;
+      const commandValue = output.command ?? input?.command;
+      const command = typeof commandValue === 'string' ? commandValue : undefined;
+
+      if (name === 'project_run_command' && processId) {
+        commands.set(processId, { tool: name, command, purpose: typeof purpose === 'string' ? purpose : undefined });
+      }
+
+      const commandCheck = commandResult
+        ? (processId ? commands.get(processId) : undefined) ??
+          { tool: 'project_run_command', command, purpose: typeof purpose === 'string' ? purpose : undefined }
+        : undefined;
+      const passed = !failed && (commandResult
+        ? (output.status === 'exited' && output.exitCode === 0) ||
+          (commandCheck?.purpose === 'run' && output.previewReady === true)
+        : output.checked === true);
+      const check = commandCheck ?? (repairReports.has(name) ? { tool: name } : undefined);
 
       if (commandResult && typeof output.previewReady === 'boolean') {
         previewReady = output.previewReady;
@@ -165,6 +190,30 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         }
 
         continue;
+      }
+
+      if (check) {
+        const sameCheck = repair?.check.tool === check.tool &&
+          repair.check.command === check.command && repair.check.purpose === check.purpose;
+        const repairableFailure = failed && (
+          commandCheck
+            ? (check.purpose === 'test' || check.purpose === 'run') &&
+              typeof output.exitCode === 'number' && output.exitCode !== 0
+            : output.checked === true
+        );
+
+        if (repairableFailure && !repair) {
+          repair = { check, failedAt: position, rounds: 0 };
+        } else if (repair && sameCheck) {
+          const startedAt = commandResult && processId ? starts.get(processId) : undefined;
+          const freshCheck = startedAt === undefined || startedAt > repair.failedAt;
+
+          if (passed && freshCheck) {
+            repair = undefined;
+          } else if (repairableFailure && freshCheck && lastEdit > repair.failedAt) {
+            repair = { check, failedAt: position, rounds: repair.rounds + 1 };
+          }
+        }
       }
 
       if (failed) {
@@ -211,15 +260,11 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
         }
       }
 
-      const processId = typeof output.processId === 'string' ? output.processId : undefined;
-
       if (name === 'project_run_command' && processId) {
         starts.set(processId, position);
       }
 
       if (commandResult) {
-        const input = getToolInput(part) as Record<string, unknown> | undefined;
-        const purpose = output.purpose ?? (name === 'project_run_command' ? input?.purpose : undefined);
         const startedAt = processId ? starts.get(processId) : undefined;
 
         if (
@@ -268,6 +313,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     (!plan?.requiresPreview || previewReady) &&
     (!plan?.requiresPreviewReport || (lastPreviewReport > lastEdit && lastPreviewReport > lastFailure)) &&
     (!plan?.requiresVisualReview || (lastVisualReview > lastEdit && lastVisualReview > lastFailure)) &&
+    !repair &&
     !pendingProjectCalls;
   const status = !active
     ? 'inactive'
@@ -283,6 +329,12 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     status,
     plan,
     edited: lastEdit >= 0,
+    automaticRepair: repair && {
+      ...repair,
+      phase: repair.rounds >= MAX_REPAIR_ROUNDS || (unavailableChecks.get(repair.check.tool) ?? 0) >= 2
+        ? 'exhausted' as const
+        : lastEdit > repair.failedAt ? 'checking' as const : 'fixing' as const,
+    },
     needsRepair: lastFailure > Math.max(lastEdit, lastPassingTest),
     ran,
     previewReady,
@@ -304,6 +356,10 @@ export function getAgentCompletionProblems(progress: ReturnType<typeof getAgentL
 
   if (progress.status === 'inactive') {
     problems.push('There is no active build task.');
+  }
+
+  if (progress.automaticRepair) {
+    problems.push('The failed check must pass again before completing the task.');
   }
 
   if (progress.pendingProjectCalls) {

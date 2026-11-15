@@ -1,3 +1,4 @@
+import { getAgentLoopProgress } from '~/lib/common/agentLoop';
 import {
   getMessageParts,
   getToolName,
@@ -15,7 +16,7 @@ function workingPhase(parts: unknown[]) {
   const state = getToolState(latest);
 
   if (state === 'output-error' || output?.isError === true) {
-    return 'Javítom a talált hibát…';
+    return 'Ellenőrzöm, miért akadt el a lépés…';
   }
 
   // A completed old tool is not evidence that this phase is still running.
@@ -91,6 +92,16 @@ export function buildStatus(messages: AnyMessage[], active: boolean, preview: bo
   }
 
   if (active) {
+    const repair = getAgentLoopProgress(messages, true).automaticRepair;
+
+    if (repair?.phase === 'fixing') {
+      return { kind: 'working', text: 'Automatikus javítás folyik…' };
+    }
+
+    if (repair?.phase === 'checking') {
+      return { kind: 'working', text: 'Újraellenőrzöm a javítást…' };
+    }
+
     return { kind: 'working', text: workingPhase(parts) };
   }
 

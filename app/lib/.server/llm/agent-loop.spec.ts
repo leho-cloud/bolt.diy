@@ -333,7 +333,7 @@ describe('agent plan and completion tools', () => {
     expect(next.activeTools).toContain('project_run_command');
   });
 
-  it('keeps command and quality tools available after failure and rejected completion', async () => {
+  it('hands a failed build to repair and only completes once the original check passes', async () => {
     const messages: AnyMessage[] = [
       user,
       {
@@ -341,14 +341,17 @@ describe('agent plan and completion tools', () => {
         parts: [
           part('agent_plan', { plan: { ...plan, requiresQualityReport: true } }),
           part('project_patch_file', { patched: true }),
-          part('project_run_command', { purpose: 'test', processId: 'broken', exitCode: 1, isError: true }),
+          part('project_run_command', { purpose: 'test', command: 'npm run build', processId: 'broken', exitCode: 1, isError: true }),
         ],
       },
     ];
 
     const names = ['project_patch_file', 'project_run_command', 'project_get_process_output', 'project_quality_report'];
     const loop = createAgentLoopTools(messages, true, true, names);
-    loop.prepareStep({ steps: [] });
+    const repair = loop.prepareStep({ steps: [], initialInstructions: 'Build the project.' });
+    expect(repair.toolChoice).toBe('required');
+    expect(repair.instructions).toContain('automatic repair agent');
+    expect(repair.activeTools).toEqual(['project_patch_file', 'project_run_command', 'project_get_process_output']);
 
     const rejection = await loop.tools.agent_complete.execute!(completion, executeOptions);
     expect(rejection).toMatchObject({ completed: false, isError: true });
@@ -361,12 +364,25 @@ describe('agent plan and completion tools', () => {
           },
         ],
       }).activeTools,
-    ).toEqual([...names, 'agent_plan', 'agent_complete']);
+    ).toEqual(['project_patch_file', 'project_run_command', 'project_get_process_output']);
+    const patch = {
+      toolCalls: [{ toolName: 'project_patch_file', toolCallId: 'fix', input: { path: 'src/App.tsx' } }],
+      toolResults: [{ toolCallId: 'fix', output: { patched: true } }],
+    };
+    const recheck = loop.prepareStep({ steps: [patch] });
+    expect(recheck.activeTools).toEqual(['project_run_command', 'project_get_process_output']);
+    const otherCheck = {
+      toolCalls: [{ toolName: 'project_run_command', toolCallId: 'lint', input: { purpose: 'test', command: 'npm run lint' } }],
+      toolResults: [{ toolCallId: 'lint', output: { processId: 'lint', status: 'exited', exitCode: 0 } }],
+    };
+    loop.prepareStep({ steps: [patch, otherCheck] });
+    expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: false });
     loop.prepareStep({
       steps: [
+        patch,
         {
           toolCalls: [
-            { toolName: 'project_run_command', toolCallId: 'check', input: { purpose: 'test' } },
+            { toolName: 'project_run_command', toolCallId: 'check', input: { purpose: 'test', command: 'npm run build' } },
             { toolName: 'project_quality_report', toolCallId: 'quality', input: {} },
           ],
           toolResults: [
@@ -380,6 +396,23 @@ describe('agent plan and completion tools', () => {
       ],
     });
     expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: true });
+  });
+
+  it('stops after two failed repair rounds and leaves temporary preview outages outside source repair', () => {
+    const failure = part('project_preview_report', { isError: true, checked: true });
+    const patch = part('project_patch_file', { patched: true });
+    const planned = part('agent_plan', { plan });
+    const tools = ['project_preview_report', 'project_patch_file'];
+    const makeLoop = (...parts: Record<string, unknown>[]) =>
+      createAgentLoopTools([user, { role: 'assistant', parts: [planned, ...parts] }], true, true, tools);
+
+    const capped = makeLoop(failure, patch, failure, patch, failure).prepareStep({ steps: [] });
+    expect(capped.activeTools).toEqual(['agent_complete']);
+    expect(capped.toolChoice).toEqual({ type: 'tool', toolName: 'agent_complete' });
+
+    const inaccessible = part('project_preview_report', { isError: true, checked: false, unavailable: true });
+    const recovery = makeLoop(inaccessible, inaccessible).prepareStep({ steps: [], initialInstructions: '' });
+    expect(recovery.instructions).not.toContain('You are the automatic repair agent');
   });
 
   it('rejects completion without actual run and test evidence', async () => {
