@@ -25,7 +25,12 @@ const reportSchema = z.object({
 });
 export type PreviewAuditReport = z.infer<typeof reportSchema>;
 
-function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = false): Promise<PreviewAuditReport> {
+function inspectFrame(
+  frame: HTMLIFrameElement,
+  viewport: { width: number; height: number },
+  signal: AbortSignal,
+  capture: boolean,
+): Promise<PreviewAuditReport> {
   const target = frame.contentWindow;
   const origin = new URL(frame.src).origin;
   const requestId = crypto.randomUUID();
@@ -80,7 +85,7 @@ function inspectFrame(frame: HTMLIFrameElement, signal: AbortSignal, capture = f
     const request = {
       type: capture ? 'MUHELY_PREVIEW_IMAGE_REQUEST' : 'MUHELY_PREVIEW_AUDIT_REQUEST',
       requestId,
-      viewport: { width: parseInt(frame.style.width), height: parseInt(frame.style.height) },
+      viewport,
     };
 
     // A preview reload can leave the first DOM request without a listener.
@@ -123,21 +128,28 @@ export async function inspectProjectPreview(signal: AbortSignal, isCurrent: () =
         throw new Error('A projekt vagy az előnézet megváltozott az ellenőrzés közben.');
       }
 
+      // Measure the embedded page independently of the workbench flex layout and device frame.
       for (const [property, value] of Object.entries({
+        position: 'absolute',
+        inset: '0 auto auto 0',
+        'box-sizing': 'content-box',
+        padding: '0',
+        border: '0',
+        transition: 'none',
         width: `${viewport.width}px`,
         height: `${viewport.height}px`,
         'min-width': `${viewport.width}px`,
         'min-height': `${viewport.height}px`,
         'max-width': 'none',
         'max-height': 'none',
-        'flex-shrink': '0',
       })) {
         frame.style.setProperty(property, value, 'important');
       }
 
-      const report = await inspectFrame(frame, signal, capture);
+      const report = await inspectFrame(frame, { width: viewport.width, height: viewport.height }, signal, capture);
 
-      if (report.viewport?.width !== viewport.width || report.viewport?.height !== viewport.height) {
+      // Browser zoom can round the child viewport by one CSS pixel.
+      if (Math.abs(report.viewport.width - viewport.width) > 1 || Math.abs(report.viewport.height - viewport.height) > 1) {
         throw new Error('Az előnézet mérete nem állt át, ezért az eredmény nem tekinthető ellenőrzöttnek.');
       }
 

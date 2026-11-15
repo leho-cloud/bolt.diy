@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { createMediaJob } from './previewExport';
+import { agentMediaExport, createMediaJob } from './previewExport';
 import { inspectProjectPreview } from './previewAudit';
 import { assertValidProjectSource, getFileRevision } from './projectFileValidation';
 import { PROJECT_TOOL_NAMES, projectToolDefinitions } from './projectMcp.shared';
@@ -609,7 +609,12 @@ export async function createProjectMcpBridge() {
           throw new Error('Érvénytelen méret vagy hiányzó videóhossz.');
         }
 
-        const { id } = await createMediaJob({ format, width, height, seconds: seconds ?? 1 }, signal);
+        const settings = { format, width, height, seconds: seconds ?? 1 };
+        const { id } = await createMediaJob(settings, signal);
+
+        if (bridgeChatId && chatId.get() === bridgeChatId) {
+          agentMediaExport.set({ projectId: bridgeChatId, id, settings });
+        }
         return success({ renderId: id, state: 'queued', format, width, height });
       } catch (error) {
         return failure(error);

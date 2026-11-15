@@ -84,8 +84,8 @@
     if (event.source !== window.parent || event.origin !== expectedParentOrigin || event.data?.type !== 'MUHELY_PREVIEW_AUDIT_REQUEST' || typeof event.data.requestId !== 'string') return;
     const requestId = event.data.requestId;
     const viewport = event.data.viewport;
-    const deadline = Date.now() + 2000;
-    while (viewport && (window.innerWidth !== viewport.width || window.innerHeight !== viewport.height)) {
+    const deadline = Date.now() + 5000;
+    while (viewport && (Math.abs(window.innerWidth - viewport.width) > 1 || Math.abs(window.innerHeight - viewport.height) > 1)) {
       if (Date.now() > deadline) {
         window.parent.postMessage({ type: 'MUHELY_PREVIEW_AUDIT_RESULT', requestId, report: { checked: false, error: 'Az előnézet méretváltása nem fejeződött be.' } }, expectedParentOrigin);
         return;

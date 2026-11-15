@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { Dialog, DialogDescription, DialogTitle } from '~/components/ui/Dialog';
 import { chatId } from '~/lib/persistence/useChatHistory';
 import {
+  agentMediaExport,
   createMediaJob,
   mediaDownloadUrl,
   mediaExportOpen,
@@ -25,6 +26,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
   const storageKey = projectId ? 'muhely-render:' + projectId : undefined;
   const [zipBusy, setZipBusy] = useState(false);
   const open = useStore(mediaExportOpen);
+  const agentJob = useStore(agentMediaExport);
   const [settings, setSettings] = useState<MediaSettings>({ format: 'mp4', width: 1080, height: 1920, seconds: 20 });
   const [creating, setCreating] = useState(false);
   const [id, setId] = useState<string>();
@@ -44,6 +46,17 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
       setId(window.sessionStorage.getItem(storageKey) ?? undefined);
     }
   }, [storageKey]);
+  useEffect(() => {
+    if (agentJob && storageKey && agentJob.projectId === projectId) {
+      setId(agentJob.id);
+      setSettings(agentJob.settings);
+      setError('');
+      setJob(undefined);
+      window.sessionStorage.setItem(storageKey, agentJob.id);
+      mediaExportOpen.set(true);
+      agentMediaExport.set(undefined);
+    }
+  }, [agentJob, projectId, storageKey]);
   useEffect(() => {
     if (!id) {
       return undefined;

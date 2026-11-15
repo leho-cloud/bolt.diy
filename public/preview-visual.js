@@ -12,8 +12,8 @@
   const capture = async (viewport) => {
     if (!viewport || !Number.isInteger(viewport.width) || !Number.isInteger(viewport.height))
       throw Error('Hiányzó nézetméret.');
-    const resizeDeadline = Date.now() + 2000;
-    while (window.innerWidth !== viewport.width || window.innerHeight !== viewport.height) {
+    const resizeDeadline = Date.now() + 5000;
+    while (Math.abs(window.innerWidth - viewport.width) > 1 || Math.abs(window.innerHeight - viewport.height) > 1) {
       if (Date.now() > resizeDeadline) throw Error('Az előnézet méretváltása nem fejeződött be.');
       await new Promise((resolve) => setTimeout(resolve, 25));
     }

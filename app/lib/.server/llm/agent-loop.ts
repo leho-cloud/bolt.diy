@@ -5,7 +5,7 @@ import {
   getAgentCompletionProblems,
   getAgentLoopInstructions,
   getAgentLoopProgress,
-  shouldRenderMedia,
+  canRenderMedia,
 } from '~/lib/common/agentLoop';
 import {
   getMessageText,
@@ -314,15 +314,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
                 ...taskToolNames.filter(
                   (name) =>
                     name !== 'project_render_media' ||
-                    (shouldRenderMedia(progress) &&
-                      !progress.mediaRequested &&
-                      progress.previewReady &&
-                      progress.tested &&
-                      (!progress.plan?.requiresQualityReport || progress.qualityChecked) &&
-                      (!progress.plan?.requiresPreviewReport || progress.browserChecked) &&
-                      (!progress.plan?.requiresVisualReview ||
-                        progress.visualChecked ||
-                        progress.unavailableCheck === 'project_visual_review')),
+                    (canRenderMedia(progress) && !progress.mediaRequested),
                 ),
                 'agent_plan' as const,
                 'agent_complete' as const,

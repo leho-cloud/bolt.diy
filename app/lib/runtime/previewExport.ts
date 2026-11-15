@@ -16,6 +16,7 @@ export type MediaJob = MediaSettings & {
 };
 
 export const mediaExportOpen = atom(false);
+export const agentMediaExport = atom<{ projectId: string; id: string; settings: MediaSettings } | undefined>(undefined);
 
 const endpoint = '/api/media-render';
 const mediaFiles = /\.(html|js|mjs|css|json|svg|png|jpe?g|webp|avif|gif|ico|woff2?|ttf|mp4|webm)$/i;

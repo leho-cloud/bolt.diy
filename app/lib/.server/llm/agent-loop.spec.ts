@@ -157,6 +157,33 @@ describe('agent plan and completion tools', () => {
     },
   );
 
+  it('offers export when the preview inspection is unavailable without marking the review as passed', async () => {
+    const [request, assistant] = verified;
+    const prior = (assistant as { parts: ReturnType<typeof part>[] }).parts.slice(1).filter(
+      (item) => !['tool-project_preview_report', 'tool-project_visual_review'].includes(item.type),
+    );
+    const unavailable = { isError: true, unavailable: true, checked: false };
+    const loop = createAgentLoopTools(
+      [request, { role: 'assistant', parts: [
+        part('agent_plan', { plan: { ...plan, deliverable: 'video', requiresPreviewReport: true, requiresVisualReview: true } }),
+        ...prior,
+        part('project_preview_report', unavailable),
+        part('project_preview_report', unavailable),
+      ] }],
+      true,
+      true,
+      ['project_render_media'],
+    );
+
+    const step = loop.prepareStep({ steps: [], initialInstructions: 'build' });
+    expect(step.activeTools).toContain('project_render_media');
+    expect(step.instructions).toContain('Call project_render_media now');
+    expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({
+      completed: false,
+      error: expect.stringContaining('project_preview_report'),
+    });
+  });
+
   it('requires a fresh static report as well as real build checks on newly recorded web plans', async () => {
     const strictPlan = { ...plan, requiresQualityReport: true };
 

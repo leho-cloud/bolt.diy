@@ -295,7 +295,7 @@ export function getAgentLoopProgress(messages: AnyMessage[], enabled: boolean) {
     steps,
     evidence,
     pendingProjectCalls,
-    unavailableCheck: [...unavailableChecks].find(([, attempts]) => attempts >= 2)?.[0],
+    unavailableChecks: [...unavailableChecks].filter(([, attempts]) => attempts >= 2).map(([name]) => name),
   };
 }
 
@@ -355,6 +355,22 @@ export function shouldRenderMedia(progress: ReturnType<typeof getAgentLoopProgre
   return progress.plan?.deliverable === 'image' || progress.plan?.deliverable === 'video';
 }
 
+export function canRenderMedia(progress: ReturnType<typeof getAgentLoopProgress>) {
+  return (
+    shouldRenderMedia(progress) &&
+    progress.previewReady &&
+    progress.tested &&
+    (!progress.plan?.requiresQualityReport || progress.qualityChecked) &&
+    (!progress.plan?.requiresPreviewReport ||
+      progress.browserChecked ||
+      progress.unavailableChecks.includes('project_preview_report')) &&
+    (!progress.plan?.requiresVisualReview ||
+      progress.visualChecked ||
+      progress.unavailableChecks.includes('project_visual_review') ||
+      progress.unavailableChecks.includes('project_preview_report'))
+  );
+}
+
 export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoopProgress>) {
   if (progress.status === 'inactive') {
     return '';
@@ -380,17 +396,12 @@ export function getAgentLoopInstructions(progress: ReturnType<typeof getAgentLoo
     return 'The media export did not start. Report the actual export error and preserve the preview and files. Call agent_complete with outcome blocked. Do not submit the same export repeatedly.';
   }
 
-  if (progress.unavailableCheck) {
-    if (
-      progress.unavailableCheck === 'project_visual_review' &&
-      shouldRenderMedia(progress) &&
-      progress.browserChecked &&
-      progress.tested &&
-      !progress.mediaRequested
-    ) {
-      return 'The independent image review is unavailable, but the preview and code checks passed. Call project_render_media now to queue the requested file. Report that the visual review could not run.';
+  if (progress.unavailableChecks.length > 0) {
+    if (canRenderMedia(progress) && !progress.mediaRequested) {
+      return 'A browser or visual inspection is temporarily unavailable. The preview is running and the code checks passed. Call project_render_media now and report its actual status and the missing review.';
     }
-    return `${progress.unavailableCheck} could not run twice on this revision. Call agent_complete with outcome blocked and report the unavailable check. Preserve the last edited project and the confirmed checks. Do not edit source or retry the unavailable check. Do not claim visual approval.`;
+
+    return `${progress.unavailableChecks.join(', ')} could not run twice on this revision. Call agent_complete with outcome blocked and report the unavailable checks, confirmed checks and any queued media. Preserve the last edited project. Do not edit source or retry the unavailable checks. Do not claim visual approval.`;
   }
 
   const nextAction = progress.needsRepair

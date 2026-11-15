@@ -88,12 +88,12 @@ describe('agent build loop', () => {
       true,
     );
 
-    expect(progress).toMatchObject({ tested: true, visualChecked: false, unavailableCheck: 'project_visual_review' });
+    expect(progress).toMatchObject({ tested: true, visualChecked: false, unavailableChecks: ['project_visual_review'] });
     expect(getAgentLoopInstructions(progress)).toContain('outcome blocked');
     expect(
       getAgentLoopProgress([user, response(visualPlan, edited, run, test, unavailable, unavailable, edited)], true)
-        .unavailableCheck,
-    ).toBeUndefined();
+        .unavailableChecks,
+    ).toEqual([]);
   });
 
   it('requires a fresh successful visual review after edits and visual errors', () => {

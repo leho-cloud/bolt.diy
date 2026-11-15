@@ -37,14 +37,14 @@ function page(html: string, width = 1280, pageWidth = width) {
   return dom;
 }
 
-async function audit(dom: ReturnType<typeof page>) {
+async function audit(dom: ReturnType<typeof page>, viewport?: { width: number; height: number }) {
   const win = dom.window;
   const post = vi.spyOn(win, 'postMessage');
   win.dispatchEvent(
     new win.MessageEvent('message', {
       source: win,
       origin: 'https://muhely.example',
-      data: { type: 'MUHELY_PREVIEW_AUDIT_REQUEST', requestId: 'audit-one' },
+      data: { type: 'MUHELY_PREVIEW_AUDIT_REQUEST', requestId: 'audit-one', viewport },
     }),
   );
   await vi.waitFor(
@@ -56,10 +56,22 @@ async function audit(dom: ReturnType<typeof page>) {
     { timeout: 2500 },
   );
 
-  return post.mock.calls[0][0].report as { checked: boolean; issues: Array<{ code: string; severity: string }> };
+  return post.mock.calls[0][0].report as { checked: boolean; viewport: { width: number; height: number }; issues: Array<{ code: string; severity: string }> };
 }
 
 describe('injected preview diagnostics', () => {
+  it('reports the measured viewport when browser zoom rounds one pixel', async () => {
+    const dom = page('<main><h1>Előnézet</h1></main>', 374);
+
+    try {
+      const report = await audit(dom, { width: 375, height: dom.window.innerHeight });
+      expect(report.checked).toBe(true);
+      expect(report.viewport.width).toBe(374);
+    } finally {
+      dom.window.close();
+    }
+  });
+
   it('detects broken images, missing anchors, overflow and actual uncaught errors', async () => {
     const dom = page(
       '<main><h1>Oldal</h1><img id="broken" src="/missing.jpg"><a href="#missing">Kapcsolat</a><button></button><video></video></main>',
