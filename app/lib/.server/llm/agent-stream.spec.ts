@@ -50,7 +50,7 @@ describe('agent provider recovery', () => {
       tools: {
         agent_complete: tool({
           inputSchema: jsonSchema({ type: 'object', properties: {} }),
-          execute: () => {
+          execute: async (): Promise<{ completed: boolean }> => {
             throw new Error('private diagnostics');
           },
         }),
