@@ -1,8 +1,9 @@
-import { isStepCount, jsonSchema, streamText, tool, toUIMessageStream, type ToolSet, type TextStreamPart } from 'ai';
+import { isStepCount, jsonSchema, streamText, StreamProviderError, tool, toUIMessageStream, type ToolSet, type TextStreamPart } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentStreamRecovery, withAgentStreamDeadlines, withAgentToolCallRecovery } from './agent-stream';
 import { toSafeStreamErrorMessage } from '~/lib/.server/api/errors';
+import { markChatToolStreamErrors } from '~/lib/.server/api/chat-stream';
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -32,6 +33,56 @@ const collect = async <TOOLS extends ToolSet>(
 afterEach(() => vi.useRealTimers());
 
 describe('agent provider recovery', () => {
+  it('identifies a completion tool exception separately from a provider stream error', async () => {
+    const result = await streamText({
+      model: new MockLanguageModelV4({
+        doStream: async () => ({
+          stream: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ type: 'stream-start', warnings: [] });
+              controller.enqueue({ type: 'tool-call', toolCallId: 'complete', toolName: 'agent_complete', input: '{}' });
+              finish(controller, true);
+            },
+          }),
+        }),
+      }),
+      prompt: 'Check completion.',
+      tools: {
+        agent_complete: tool({
+          inputSchema: jsonSchema({ type: 'object', properties: {} }),
+          execute: () => {
+            throw new Error('private diagnostics');
+          },
+        }),
+      },
+    });
+
+    const chunks = await collect({ stream: markChatToolStreamErrors(result.stream) });
+    expect(chunks).toContainEqual(expect.objectContaining({
+      type: 'tool-output-error',
+      toolCallId: 'complete',
+      errorText: 'A befejezés ellenőrzése megszakadt. Az elkészült módosítások megmaradtak.',
+    }));
+    expect(JSON.stringify(chunks)).not.toContain('private diagnostics');
+  });
+
+  it('retries a provider-declared transient stream failure once even without an HTTP status', () => {
+    const onRetry = vi.fn();
+    const recovery = createAgentStreamRecovery(onRetry);
+    const error = new StreamProviderError({ message: 'Upstream dropped the response', isRetryable: true });
+
+    expect(recovery.onError({ error })).toEqual({ retry: true });
+    expect(recovery.onError({ error })).toBeUndefined();
+    expect(onRetry).toHaveBeenCalledExactlyOnceWith('provider');
+  });
+
+  it('does not retry a permanent provider refusal wrapped by the SDK', () => {
+    const recovery = createAgentStreamRecovery(vi.fn());
+    const error = Object.assign(new Error('network wrapper', { cause: { code: '402' } }), { isRetryable: true });
+    expect(recovery.onError({ error })).toBeUndefined();
+    expect(toSafeStreamErrorMessage(error)).toContain('HTTP 402');
+  });
+
   it.each([
     '[[{"name":"project_read_file","parameters":{"path":"src/index.css"}}]]',
     '```json\n[{"name":"project_read_file","parameters":{"path":"src/index.css"}}]\n```',

@@ -1,10 +1,12 @@
 import {
   generateId,
+  NoContentGeneratedError,
   ToolChoiceViolationError,
   wrapLanguageModel,
   type LanguageModel,
   type StreamTextOnErrorRetryCallback,
 } from 'ai';
+import { providerHttpStatus } from '~/lib/.server/api/errors';
 
 const DEFAULT_ATTEMPT_LIMITS = { firstMs: 120_000, idleMs: 120_000, attemptMs: 300_000 };
 const MAX_RECOVERY_ATTEMPTS = 2;
@@ -378,7 +380,7 @@ export function createAgentStreamRecovery(onRetry: (reason: 'tool-call' | 'provi
     }
 
     const message = error instanceof Error ? error.message.toLowerCase() : '';
-    const status = error && typeof error === 'object' && 'statusCode' in error ? error.statusCode : undefined;
+    const status = providerHttpStatus(error);
 
     if (
       (error instanceof Error && error.name === 'AbortError') ||
@@ -389,6 +391,8 @@ export function createAgentStreamRecovery(onRetry: (reason: 'tool-call' | 'provi
 
     const retryable =
       (error instanceof Error && error.name === 'TimeoutError') ||
+      NoContentGeneratedError.isInstance(error) ||
+      (error !== null && typeof error === 'object' && 'isRetryable' in error && error.isRetryable === true) ||
       /network|fetch failed|connection|timed?\s*out|timeout/.test(message) ||
       (typeof status === 'number' && status >= 500);
 

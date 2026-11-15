@@ -8,7 +8,11 @@ import {
   type UIMessage,
 } from 'ai';
 import type { ActionFunctionArgs } from 'react-router';
-import { createChatUIMessageStream } from '~/lib/.server/api/chat-stream';
+import {
+  ChatToolStreamError,
+  createChatUIMessageStream,
+  markChatToolStreamErrors,
+} from '~/lib/.server/api/chat-stream';
 import { toApiErrorResponse, toMissingCredentialError, toSafeStreamErrorMessage } from '~/lib/.server/api/errors';
 import { readJsonBody } from '~/lib/.server/api/read-body';
 import {
@@ -437,6 +441,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         const recovery = createAgentStreamRecovery(notifyRetry);
 
         const mapStreamError = (error: unknown) => {
+          if (error instanceof ChatToolStreamError) {
+            return toSafeStreamErrorMessage(error);
+          }
+
           logger.error(
             `AI stream failure boundary: chunks=${chunkStats.chunks} text=${chunkStats.text} tools=${chunkStats.tools} finish=${chunkStats.finish} recovery=${recoveringAgent}`,
           );
@@ -641,7 +649,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             writer.merge(
               toUIMessageStream({
-                stream: result.stream,
+                stream: markChatToolStreamErrors(result.stream),
                 sendStart: false,
                 sendFinish: false,
                 onError: mapStreamError,
@@ -689,7 +697,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
         writer.merge(
           toUIMessageStream({
-            stream: result.stream,
+            stream: markChatToolStreamErrors(result.stream),
             sendStart: false,
             sendFinish: true,
 

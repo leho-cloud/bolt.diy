@@ -1,5 +1,6 @@
-import { InvalidToolInputError, NoSuchToolError, ToolChoiceViolationError } from 'ai';
+import { InvalidToolInputError, NoContentGeneratedError, NoSuchToolError, ToolChoiceViolationError } from 'ai';
 import { createScopedLogger } from '~/utils/logger';
+import { ChatToolStreamError } from './chat-stream';
 
 const logger = createScopedLogger('api.errors');
 
@@ -131,11 +132,14 @@ export function toMissingCredentialError(provider: string, providerMessage?: str
 const genericProviderFailure =
   'Custom error: Az AI-kérés megszakadt. A szolgáltató nem adott pontos hibakódot. Az elkészült módosítások megmaradtak.';
 
-function providerHttpStatus(error: unknown): number | undefined {
+export function providerHttpStatus(error: unknown): number | undefined {
   // The SDK may wrap a provider error either as cause or as the last retry error.
   for (let depth = 0; depth < 5 && error && typeof error === 'object'; depth++) {
-    const value = error as { statusCode?: number; status?: number; cause?: unknown; lastError?: unknown };
-    const candidate = value.statusCode ?? value.status;
+    const value = error as { statusCode?: number; status?: number; code?: unknown; cause?: unknown; lastError?: unknown };
+    const statusFromCode = typeof value.code === 'string' && /^[45]\d{2}$/.test(value.code)
+      ? Number(value.code)
+      : value.code;
+    const candidate = value.statusCode ?? value.status ?? statusFromCode;
 
     if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) {
       return candidate;
@@ -149,6 +153,24 @@ function providerHttpStatus(error: unknown): number | undefined {
 
 /** Converts a streaming provider error to a client-safe hint without forwarding diagnostics. */
 export function toSafeStreamErrorMessage(error: unknown): string {
+  if (error instanceof ChatToolStreamError) {
+    const cause = error.cause;
+    const reason = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+
+    if (InvalidToolInputError.isInstance(cause) || /^invalid input for tool /i.test(reason)) {
+      return 'Az AI érvénytelen adatokat adott az eszköznek. A lépés újrapróbálható.';
+    }
+
+    if (NoSuchToolError.isInstance(cause) || /^model tried to call unavailable tool /i.test(reason)) {
+      return 'Az AI olyan eszközt kért, amely ebben a lépésben nem érhető el.';
+    }
+
+    logger.warn(error.toolName === 'agent_complete' ? 'Completion tool failed' : 'Chat tool failed');
+    return error.toolName === 'agent_complete'
+      ? 'A befejezés ellenőrzése megszakadt. Az elkészült módosítások megmaradtak.'
+      : 'Az eszköz futtatása megszakadt. A lépés újrapróbálható.';
+  }
+
   const providerMessage = error instanceof Error ? error.message : String(error);
   const normalizedMessage = providerMessage.toLowerCase();
 
@@ -199,6 +221,14 @@ export function toSafeStreamErrorMessage(error: unknown): string {
   logger.error(
     `Streaming provider error (type=${error instanceof Error ? error.name : 'UnknownError'}, status=${diagnosticStatus}, retryable=${diagnosticRetryable}, reason=${diagnosticReason}, causeType=${causeType}, causeStatus=${causeStatus})`,
   );
+
+  if (isAbortError(error)) {
+    return 'Custom error: A kérés megszakadt. Az elkészült módosítások megmaradtak.';
+  }
+
+  if (NoContentGeneratedError.isInstance(error)) {
+    return 'Custom error: Az AI-szolgáltató üres választ küldött. Az elkészült módosítások megmaradtak.';
+  }
 
   if (statusCode === 402) {
     return 'Custom error: Az AI-szolgáltató a rendelkezésre álló egyenleg vagy költési keret miatt nem fogadta a kérést (HTTP 402). Az elkészült módosítások megmaradtak; a folytatáshoz az üzemeltetőnek kell ellenőriznie a szolgáltatói keretet.';
