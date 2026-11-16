@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import type { UIMessage } from 'ai';
 import { motion, type Variants } from 'framer-motion';
@@ -127,7 +128,7 @@ export const Menu = () => {
 
       deleteChat(item.id)
         .then(() => {
-          toast.success('A beszélgetés törölve.', {
+          toast.success(uiText("A beszélgetés törölve.", "Conversation deleted."), {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -143,7 +144,7 @@ export const Menu = () => {
         })
         .catch((error) => {
           console.error('Failed to delete chat:', error);
-          toast.error('A beszélgetést nem sikerült törölni.', {
+          toast.error(uiText("A beszélgetést nem sikerült törölni.", "Could not delete the conversation."), {
             position: 'bottom-right',
             autoClose: 3000,
           });
@@ -350,7 +351,7 @@ export const Menu = () => {
       loadEntries();
       setOpen(false);
       navigate('/chat/' + project.urlId);
-      toast.success('Projekt létrehozva');
+      toast.success(uiText("Projekt létrehozva", "Project created"));
     } catch (error) {
       toast.error('A projekt létrehozása sikertelen: ' + (error instanceof Error ? error.message : 'ismeretlen hiba'));
     } finally {
@@ -392,7 +393,7 @@ export const Menu = () => {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            aria-label="Projektmenü bezárása"
+            aria-label={uiText("Projektmenü bezárása", "Close projects menu")}
             className="muhely-header-icon"
           >
             <span className="i-ph:sidebar-simple" />
@@ -400,12 +401,12 @@ export const Menu = () => {
           <div className="flex items-center gap-3">
             <HelpButton onClick={() => setIsDocumentationOpen(true)} />
             <span className="font-medium text-sm text-bolt-elements-textPrimary truncate">
-              {profile?.username || 'Vendég'}
+              {profile?.username || uiText("Vendég", "Guest")}
             </span>
             <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-bolt-elements-background-depth-3 text-bolt-elements-textSecondary rounded-full shrink-0">
               <img
                 src={profile?.avatar || DEFAULT_AVATAR}
-                alt={profile?.username || 'Felhasználó'}
+                alt={profile?.username || uiText("Felhasználó", "User")}
                 className="w-full h-full object-cover"
                 loading="eager"
                 decoding="sync"
@@ -413,7 +414,7 @@ export const Menu = () => {
             </div>
           </div>
         </div>
-        <div className="muhely-sidebar-label">A SAJÁT MUNKATERÜLETED</div>
+        <div className="muhely-sidebar-label">{uiText("A SAJÁT MUNKATERÜLETED", "YOUR WORKSPACE")}</div>
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
           <div className="p-4 space-y-3">
             <button
@@ -422,7 +423,7 @@ export const Menu = () => {
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-500 hover:brightness-110 text-white px-4 py-2.5 font-medium transition-colors"
             >
               <span className="i-ph:folder-plus h-5 w-5" />
-              Új munkaterület
+              {uiText("Új munkaterület", "New project")}
             </button>
             {creatingProject && (
               <form
@@ -439,7 +440,7 @@ export const Menu = () => {
                   maxLength={80}
                   value={projectName}
                   onChange={(event) => setProjectName(event.target.value)}
-                  placeholder="Például: Új webalkalmazás"
+                  placeholder={uiText("Például: Új webalkalmazás", "e.g. New web app")}
                   className="w-full rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2 text-bolt-elements-textPrimary"
                 />
                 <div className="flex gap-2">
@@ -448,18 +449,18 @@ export const Menu = () => {
                     type="submit"
                     className="rounded-md bg-accent-500 px-3 py-2 text-white disabled:opacity-50"
                   >
-                    Létrehozás
+                    {uiText("Létrehozás", "Create")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setCreatingProject(false)}
                     className="rounded-md px-3 py-2 text-bolt-elements-textSecondary"
                   >
-                    Mégse
+                    {uiText("Mégse", "Cancel")}
                   </button>
                 </div>
                 <p className="text-xs text-bolt-elements-textTertiary">
-                  A projekt ezen a böngészőn mentődik el, és innen később újranyitható.
+                  {uiText("A projekt ezen a böngészőn mentődik el, és innen később újranyitható.", "This project is saved in this browser so you can reopen it here.")}
                 </p>
               </form>
             )}
@@ -469,7 +470,7 @@ export const Menu = () => {
                 className="flex-1 flex gap-2 items-center bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg px-4 py-2 transition-colors"
               >
                 <span className="inline-block i-ph:plus-circle h-4 w-4" />
-                <span className="text-sm font-medium">Új beszélgetés</span>
+                <span className="text-sm font-medium">{uiText("Új beszélgetés", "New conversation")}</span>
               </a>
               <button
                 onClick={toggleSelectionMode}
@@ -479,7 +480,7 @@ export const Menu = () => {
                     ? 'bg-accent-500 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
                 )}
-                aria-label={selectionMode ? 'Kijelölési mód bezárása' : 'Kijelölési mód bekapcsolása'}
+                aria-label={selectionMode ? uiText("Kijelölési mód bezárása", "Exit selection mode") : uiText("Kijelölési mód bekapcsolása", "Enter selection mode")}
               >
                 <span className={selectionMode ? 'i-ph:x h-4 w-4' : 'i-ph:check-square h-4 w-4'} />
               </button>
@@ -491,20 +492,20 @@ export const Menu = () => {
               <input
                 className="w-full bg-bolt-elements-background-depth-2 relative pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive/50 text-sm text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary border border-bolt-elements-borderColor"
                 type="search"
-                placeholder="Keresés a projektek között..."
+                placeholder={uiText("Keresés a projektek között...", "Search projects…")}
                 onChange={handleSearchChange}
-                aria-label="Projektkeresés"
+                aria-label={uiText("Projektkeresés", "Search projects")}
               />
             </div>
           </div>
           <div className="flex items-center justify-between text-sm px-4 py-2">
-            <div className="font-medium text-gray-600 dark:text-gray-400">Mentett munkák és beszélgetések</div>
+            <div className="font-medium text-gray-600 dark:text-gray-400">{uiText("Mentett munkák és beszélgetések", "Saved projects and conversations")}</div>
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
                   {filteredList.length > 0 && filteredList.every((item) => selectedItems.includes(item.id))
-                    ? 'Kijelölés törlése'
-                    : 'Összes kijelölése'}
+                    ? uiText("Kijelölés törlése", "Clear selection")
+                    : uiText("Összes kijelölése", "Select all")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -512,7 +513,7 @@ export const Menu = () => {
                   onClick={handleBulkDeleteClick}
                   disabled={selectedItems.length === 0}
                 >
-                  Kijelöltek törlése
+                  {uiText("Kijelöltek törlése", "Delete selected")}
                 </Button>
               </div>
             )}
@@ -520,17 +521,17 @@ export const Menu = () => {
           <div className="flex-1 overflow-auto modern-scrollbar px-3 pb-3">
             {filteredList.length === 0 && (
               <div className="px-4 text-gray-500 dark:text-gray-400 text-sm">
-                {list.length === 0 ? 'Még nincs mentett projekt' : 'Nincs találat'}
+                {list.length === 0 ? uiText("Még nincs mentett projekt", "No saved projects yet") : uiText("Nincs találat", "No matches")}
               </div>
             )}
             <DialogRoot open={dialogContent !== null}>
               {[
                 {
-                  category: 'Weboldalak és alkalmazások',
+                  category: uiText("Weboldalak és alkalmazások", "Websites and apps"),
                   items: filteredList.filter((item) => projectIds.has(item.id)),
                 },
                 {
-                  category: 'Beszélgetések · még nincs oldal',
+                  category: uiText("Beszélgetések · még nincs oldal", "Conversations · No site yet"),
                   items: filteredList.filter((item) => !projectIds.has(item.id)),
                 },
               ]
@@ -565,7 +566,7 @@ export const Menu = () => {
                 {dialogContent?.type === 'delete' && (
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
-                      <DialogTitle className="text-bolt-elements-textPrimary">Beszélgetés törlése?</DialogTitle>
+                      <DialogTitle className="text-bolt-elements-textPrimary">{uiText("Beszélgetés törlése?", "Delete conversation?")}</DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>
                           A következő beszélgetést szeretnéd törölni:{' '}
@@ -573,12 +574,12 @@ export const Menu = () => {
                             {dialogContent.item.description}
                           </span>
                         </p>
-                        <p className="mt-2">Biztosan törölni szeretnéd ezt a beszélgetést?</p>
+                        <p className="mt-2">{uiText("Biztosan törölni szeretnéd ezt a beszélgetést?", "Are you sure you want to delete this conversation?")}</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Mégse
+                        {uiText("Mégse", "Cancel")}
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -588,7 +589,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Törlés
+                        {uiText("Törlés", "Delete")}
                       </DialogButton>
                     </div>
                   </>
@@ -597,7 +598,7 @@ export const Menu = () => {
                   <>
                     <div className="p-6 bg-bolt-elements-background-depth-1">
                       <DialogTitle className="text-bolt-elements-textPrimary">
-                        Kijelölt beszélgetések törlése?
+                        {uiText("Kijelölt beszélgetések törlése?", "Delete selected conversations?")}
                       </DialogTitle>
                       <DialogDescription className="mt-2 text-bolt-elements-textSecondary">
                         <p>Törlésre kijelölve: {dialogContent.items.length} beszélgetés:</p>
@@ -610,12 +611,12 @@ export const Menu = () => {
                             ))}
                           </ul>
                         </div>
-                        <p className="mt-3">Biztosan törölni szeretnéd ezeket a beszélgetéseket?</p>
+                        <p className="mt-3">{uiText("Biztosan törölni szeretnéd ezeket a beszélgetéseket?", "Are you sure you want to delete these conversations?")}</p>
                       </DialogDescription>
                     </div>
                     <div className="flex justify-end gap-3 px-6 py-4 bg-bolt-elements-background-depth-2 border-t border-bolt-elements-borderColor">
                       <DialogButton type="secondary" onClick={closeDialog}>
-                        Mégse
+                        {uiText("Mégse", "Cancel")}
                       </DialogButton>
                       <DialogButton
                         type="danger"
@@ -630,7 +631,7 @@ export const Menu = () => {
                           closeDialog();
                         }}
                       >
-                        Törlés
+                        {uiText("Törlés", "Delete")}
                       </DialogButton>
                     </div>
                   </>

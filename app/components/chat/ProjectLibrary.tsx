@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useEffect, useState } from 'react';
 import { ConfirmationDialog } from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -75,10 +76,10 @@ export function ProjectLibrary() {
 
       setEntries((items) => items.filter((item) => item.chat.id !== pendingDelete.chat.id));
       setPendingDelete(null);
-      setFeedback('A mentett munka törölve.');
+      setFeedback(uiText("A mentett munka törölve.", "Saved project deleted."));
       window.dispatchEvent(new Event('muhely-projects-changed'));
     } catch {
-      setFeedback('A törlés nem sikerült. A mentett munka megmaradt; próbáld újra.');
+      setFeedback(uiText("A törlés nem sikerült. A mentett munka megmaradt; próbáld újra.", "Could not delete the project. Your work is still saved. Try again."));
     } finally {
       setDeleting(false);
     }
@@ -88,7 +89,7 @@ export function ProjectLibrary() {
   const conversations = entries.filter((entry) => !entry.hasFiles);
 
   return (
-    <section id="sajat-projektek" className="muhely-library" aria-label="Saját projektek">
+    <section id="sajat-projektek" className="muhely-library" aria-label={uiText("Saját projektek", "My projects")}>
       <ConfirmationDialog
         isOpen={pendingDelete !== null}
         onClose={() => {
@@ -97,9 +98,9 @@ export function ProjectLibrary() {
           }
         }}
         onConfirm={() => void removeProject()}
-        title={pendingDelete?.hasFiles ? 'Projekt törlése?' : 'Beszélgetés törlése?'}
+        title={pendingDelete?.hasFiles ? uiText("Projekt törlése?", "Delete project?") : uiText("Beszélgetés törlése?", "Delete conversation?")}
         description={`„${pendingDelete?.chat.description || ''}” és a hozzá tartozó mentett fájlok törlődnek ebből a böngészőből. Ez nem vonható vissza. A már közzétett weboldal megmarad.`}
-        confirmLabel={deleting ? 'Törlés…' : 'Végleges törlés'}
+        confirmLabel={deleting ? uiText("Törlés…", "Deleting…") : uiText("Végleges törlés", "Delete permanently")}
         variant="destructive"
         isLoading={deleting}
       />
@@ -112,29 +113,29 @@ export function ProjectLibrary() {
         <div>
           <span className="muhely-eyebrow">FOLYTASD, AHOL ABBAHAGYTAD</span>
           <h2>
-            Saját projektjeid <span>{projects.length}</span>
+            {uiText("Saját projektjeid", "Your projects")} <span>{projects.length}</span>
           </h2>
         </div>
         <span className="muhely-local-note">
-          <span className="i-ph:desktop" /> Ebben a böngészőben
+          <span className="i-ph:desktop" /> {uiText("Ebben a böngészőben", "In this browser")}
         </span>
       </div>
       {state === 'loading' ? (
         <p className="muhely-library-note" role="status">
-          Projektek betöltése…
+          {uiText("Projektek betöltése…", "Loading projects…")}
         </p>
       ) : state === 'error' ? (
         <EmptyState
-          title="A projektlista most nem érhető el"
-          description="A mentett munkáidat a bal oldali menüben is megnyithatod."
+          title={uiText("A projektlista most nem érhető el", "Projects are currently unavailable")}
+          description={uiText("A mentett munkáidat a bal oldali menüben is megnyithatod.", "Open saved projects from the left menu.")}
           variant="compact"
         />
       ) : projects.length === 0 ? (
         <EmptyState
           icon="i-ph:browser"
           className="muhely-library-empty"
-          title="Itt lesznek a saját oldalaid"
-          description="Írd le fent az ötletedet, vagy indulj az alábbi kész alapok egyikéből."
+          title={uiText("Itt lesznek a saját oldalaid", "Your projects will appear here")}
+          description={uiText("Írd le fent az ötletedet, vagy indulj az alábbi kész alapok egyikéből.", "Describe your idea above or choose a starter template below.")}
           variant="compact"
         />
       ) : (
@@ -160,7 +161,7 @@ export function ProjectLibrary() {
                     </span>
                     <h3>{chat.description}</h3>
                     <span>
-                      {fileCount} mentett fájl <span aria-hidden="true">↗</span>
+                      {fileCount} {uiText('mentett fájl', fileCount === 1 ? 'saved file' : 'saved files')} <span aria-hidden="true">↗</span>
                     </span>
                   </div>
                 </a>
@@ -173,7 +174,7 @@ export function ProjectLibrary() {
                     setPendingDelete(entry);
                   }}
                 >
-                  <span className="i-ph:trash" aria-hidden="true" /> Törlés
+                  <span className="i-ph:trash" aria-hidden="true" /> {uiText("Törlés", "Delete")}
                 </button>
               </article>
             );
@@ -183,9 +184,9 @@ export function ProjectLibrary() {
       {conversations.length > 0 && (
         <details className="muhely-conversations">
           <summary>
-            Beszélgetések és üres munkaterületek <span>{conversations.length}</span>
+            {uiText("Beszélgetések és üres munkaterületek", "Conversations and empty projects")} <span>{conversations.length}</span>
           </summary>
-          <p>Ezekben még nincs mentett weboldal. Bármikor folytathatod őket.</p>
+          <p>{uiText("Ezekben még nincs mentett weboldal. Bármikor folytathatod őket.", "These projects have no saved website yet. You can continue them at any time.")}</p>
           <div>
             {conversations.map((entry) => (
               <div className="muhely-conversation-row" key={entry.chat.id}>
@@ -203,7 +204,7 @@ export function ProjectLibrary() {
                     setPendingDelete(entry);
                   }}
                 >
-                  <span className="i-ph:trash" aria-hidden="true" /> Törlés
+                  <span className="i-ph:trash" aria-hidden="true" /> {uiText("Törlés", "Delete")}
                 </button>
               </div>
             ))}

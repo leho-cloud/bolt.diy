@@ -341,3 +341,36 @@ test('keeps workspace settings and private project notes independent per account
   await f.gate.handle(request(memoryPath, { cookie: ownerCookie, body: { action: 'forget' } }));
   assert.doesNotMatch(await (await f.gate.handle(request(memoryPath, { cookie: ownerCookie }))).text(), /Törtfehér/);
 });
+
+test('English is retained from the public welcome through sign-in and account without accepting external redirects', async (t) => {
+  const f = await fixture(t);
+  const switchLanguage = await f.gate.handle(request('/nyelv?lang=en&next=%2Fbelepes%3Fnext%3D%252Fmuhely'));
+  assert.equal(switchLanguage.status, 303);
+  assert.equal(switchLanguage.headers.get('Location'), '/belepes?next=%2Fmuhely');
+  const languageCookie = switchLanguage.headers.get('Set-Cookie').split(';')[0];
+  assert.equal(languageCookie, 'muhely_language=en');
+  const welcome = await (await f.gate.handle(request('/', { cookie: languageCookie }))).text();
+  assert.match(welcome, /<html lang="en">/);
+  assert.match(welcome, /Turn your idea into/);
+  assert.match(welcome, /Magyar/);
+  const login = await (await f.gate.handle(request('/belepes', { cookie: languageCookie }))).text();
+  assert.match(login, /Sign in to Műhely/);
+  const failed = await f.gate.handle(
+    request('/belepes', { cookie: languageCookie, body: { action: 'login', username: 'none', password: 'wrong' } }),
+  );
+  assert.match(await failed.text(), /Incorrect username or password/);
+  const registration = await (await f.gate.handle(request('/regisztracio', { cookie: languageCookie }))).text();
+  assert.match(registration, /Registration requires a follow-up before approval/);
+  const enrolled = await owner(f);
+  const account = await (await f.gate.handle(request('/fiokom', {
+    cookie: languageCookie + '; ' + cookieOf(enrolled),
+  }))).text();
+  assert.match(account, /Memory and skills/);
+  assert.match(account, /LED wall video skill/);
+  assert.match(account, /Change password/);
+  assert.equal(
+    (await f.gate.handle(request('/nyelv?lang=hu&next=%2F%2Fevil.example'))).headers.get('Location'),
+    '/',
+  );
+  assert.match(await (await f.gate.handle(request('/'))).text(), /<html lang="hu">/);
+});

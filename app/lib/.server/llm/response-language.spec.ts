@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { withDevelopmentCommentaryWorkstyle } from './prompt-workstyle';
-import { withHungarianResponse } from './response-language';
+import { withResponseLanguage } from './response-language';
 import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
 
 describe('Műhely response language and discussion scope', () => {
   it('applies the Hungarian default after both legacy and additional instructions', () => {
-    const result = withHungarianResponse('Write in English.', 'Keep the task evidence unchanged.');
+    const result = withResponseLanguage('Write in English.', 'Keep the task evidence unchanged.');
     expect(result.indexOf('<muhely_response_language>')).toBeGreaterThan(
       result.indexOf('Keep the task evidence unchanged.'),
     );
@@ -15,8 +15,15 @@ describe('Műhely response language and discussion scope', () => {
     expect(result).not.toContain('undefined');
   });
 
+  it('uses English when the selected interface language is English', () => {
+    const result = withResponseLanguage('Use Hungarian.', 'Keep the build checks.', 'en');
+    expect(result).toContain('Default to English for replies');
+    expect(result).toContain('explicitly requests a different language');
+    expect(result.indexOf('Default to English')).toBeGreaterThan(result.indexOf('Keep the build checks.'));
+  });
+
   it('retains build tools guidance and preserves the explicit language exception', () => {
-    const result = withHungarianResponse(withDevelopmentCommentaryWorkstyle('Use project_patch_file.'));
+    const result = withResponseLanguage(withDevelopmentCommentaryWorkstyle('Use project_patch_file.'));
     expect(result).toContain('Use project_patch_file.');
     expect(result).toContain('<project_mcp_workflow>');
     expect(result).toContain('plain Hungarian Markdown');
@@ -24,7 +31,7 @@ describe('Műhely response language and discussion scope', () => {
   });
 
   it('does not turn a capability question into an implementation task or mandatory action', () => {
-    const result = withHungarianResponse(discussPrompt());
+    const result = withResponseLanguage(discussPrompt());
     expect(result).toContain('milyen szoftvert tudsz készíteni?');
     expect(result).toContain('Nem kér honlapot, bejelentkezést, regisztrációt vagy megvalósítási tervet');
     expect(result).toContain('Egyszerű kérdéshez nem kötelező gomb');

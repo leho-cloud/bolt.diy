@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import React from 'react';
@@ -297,7 +298,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
             minHeight: props.TEXTAREA_MIN_HEIGHT,
             maxHeight: props.TEXTAREA_MAX_HEIGHT,
           }}
-          placeholder={props.chatMode === 'build' ? 'Mit szeretnél készíteni?' : 'Miben segíthetek?'}
+          placeholder={props.chatMode === 'build' ? uiText("Mit szeretnél készíteni?", "What would you like to create?") : uiText("Miben segíthetek?", "How can I help?")}
           translate="no"
         />
         <div className="muhely-composer-tools">
@@ -338,7 +339,7 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
-                  title={props.chatMode === 'discuss' ? 'Beszélgetés' : 'Oldalkészítés'}
+                  title={props.chatMode === 'discuss' ? uiText("Beszélgetés", "Discuss") : uiText("Oldalkészítés", "Build")}
                   className={classNames(
                     'transition-all flex items-center gap-1 rounded-md px-1.5 py-1 text-xs',
                     props.chatMode === 'discuss'
@@ -351,12 +352,12 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   {props.chatMode === 'discuss' ? (
                     <>
                       <div className="i-ph:chats text-lg" />
-                      <span>Beszélgetés</span>
+                      <span>{uiText("Beszélgetés", "Discuss")}</span>
                     </>
                   ) : (
                     <>
                       <div className="i-ph:robot text-lg" />
-                      <span>Építés</span>
+                      <span>{uiText("Építés", "Build")}</span>
                     </>
                   )}
                   <div className="i-ph:caret-down text-sm" />
@@ -389,9 +390,9 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   >
                     <div className="i-ph:robot text-lg" />
                     <div className="flex flex-col">
-                      <span>Építés</span>
+                      <span>{uiText("Építés", "Build")}</span>
                       <span className="text-xs text-bolt-elements-textSecondary">
-                        Elkészíti és ellenőrzi az oldalad
+                        {uiText("Elkészíti és ellenőrzi az oldalad", "Build and check your project")}
                       </span>
                     </div>
                   </DropdownMenu.Item>
@@ -410,8 +411,8 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   >
                     <div className="i-ph:chats text-lg" />
                     <div className="flex flex-col">
-                      <span>Beszélgetés</span>
-                      <span className="text-xs text-bolt-elements-textSecondary">Ötletelés, módosítások nélkül</span>
+                      <span>{uiText("Beszélgetés", "Discuss")}</span>
+                      <span className="text-xs text-bolt-elements-textSecondary">{uiText("Ötletelés, módosítások nélkül", "Explore ideas without changing files")}</span>
                     </div>
                   </DropdownMenu.Item>
                   <LovableHandoffItem draft={props.input} />

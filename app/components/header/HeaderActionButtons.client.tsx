@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { DeployButton } from '~/components/deploy/DeployButton';
 import { mediaExportOpen } from '~/lib/runtime/previewExport';
@@ -19,7 +20,7 @@ export function HeaderActionButtons({ chatStarted }: { chatStarted: boolean }) {
         className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-3 py-1.5 text-xs font-medium text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         <span aria-hidden="true" className="i-ph:download-simple" />
-        Kép vagy videó
+        {uiText("Kép vagy videó", "Image or video")}
       </button>
       <DeployButton />
     </div>

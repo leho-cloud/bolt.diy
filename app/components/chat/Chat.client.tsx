@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useChat } from '@ai-sdk/react';
 import { useStore } from '@nanostores/react';
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from 'ai';
@@ -100,19 +101,19 @@ function ChatLoading() {
   return (
     <div className="mx-auto mt-20 max-w-md rounded-xl border border-bolt-elements-borderColor p-6 text-bolt-elements-textPrimary">
       <p role="status" className="font-medium">
-        Beszélgetés és projekt betöltése…
+        {uiText("Beszélgetés és projekt betöltése…", "Loading conversation and project…")}
       </p>
       <p className="mt-3 text-sm text-bolt-elements-textSecondary">
         {slow
-          ? 'A projekt indítása a szokásosnál tovább tart. A mentett munkád megmarad. Újratöltheted az oldalt, vagy visszatérhetsz a kezdőlapra.'
-          : 'Visszaállítom a mentett beszélgetést és az oldal fájljait.'}
+          ? uiText("A projekt indítása a szokásosnál tovább tart. A mentett munkád megmarad. Újratöltheted az oldalt, vagy visszatérhetsz a kezdőlapra.", "The project is taking longer than usual to start. Your work is saved. Reload the page or return home.")
+          : uiText("Visszaállítom a mentett beszélgetést és az oldal fájljait.", "Restoring your saved conversation and files.")}
       </p>
       {slow && (
         <div className="mt-4 flex gap-4 text-sm">
           <button type="button" onClick={() => window.location.reload()}>
-            Újratöltés
+            {uiText("Újratöltés", "Reload")}
           </button>
-          <a href="/">Kezdőlap</a>
+          <a href="/">{uiText("Kezdőlap", "Home")}</a>
         </div>
       )}
     </div>
@@ -889,7 +890,7 @@ export const ChatImpl = memo(
         }
 
         let errorType: LlmErrorAlertType['errorType'] = 'unknown';
-        let title = 'A kérés nem fejeződött be';
+        let title = uiText("A kérés nem fejeződött be", "The request did not finish");
 
         if (
           errorInfo.statusCode === 401 ||
@@ -897,20 +898,20 @@ export const ChatImpl = memo(
           /HTTP 40[13]|api key/i.test(errorInfo.message)
         ) {
           errorType = 'authentication';
-          title = 'Az AI-kapcsolat ellenőrzést igényel';
+          title = uiText("Az AI-kapcsolat ellenőrzést igényel", "Check the AI connection");
         } else if (errorInfo.statusCode === 429 || errorInfo.message.toLowerCase().includes('rate limit')) {
           errorType = 'rate_limit';
-          title = 'Az AI-szolgáltató túlterhelt';
+          title = uiText("Az AI-szolgáltató túlterhelt", "The AI provider is overloaded");
         } else if (
           errorInfo.statusCode === 402 ||
           errorInfo.message.includes('HTTP 402') ||
           errorInfo.message.toLowerCase().includes('quota')
         ) {
           errorType = 'quota';
-          title = 'Az AI-szolgáltatás kerete ellenőrzést igényel';
+          title = uiText("Az AI-szolgáltatás kerete ellenőrzést igényel", "Check the AI provider allowance");
         } else if (errorInfo.statusCode >= 500) {
           errorType = 'network';
-          title = 'A készítés megszakadt';
+          title = uiText("A készítés megszakadt", "The build was interrupted");
         }
 
         logStore.logError(`${context} request failed`, error, {

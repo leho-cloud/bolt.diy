@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import type { ReactNode } from 'react';
 import type { ConnectorId } from '~/lib/stores/mcp';
@@ -40,7 +41,7 @@ export function AttachmentMenu({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          title="Csatolmány és kapcsolatok"
+          title={uiText("Csatolmány és kapcsolatok", "Attachments and connections")}
           className={classNames(
             'flex items-center text-bolt-elements-item-contentDefault bg-transparent',
             'hover:text-bolt-elements-item-contentActive rounded-md p-1',
@@ -81,7 +82,7 @@ export function AttachmentMenu({
             onSelect={onAttachFile}
           >
             <div className="i-ph:paperclip text-lg"></div>
-            <span>Fájl csatolása</span>
+            <span>{uiText("Fájl csatolása", "Attach file")}</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Item
@@ -95,7 +96,7 @@ export function AttachmentMenu({
             onSelect={onOpenDesignDialog}
           >
             <div className="i-ph:palette text-lg"></div>
-            <span>Színek és megjelenés</span>
+            <span>{uiText("Színek és megjelenés", "Colors and appearance")}</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Item
@@ -115,7 +116,7 @@ export function AttachmentMenu({
             ) : (
               <div className="i-bolt:stars text-lg"></div>
             )}
-            <span>Kérés pontosítása</span>
+            <span>{uiText("Kérés pontosítása", "Refine prompt")}</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator className="h-px bg-bolt-elements-borderColor my-1" />
@@ -161,7 +162,7 @@ export function AttachmentMenu({
                   )}
                 >
                   <div className="i-ph:magnifying-glass text-lg" />
-                  <span>Internetes keresés</span>
+                  <span>{uiText("Internetes keresés", "Web search")}</span>
                   <span
                     aria-label={webSearchEnabled ? 'Bekapcsolva' : 'Kikapcsolva'}
                     className={classNames(

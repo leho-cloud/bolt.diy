@@ -4,11 +4,13 @@ import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 import { useEffect } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, type LinksFunction } from 'react-router';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData, type LoaderFunctionArgs, type LinksFunction } from 'react-router';
 import { cssTransition, ToastContainer } from 'react-toastify';
 
 import reactToastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
 import { ClientOnly } from 'remix-utils/client-only';
+
+import { languageFromCookie } from '~/lib/common/localization/language.mjs';
 
 import 'virtual:uno.css';
 
@@ -75,8 +77,13 @@ const inlineThemeCode = stripIndents`
   }
 `;
 
+export function loader({ request }: LoaderFunctionArgs) {
+  return { language: languageFromCookie(request.headers.get('cookie')) };
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const theme = useStore(themeStore);
+  const language = useRouteLoaderData<typeof loader>('root')?.language ?? 'hu';
 
   useEffect(() => {
     const mode = theme === 'dark' || theme.startsWith('dark-') ? 'dark' : 'light';
@@ -87,7 +94,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // The theme script applies saved browser preferences before hydration.
   return (
     <html
-      lang="hu"
+      lang={language}
       suppressHydrationWarning
       data-theme={theme === 'dark' || theme.startsWith('dark-') ? 'dark' : 'light'}
       data-color-theme={theme === 'dark' ? 'dark-dracula' : theme}

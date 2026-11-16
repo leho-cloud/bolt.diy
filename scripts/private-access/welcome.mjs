@@ -1,3 +1,5 @@
+import { languageSwitchUrl, localized } from '../../app/lib/common/localization/language.mjs';
+
 const styles = `
 *{box-sizing:border-box}
 :root{color-scheme:dark;--surface:#121118;--text:#fbf7f8;--muted:#c0b7be;--line:#35303a;--accent:#ff5e82}
@@ -7,6 +9,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:5px}
 .shell{width:min(1120px,calc(100% - 80px));margin-inline:auto}
 header{border-bottom:1px solid var(--line)}
 .bar{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bar-actions{display:flex;align-items:center;gap:14px}.language{font-size:13px;color:var(--muted)}
 .brand{display:inline-flex;align-items:center;gap:11px;font-size:20px;font-weight:740;letter-spacing:-.04em}
 .brand small{display:block;font-size:10px;font-weight:650;letter-spacing:.12em;color:var(--muted)}
 .mark{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:#ca204a;color:#fff}
@@ -41,51 +44,55 @@ footer a:hover{text-decoration:underline}
 @media(max-width:470px){.bar{min-height:66px}.capability-list{grid-template-columns:1fr;gap:16px}.actions{gap:8px}.actions .button{padding-inline:12px}.preview{padding:10px}}
 `;
 
-export function welcomePage({ signedIn = false, registrationAvailable = true } = {}) {
+export function welcomePage({ signedIn = false, registrationAvailable = true, language = 'hu', path = '/' } = {}) {
+  const t = (hu, en) => localized(language, hu, en);
   const entry = signedIn ? '/muhely' : '/belepes';
-  const entryLabel = signedIn ? 'Műhely megnyitása' : 'Belépés';
+  const entryLabel = signedIn ? t('Műhely megnyitása', 'Open Műhely') : t('Belépés', 'Sign in');
   return `<!doctype html>
-<html lang="hu">
+<html lang="${language}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="description" content="A TZSVTAV Műhely alkotói felülete dizájnhoz, képhez, videóhoz, weboldalhoz és webalkalmazáshoz.">
+<meta name="description" content="${t("A TZSVTAV Műhely alkotói felülete dizájnhoz, képhez, videóhoz, weboldalhoz és webalkalmazáshoz.", "TZSVTAV Műhely is a workspace for designs, images, videos, websites and web apps.")}">
 <title>Műhely · TZSVTAV</title>
 <style>${styles}</style>
 </head>
 <body>
 <header>
   <div class="shell bar">
-    <a class="brand" href="/" aria-label="Műhely, nyitóoldal"><span class="mark" aria-hidden="true">T</span><span>Műhely <small>TZSVTAV</small></span></a>
-    <a class="button" href="${entry}">${entryLabel} <span aria-hidden="true">→</span></a>
+    <a class="brand" href="/" aria-label="${t("Műhely, nyitóoldal", "Műhely home")}"><span class="mark" aria-hidden="true">T</span><span>Műhely <small>TZSVTAV</small></span></a>
+    <nav class="bar-actions" aria-label="${t('Fő navigáció', 'Main navigation')}">
+      <a class="language" href="${languageSwitchUrl(language, path).replace('&', '&amp;')}" lang="${t('en', 'hu')}">${t('English', 'Magyar')}</a>
+      <a class="button" href="${entry}">${entryLabel} <span aria-hidden="true">→</span></a>
+    </nav>
   </div>
 </header>
 <main class="shell">
   <section class="hero" aria-labelledby="welcome-title">
     <div>
-      <h1 id="welcome-title">Az ötletedből <span>valami saját.</span></h1>
-      <p class="lead">Készíts dizájnt, képet, videót, weboldalt vagy alkalmazást. Írd le az ötleted, nézd meg az előnézetet, és alakítsd tovább.</p>
+      <h1 id="welcome-title">${t("Az ötletedből ", "Turn your idea into ")}<span>${t("valami saját.", "something of your own.")}</span></h1>
+      <p class="lead">${t("Készíts dizájnt, képet, videót, weboldalt vagy alkalmazást. Írd le az ötleted, nézd meg az előnézetet, és alakítsd tovább.", "Create a design, image, video, website or app. Describe your idea, preview the result and keep refining it.")}</p>
       <div class="actions">
         <a class="button primary" href="${entry}">${entryLabel} <span aria-hidden="true">→</span></a>
-        ${!signedIn && registrationAvailable ? '<a class="button" href="/regisztracio">Hozzáférés igénylése</a>' : ''}
+        ${!signedIn && registrationAvailable ? `<a class="button" href="/regisztracio">${t('Hozzáférés igénylése', 'Request access')}</a>` : ''}
       </div>
-      ${!signedIn && registrationAvailable ? '<p class="hint">A hozzáférés jóváhagyás után válik elérhetővé.</p>' : ''}
+      ${!signedIn && registrationAvailable ? `<p class="hint">${t('A hozzáférés jóváhagyás után válik elérhetővé.', 'You can sign in after your request is approved.')}</p>` : ''}
     </div>
     <div class="preview" aria-hidden="true">
       <div class="window">
-        <div class="window-head"><span class="dots"><i></i><i></i><i></i></span> Előnézet</div>
-        <div class="canvas"><small>Videóprojekt</small><strong>Jó ötlet. Saját forma.</strong></div>
+        <div class="window-head"><span class="dots"><i></i><i></i><i></i></span> ${t("Előnézet", "Preview")}</div>
+        <div class="canvas"><small>${t("Videóprojekt", "Video project")}</small><strong>${t("Jó ötlet. Saját forma.", "A good idea. Your own design.")}</strong></div>
         <div class="timeline"><i></i><i></i><i></i></div>
       </div>
     </div>
   </section>
   <section class="capabilities" aria-labelledby="capabilities-title">
-    <h2 id="capabilities-title">Mit készíthetsz a Műhelyben?</h2>
+    <h2 id="capabilities-title">${t("Mit készíthetsz a Műhelyben?", "What can you create in Műhely?")}</h2>
     <ul class="capability-list">
-      <li><h3>Dizájn és kép</h3><p>Látványterv, borítókép vagy egyedi grafika. Képexport PNG-ben vagy JPEG-ben.</p></li>
-      <li><h3>Videó</h3><p>Rakj össze jeleneteket, állítsd be a képméretet, és exportálj MP4-et.</p></li>
-      <li><h3>Weboldal és alkalmazás</h3><p>Indulj saját ötletből vagy kész alapból, és próbáld ki a projektet az előnézetben.</p></li>
+      <li><h3>${t("Dizájn és kép", "Design and images")}</h3><p>${t("Látványterv, borítókép vagy egyedi grafika. Képexport PNG-ben vagy JPEG-ben.", "Create mockups, cover images or custom graphics. Export images as PNG or JPEG.")}</p></li>
+      <li><h3>${t("Videó", "Video")}</h3><p>${t("Rakj össze jeleneteket, állítsd be a képméretet, és exportálj MP4-et.", "Build scenes, choose the frame size and export an MP4.")}</p></li>
+      <li><h3>${t("Weboldal és alkalmazás", "Websites and apps")}</h3><p>${t("Indulj saját ötletből vagy kész alapból, és próbáld ki a projektet az előnézetben.", "Start with your own idea or a template and try your project in the live preview.")}</p></li>
     </ul>
   </section>
 </main>

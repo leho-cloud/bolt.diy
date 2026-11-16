@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { AnimatePresence, cubicBezier, motion } from 'framer-motion';
 
 interface SendButtonProps {
@@ -15,9 +16,9 @@ export const SendButton = ({ show, isStreaming, disabled, onClick }: SendButtonP
     <AnimatePresence>
       {show ? (
         <motion.button
-          aria-label={isStreaming ? 'Művelet megszakítása' : 'Üzenet küldése'}
+          aria-label={isStreaming ? uiText("Művelet megszakítása", "Stop") : uiText("Üzenet küldése", "Send message")}
           type="button"
-          title={isStreaming ? 'Művelet megszakítása' : 'Üzenet küldése'}
+          title={isStreaming ? uiText("Művelet megszakítása", "Stop") : uiText("Üzenet küldése", "Send message")}
           className="muhely-send-button flex shrink-0 justify-center items-center p-1 bg-accent-500 hover:brightness-94 color-white rounded-md w-8 h-8 transition-theme disabled:opacity-50 disabled:cursor-not-allowed"
           transition={{ ease: customEasingFn, duration: 0.17 }}
           initial={{ opacity: 0, y: 10 }}

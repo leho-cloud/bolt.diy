@@ -1,10 +1,11 @@
+import { uiText } from '~/lib/common/localization/ui';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useToolAccessStore, type ToolAccessMode } from '~/lib/stores/toolAccess';
 import { classNames } from '~/utils/classNames';
 
 const MODES: Array<{ id: ToolAccessMode; label: string; description: string }> = [
-  { id: 'ask-for-all', label: 'Engedélykérés', description: 'Minden eszközművelet előtt jóváhagyást kér' },
-  { id: 'full-access', label: 'Automatikus végrehajtás', description: 'Eszközök futtatása külön jóváhagyás nélkül' },
+  { id: 'ask-for-all', label: uiText("Engedélykérés", "Ask for approval"), description: uiText("Minden eszközművelet előtt jóváhagyást kér", "Ask before running tools") },
+  { id: 'full-access', label: uiText("Automatikus végrehajtás", "Run automatically"), description: uiText("Eszközök futtatása külön jóváhagyás nélkül", "Run tools without asking each time") },
 ];
 
 export function ToolAccessMenu({ compact = false }: { compact?: boolean }) {
@@ -17,8 +18,8 @@ export function ToolAccessMenu({ compact = false }: { compact?: boolean }) {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          title={`Jóváhagyás: ${selectedMode.label}`}
-          aria-label={`Jóváhagyás: ${selectedMode.label}`}
+          title={`${uiText('Jóváhagyás', 'Approval')}: ${selectedMode.label}`}
+          aria-label={`${uiText('Jóváhagyás', 'Approval')}: ${selectedMode.label}`}
           className={classNames(
             'inline-flex items-center gap-1 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-3 px-2 py-1 text-xs transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bolt-elements-focus',

@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -94,7 +95,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
         }
       } catch (failure) {
         if (!controller.signal.aborted) {
-          setError(failure instanceof Error ? failure.message : 'A renderelés állapota nem érhető el.');
+          setError(failure instanceof Error ? failure.message : uiText("A renderelés állapota nem érhető el.", "Export status is unavailable."));
         }
       }
     }
@@ -113,7 +114,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
     try {
       await workbenchStore.downloadZip();
     } catch {
-      toast.error('A projekt letöltése nem sikerült.');
+      toast.error(uiText("A projekt letöltése nem sikerült.", "Could not download the project."));
     } finally {
       setZipBusy(false);
     }
@@ -127,7 +128,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
     const area = settings.width * settings.height;
 
     if (!Number.isFinite(area) || area > 4096 * 2160) {
-      setError('A kért méret meghaladja a renderelő 8 847 360 képpontos kapacitását.');
+      setError(uiText("A kért méret meghaladja a renderelő 8 847 360 képpontos kapacitását.", "The requested size exceeds the export limit of 8,847,360 pixels."));
       return;
     }
 
@@ -147,7 +148,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
       }
     } catch (failure) {
       if (!controller.signal.aborted) {
-        setError(failure instanceof Error ? failure.message : 'A renderelést nem sikerült elindítani.');
+        setError(failure instanceof Error ? failure.message : uiText("A renderelést nem sikerült elindítani.", "Could not start the export."));
       }
     } finally {
       submit.current = undefined;
@@ -165,7 +166,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
           disabled={zipBusy}
           className="flex shrink-0 items-center gap-1.5 rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-3 py-1.5 text-xs font-medium text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
         >
-          {zipBusy ? 'Mentés…' : 'Letöltés'}
+          {zipBusy ? uiText("Mentés…", "Saving…") : uiText("Letöltés", "Download")}
           <span className="i-ph:caret-down" />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
@@ -175,19 +176,19 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
             align="end"
           >
             <DropdownMenu.Item className={itemClass} onSelect={() => void downloadZip()}>
-              Projektfájlok (ZIP)
+              {uiText("Projektfájlok (ZIP)", "Project files (ZIP)")}
             </DropdownMenu.Item>
             <DropdownMenu.Item className={itemClass} onSelect={() => mediaExportOpen.set(true)}>
-              {job?.state === 'ready' ? 'Kész kép vagy videó letöltése' : 'Kép vagy videó készítése'}
+              {job?.state === 'ready' ? uiText("Kész kép vagy videó letöltése", "Download image or video") : uiText("Kép vagy videó készítése", "Export an image or video")}
             </DropdownMenu.Item>
             {projectId && (
               <DropdownMenu.Item asChild className={itemClass}>
-                <a href={`/fiokom?projekt=${encodeURIComponent(projectId)}#projektmemoria`}>Projektmemória</a>
+                <a href={`/fiokom?projekt=${encodeURIComponent(projectId)}#projektmemoria`}>{uiText("Projektmemória", "Project memory")}</a>
               </DropdownMenu.Item>
             )}
             {exportChat && (
               <DropdownMenu.Item className={itemClass} onSelect={exportChat}>
-                Beszélgetés exportálása
+                {uiText("Beszélgetés exportálása", "Export conversation")}
               </DropdownMenu.Item>
             )}
           </DropdownMenu.Content>
@@ -203,15 +204,15 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                 void startRender();
               }}
             >
-              <DialogTitle>Kép vagy videó készítése</DialogTitle>
-              <DialogDescription>Add meg a kész fájl pontos méretét képpontban.</DialogDescription>
+              <DialogTitle>{uiText("Kép vagy videó készítése", "Export an image or video")}</DialogTitle>
+              <DialogDescription>{uiText("Add meg a kész fájl pontos méretét képpontban.", "Enter the exact dimensions of the output file in pixels.")}</DialogDescription>
               <fieldset
                 disabled={creating || rendering}
                 className="grid grid-cols-2 gap-3 text-sm"
                 onChange={() => { manuallyConfigured.current = true; }}
               >
                 <label className="col-span-2 grid gap-1">
-                  Fájlformátum
+                  {uiText("Fájlformátum", "File format")}
                   <select
                     className={inputClass}
                     value={settings.format}
@@ -219,13 +220,13 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                       setSettings({ ...settings, format: event.target.value as MediaSettings['format'] })
                     }
                   >
-                    <option value="mp4">MP4-videó</option>
-                    <option value="png">PNG-kép</option>
-                    <option value="jpeg">JPEG-kép</option>
+                    <option value="mp4">{uiText("MP4-videó", "MP4 video")}</option>
+                    <option value="png">{uiText("PNG-kép", "PNG image")}</option>
+                    <option value="jpeg">{uiText("JPEG-kép", "JPEG image")}</option>
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  Szélesség (px)
+                  {uiText("Szélesség (px)", "Width (px)")}
                   <input
                     className={inputClass}
                     type="number"
@@ -238,7 +239,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                   />
                 </label>
                 <label className="grid gap-1">
-                  Magasság (px)
+                  {uiText("Magasság (px)", "Height (px)")}
                   <input
                     className={inputClass}
                     type="number"
@@ -253,7 +254,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                 {settings.format === 'mp4' && (
                   <>
                     <label className="grid gap-1">
-                      Videó hossza (másodperc)
+                      {uiText("Videó hossza (másodperc)", "Video length (seconds)")}
                       <input
                         className={inputClass}
                         type="number"
@@ -266,7 +267,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                       />
                     </label>
                     <label className="grid gap-1">
-                      Képkockasebesség
+                      {uiText("Képkockasebesség", "Frame rate")}
                       <select
                         className={inputClass}
                         value={settings.fps ?? 25}
@@ -287,10 +288,10 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
               {(creating || rendering) && (
                 <p role="status" className="text-sm">
                   {creating
-                    ? 'A projekt fordítása…'
+                    ? uiText("A projekt fordítása…", "Building the project…")
                     : job?.state === 'running'
-                      ? 'A fájl készül…'
-                      : 'Vár a renderelőre…'}
+                      ? uiText("A fájl készül…", "Rendering the file…")
+                      : uiText("Vár a renderelőre…", "Waiting to render…")}
                 </p>
               )}
               {(error || job?.state === 'failed') && (
@@ -298,14 +299,14 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                   {error || job?.error}
                 </p>
               )}
-              {streaming && <p className="text-sm">A renderelés a folyamatban lévő szerkesztés után indítható.</p>}
+              {streaming && <p className="text-sm">{uiText("A renderelés a folyamatban lévő szerkesztés után indítható.", "Export is available once the current edit finishes.")}</p>}
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
                   disabled={streaming || creating || rendering}
                   className="rounded-md bg-accent-500 px-3 py-2 text-sm text-white disabled:opacity-50"
                 >
-                  Fájl készítése
+                  {uiText("Fájl készítése", "Create file")}
                 </button>
                 {id && job?.state === 'ready' && (
                   <a
@@ -314,7 +315,7 @@ export function ExportChatButton({ exportChat, streaming }: { exportChat?: () =>
                     className="rounded-md border border-bolt-elements-borderColor px-3 py-2 text-sm"
                   >
                     {job.width} × {job.height}
-                    {job.format === 'mp4' && job.fps ? ` · ${job.fps} fps` : ''} · {job.format.toUpperCase()} letöltése
+                    {job.format === 'mp4' && job.fps ? ` · ${job.fps} fps` : ''} · {job.format.toUpperCase()} {uiText('letöltése', 'download')}
                   </a>
                 )}
               </div>

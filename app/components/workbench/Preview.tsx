@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -1209,8 +1210,8 @@ export const Preview = memo(({ selectedElement, setSelectedElement }: PreviewPro
             <div className="muhely-preview-empty flex w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary">
               <EmptyState
                 icon="i-ph:browser"
-                title="Itt kel életre az oldalad"
-                description="Írd le a bal oldali beszélgetésben, mit szeretnél készíteni. Az előnézet itt jelenik meg, amikor az oldal elindult."
+                title={uiText("Itt kel életre az oldalad", "Your project preview")}
+                description={uiText("Írd le a bal oldali beszélgetésben, mit szeretnél készíteni. Az előnézet itt jelenik meg, amikor az oldal elindult.", "Describe what you want to create in the chat. Your preview will appear here once the project starts.")}
                 className="max-w-sm"
               />
             </div>

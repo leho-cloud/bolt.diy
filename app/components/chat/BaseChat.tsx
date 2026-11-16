@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { UIMessage } from 'ai';
@@ -398,12 +399,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             {!chatStarted && (
               <div id="intro" className="muhely-intro">
                 <span className="muhely-eyebrow">
-                  <span className="i-ph:sparkle" /> A SAJÁT MŰHELYED
+                  <span className="i-ph:sparkle" /> {uiText("A SAJÁT MŰHELYED", "YOUR WORKSPACE")}
                 </span>
                 <h1>
-                  Mit szeretnél <span>készíteni?</span>
+                  {uiText("Mit szeretnél ", "What would you like to ")}<span>{uiText("készíteni?", "create?")}</span>
                 </h1>
-                <p>Írd le az ötleted. Készíthetsz dizájnt, képet, videót, weboldalt vagy alkalmazást.</p>
+                <p>{uiText("Írd le az ötleted. Készíthetsz dizájnt, képet, videót, weboldalt vagy alkalmazást.", "Describe your idea. Create a design, image, video, website or app.")}</p>
               </div>
             )}
             <StickToBottom
@@ -524,7 +525,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
               {!chatStarted && (
                 <details className="muhely-import">
                   <summary>
-                    <span className="i-ph:folder-simple-arrow-up" /> Már van kész projekted? <span>Hozd magaddal</span>
+                    <span className="i-ph:folder-simple-arrow-up" /> {uiText("Már van kész projekted? ", "Already have a project? ")}<span>{uiText("Hozd magaddal", "Import it")}</span>
                   </summary>
                   <div className="muhely-import-actions flex justify-center gap-2">
                     <ImportFolderButton
@@ -600,7 +601,7 @@ function ScrollToBottom() {
           className="sticky z-50 bottom-0 left-0 right-0 text-4xl rounded-lg px-1.5 py-0.5 flex items-center justify-center mx-auto gap-2 bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor text-bolt-elements-textPrimary text-sm"
           onClick={() => scrollToBottom()}
         >
-          Legutóbbi üzenet
+          {uiText("Legutóbbi üzenet", "Latest message")}
           <span className="i-ph:arrow-down animate-bounce" />
         </button>
       </>

@@ -39,6 +39,7 @@ import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
 import { getStarterBuildProgress } from '~/lib/common/starterBuild';
 import { visualReviewModelOutput } from '~/lib/common/visualReview';
 import { websiteWorkflowInstructions } from '~/lib/common/websiteWorkflow';
+import { languageFromCookie } from '~/lib/common/localization/language.mjs';
 import { readWorkspaceContext, workspaceInstructions } from '~/lib/common/workspacePreferences';
 import { createMessage, getMessageText } from '~/lib/persistence/messageMigration';
 import { getPluginToolDescriptions, getPluginTools } from '~/lib/plugins/adapters';
@@ -455,6 +456,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
         };
 
         const options: Omit<StreamingOptions, 'messages'> = {
+          responseLanguage: languageFromCookie(request.headers.get('cookie')),
           supabaseConnection: supabase,
           system: [
             getWebResearchInstructions({

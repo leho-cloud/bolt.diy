@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { useEffect, useRef, useState } from 'react';
 import { buildStatus, formatBuildDuration } from './build-status-state';
@@ -91,8 +92,8 @@ export function BuildStatus({
           className="muhely-build-time"
           role="timer"
           aria-live="off"
-          aria-label="Eltelt idő"
-          title="A mostani kérés teljes ideje"
+          aria-label={uiText("Eltelt idő", "Elapsed time")}
+          title={uiText("A mostani kérés teljes ideje", "Time elapsed for this request")}
         >
           <span aria-hidden="true" className="i-ph:clock" />
           {formatBuildDuration(elapsed)}

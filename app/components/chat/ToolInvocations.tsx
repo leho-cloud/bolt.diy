@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useMemo, useState, useEffect, useRef, createContext, useContext } from 'react';
@@ -535,21 +536,21 @@ function activityLabel(toolName: string, rawInput: unknown, rawOutput?: unknown,
 
   switch (toolName) {
     case 'project_render_media':
-      return state === 'output-available' ? 'A fájl renderelése elindult' : 'Előkészítem a fájlt a rendereléshez…';
+      return state === 'output-available' ? uiText("A fájl renderelése elindult", "Rendering started") : uiText("Előkészítem a fájlt a rendereléshez…", "Preparing the file to render…");
     case 'website_reference':
-      return state === 'output-available' ? 'A mintaoldal képe és szerkezete beolvasva' : 'Mintaoldal beolvasása…';
+      return state === 'output-available' ? uiText("A mintaoldal képe és szerkezete beolvasva", "Reference site screenshot and layout captured") : uiText("Mintaoldal beolvasása…", "Reading the reference site…");
     case 'website_tools_status':
-      return 'Külső eszközök elérhetőségének ellenőrzése';
+      return uiText("Külső eszközök elérhetőségének ellenőrzése", "Checking external tool availability");
     case 'project_visual_review':
       return state === 'output-available'
-        ? 'Képi megjelenésellenőrzés elkészült'
-        : 'Az oldal megjelenésének ellenőrzése…';
+        ? uiText("Képi megjelenésellenőrzés elkészült", "Visual review complete")
+        : uiText("Az oldal megjelenésének ellenőrzése…", "Reviewing the design…");
     case 'project_preview_report':
       return state === 'output-available'
-        ? 'Asztali és telefonos nézet ellenőrizve'
-        : 'Az asztali és telefonos nézet ellenőrzése…';
+        ? uiText("Asztali és telefonos nézet ellenőrizve", "Desktop and mobile previews checked")
+        : uiText("Az asztali és telefonos nézet ellenőrzése…", "Checking desktop and mobile previews…");
     case 'project_quality_report':
-      return state === 'output-available' ? 'Forrásellenőrzés elkészült' : 'A kód ellenőrzése…';
+      return state === 'output-available' ? uiText("Forrásellenőrzés elkészült", "Source check complete") : uiText("A kód ellenőrzése…", "Checking the code…");
     case 'agent_plan':
       return 'Plan and completion criteria recorded';
     case 'agent_complete':
@@ -663,7 +664,7 @@ function MediaRenderJob({ id }: { id: string }) {
         }
       } catch (failure) {
         if (!controller.signal.aborted) {
-          setError(failure instanceof Error ? failure.message : 'A renderelés állapota nem érhető el.');
+          setError(failure instanceof Error ? failure.message : uiText("A renderelés állapota nem érhető el.", "Render status is unavailable."));
         }
       }
     }
@@ -680,12 +681,12 @@ function MediaRenderJob({ id }: { id: string }) {
     <div className="ml-7 mt-2 text-xs" role="status">
       {state?.state === 'ready' ? (
         <a className="font-semibold underline" href={mediaDownloadUrl(id)} download>
-          {state.format.toUpperCase()} letöltése · {state.width} × {state.height}
+          {state.format.toUpperCase()} {uiText('letöltése', 'download')} · {state.width} × {state.height}
         </a>
       ) : error || state?.state === 'failed' ? (
-        <p className="break-words text-red-500">{error || state?.error || 'A fájl renderelése sikertelen.'}</p>
+        <p className="break-words text-red-500">{error || state?.error || uiText("A fájl renderelése sikertelen.", "Could not render the file.")}</p>
       ) : (
-        <p>{state?.state === 'running' ? 'A fájl renderelése folyamatban…' : 'A fájl a renderelésre vár…'}</p>
+        <p>{state?.state === 'running' ? uiText("A fájl renderelése folyamatban…", "Rendering the file…") : uiText("A fájl a renderelésre vár…", "Waiting to render…")}</p>
       )}
     </div>
   );
@@ -706,8 +707,8 @@ function VisualReviewDetails({ tool }: { tool: AnyPart }) {
 
   return (
     <details className="ml-7 mt-1 text-xs text-bolt-elements-textSecondary">
-      <summary className="cursor-pointer">Megvizsgált képek és észrevételek</summary>
-      <p className="my-2">Az előnézet képi exportja. Az űrlapértékek kitakarva; a videó poszterképként jelenhet meg.</p>
+      <summary className="cursor-pointer">{uiText("Megvizsgált képek és észrevételek", "Reviewed images and notes")}</summary>
+      <p className="my-2">{uiText("Az előnézet képi exportja. Az űrlapértékek kitakarva; a videó poszterképként jelenhet meg.", "Captured preview images. Form values are hidden, and videos may appear as still images.")}</p>
       <div className="flex items-start gap-2 overflow-x-auto">
         {output.images.map(
           ({ device, image }) =>
@@ -716,7 +717,7 @@ function VisualReviewDetails({ tool }: { tool: AnyPart }) {
               <img
                 key={device}
                 src={image}
-                alt={device === 'desktop' ? 'Megvizsgált asztali nézet' : 'Megvizsgált telefonos nézet'}
+                alt={device === 'desktop' ? uiText("Megvizsgált asztali nézet", "Reviewed desktop preview") : uiText("Megvizsgált telefonos nézet", "Reviewed mobile preview")}
                 className="h-auto shrink-0 max-w-[70%] rounded border border-bolt-elements-borderColor object-contain"
               />
             ),

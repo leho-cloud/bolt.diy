@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -85,7 +86,7 @@ function PublishDialog({
 
         if (result.state === 'failed') {
           setStage('failed');
-          setError('A szerveres telepítés megszakadt. Újraindíthatod a közzétételt.');
+          setError(uiText("A szerveres telepítés megszakadt. Újraindíthatod a közzétételt.", "Publishing was interrupted. You can try again."));
 
           return;
         }
@@ -101,7 +102,7 @@ function PublishDialog({
         timer = setTimeout(() => void check(), 4000);
       } else {
         setStage('failed');
-        setError('A szerver még nem igazolta vissza, hogy az oldal megnyitható. Ellenőrizd később az elérhetőséget.');
+        setError(uiText("A szerver még nem igazolta vissza, hogy az oldal megnyitható. Ellenőrizd később az elérhetőséget.", "The server has yet to confirm the site is live. Check the public address again later."));
       }
     }
 
@@ -137,7 +138,7 @@ function PublishDialog({
       const result = (await response.json()) as Partial<Deployment> & { error?: string };
 
       if (!response.ok || !result.deploymentId || !result.domain || !result.digest) {
-        throw new Error(result.error || 'A közzététel nem indult el.');
+        throw new Error(result.error || uiText("A közzététel nem indult el.", "Publishing could not start."));
       }
 
       setDeployment({ deploymentId: result.deploymentId, domain: result.domain, digest: result.digest, slug });
@@ -147,7 +148,7 @@ function PublishDialog({
       setError(
         error instanceof Error && error.name !== 'TimeoutError'
           ? error.message
-          : 'A közzététel túllépte a várakozási időt.',
+          : uiText("A közzététel túllépte a várakozási időt.", "Publishing timed out."),
       );
     }
   }
@@ -155,22 +156,22 @@ function PublishDialog({
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
-        <button type="button" className={actionClass} disabled={disabled} title="Közzététel a TZSVTAV szerverén">
+        <button type="button" className={actionClass} disabled={disabled} title={uiText("Közzététel a TZSVTAV szerverén", "Publish on the TZSVTAV server")}>
           <span aria-hidden="true" className="i-ph:globe-hemisphere-west" />
-          Közzététel
+          {uiText("Közzététel", "Publish")}
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[300] bg-black/65" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[301] w-[min(94vw,30rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-5 text-bolt-elements-textPrimary shadow-xl">
-          <Dialog.Title className="text-lg font-semibold">Közzététel saját szerveren</Dialog.Title>
+          <Dialog.Title className="text-lg font-semibold">{uiText("Közzététel saját szerveren", "Publish to your server")}</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-bolt-elements-textSecondary">
-            A projekt kész fájljai nyilvánosan megnyithatók lesznek az alábbi címen.
+            {uiText("A projekt kész fájljai nyilvánosan megnyithatók lesznek az alábbi címen.", "Your published project will be publicly accessible at this address.")}
           </Dialog.Description>
           <form onSubmit={publish} className="mt-5 space-y-4">
             <div>
               <label htmlFor="bolt-publish-slug" className="block text-sm font-medium">
-                Webcím
+                {uiText("Webcím", "Web address")}
               </label>
               <input
                 id="bolt-publish-slug"
@@ -191,10 +192,10 @@ function PublishDialog({
             {busy && (
               <p role="status" className="text-sm">
                 {stage === 'building'
-                  ? 'A projekt fordítása…'
+                  ? uiText("A projekt fordítása…", "Building the project…")
                   : stage === 'checking'
-                    ? 'A nyilvános cím ellenőrzése…'
-                    : 'Telepítés a szerverre…'}
+                    ? uiText("A nyilvános cím ellenőrzése…", "Checking the public address…")
+                    : uiText("Telepítés a szerverre…", "Deploying to the server…")}
               </p>
             )}
             {error && (
@@ -210,15 +211,15 @@ function PublishDialog({
                 className="block text-sm font-medium underline"
                 role="status"
               >
-                Az oldal megnyitása ↗
+                {uiText("Az oldal megnyitása ↗", "Open website ↗")}
               </a>
             )}
             <div className="flex flex-wrap justify-end gap-2">
               <Dialog.Close className="rounded-md px-3 py-1.5 text-sm text-bolt-elements-textSecondary hover:bg-bolt-elements-background-depth-3">
-                Bezárás
+                {uiText("Bezárás", "Close")}
               </Dialog.Close>
               <button type="submit" disabled={busy || disabled || !slugPattern.test(slug)} className={actionClass}>
-                {stage === 'ready' ? 'Új verzió közzététele' : 'Közzététel indítása'}
+                {stage === 'ready' ? uiText("Új verzió közzététele", "Publish new version") : uiText("Közzététel indítása", "Start publishing")}
               </button>
             </div>
           </form>

@@ -1,3 +1,4 @@
+import { languageCookieName, languageFromCookie, localized } from '../../app/lib/common/localization/language.mjs';
 import { join } from 'node:path';
 import { createRenderQueue } from '../render/queue.mjs';
 import { bundlePrefix, createPublisher, publishPath } from './publish.mjs';
@@ -115,6 +116,25 @@ export async function createAccessGate(directory, options = {}) {
     async handle(request) {
       const url = new URL(request.url), path = url.pathname, raw = sessionToken(request);
       const actor = store.session(raw);
+      const language = languageFromCookie(request.headers.get('cookie'));
+      const pathWithSearch = path + url.search;
+      const localization = { language, path: pathWithSearch };
+
+      if (path === '/nyelv' && request.method === 'GET') {
+        const choice = url.searchParams.get('lang') === 'en' ? 'en' : 'hu';
+        const next = url.searchParams.get('next') || '/';
+        let target = '/';
+        if (next.startsWith('/') && !next.startsWith('//') && !/[\\\r\n]/.test(next)) {
+          const destination = new URL(next, url.origin);
+          if (destination.origin === url.origin && destination.pathname !== '/nyelv')
+            target = destination.pathname + destination.search + destination.hash;
+        }
+        const response = redirect(target);
+        response.headers.append('Set-Cookie',
+          `${languageCookieName}=${choice}; Path=/; Max-Age=31536000; SameSite=Lax${url.protocol === 'https:' ? '; Secure' : ''}`,
+        );
+        return response;
+      }
       const mutating = !['GET', 'HEAD'].includes(request.method);
       if (mutating && request.headers.get('origin') !== url.origin)
         return json(403, { error: 'Idegen oldalról érkező kérés nem engedélyezett.' });
@@ -132,12 +152,12 @@ export async function createAccessGate(directory, options = {}) {
             })
           : json(401, { error: 'Jelentkezz be a Műhelybe.' });
       if (['/', '/nyito'].includes(path) && ['GET', 'HEAD'].includes(request.method))
-        return html(welcomePage({ signedIn: Boolean(actor), registrationAvailable: store.ready() }));
+        return html(welcomePage({ signedIn: Boolean(actor), registrationAvailable: store.ready(), ...localization }));
       if (path === '/belepes') {
         if (request.method === 'GET')
           return actor
             ? redirect(safeDestination(url.searchParams.get('next')))
-            : html(loginPage(safeDestination(url.searchParams.get('next')), '', store.ready()));
+            : html(loginPage(safeDestination(url.searchParams.get('next')), '', store.ready(), localization));
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
         let next = '/muhely';
         try {
@@ -154,7 +174,7 @@ export async function createAccessGate(directory, options = {}) {
           return redirect(next, result.secret);
         } catch (error) {
           return html(
-            loginPage(next, error.status ? error.message : 'A belépés most nem sikerült. Próbáld újra.', store.ready()),
+            loginPage(next, error.status ? error.message : 'A belépés most nem sikerült. Próbáld újra.', store.ready(), localization),
             error.status || 503,
           );
         }
@@ -162,7 +182,7 @@ export async function createAccessGate(directory, options = {}) {
       if (path === '/regisztracio') {
         if (request.method === 'GET')
           return html(
-            registrationPage({ received: url.searchParams.get('allapot') === 'beerkezett', ready: store.ready() }),
+            registrationPage({ received: url.searchParams.get('allapot') === 'beerkezett', ready: store.ready(), ...localization }),
           );
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
         if (actor) return redirect('/fiokom');
@@ -185,6 +205,7 @@ export async function createAccessGate(directory, options = {}) {
         } catch (error) {
           return html(
             registrationPage({
+              ...localization,
               values,
               ready: store.ready(),
               error: error.status ? error.message : 'A kérelem most nem küldhető el. Próbáld újra később.',
@@ -221,11 +242,13 @@ export async function createAccessGate(directory, options = {}) {
       }
       if (path === '/api/media-render') return render(request, actor);
       if (path === '/kijelentkezes') {
+        const label = localized(language, 'Kijelentkezés', 'Sign out');
         if (request.method !== 'POST')
           return html(
             page(
-              'Kijelentkezés',
-              '<main><section class="card"><h1>Kijelentkezés</h1><form action="/kijelentkezes" method="post"><button class="primary">Kijelentkezés</button></form></section></main>',
+              label,
+              `<main><section class="card"><h1>${label}</h1><form action="/kijelentkezes" method="post"><button class="primary">${label}</button></form></section></main>`,
+              localization,
             ),
           );
         await store.logout(raw);
@@ -235,7 +258,7 @@ export async function createAccessGate(directory, options = {}) {
         const project = workspaceProjectId(url.searchParams.get('projekt'));
         const destination = project ? '/fiokom?projekt=' + encodeURIComponent(project) : '/fiokom';
         const account = (error = '', status = 200, notice = '') =>
-          html(accountPage(actor, error, { ...store.workspace(actor, project), project, notice }), status);
+          html(accountPage(actor, error, { ...store.workspace(actor, project), project, notice, ...localization }), status);
         if (request.method === 'GET')
           return account('', 200, url.searchParams.get('mentve') === '1' ? 'A beállítások mentve.' : '');
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
@@ -272,7 +295,7 @@ export async function createAccessGate(directory, options = {}) {
             jovahagyva: 'A fiókot jóváhagytad. A jelentkező már beléphet a saját jelszavával.',
             elutasitva: 'A regisztrációs kérelmet elutasítottad.',
           }[url.searchParams.get('allapot')];
-          return html(accessPage(actor, store.list(actor), null, '', typeof notice === 'string' ? notice : ''));
+          return html(accessPage(actor, store.list(actor), null, '', typeof notice === 'string' ? notice : '', localization));
         }
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
         try {
@@ -288,10 +311,10 @@ export async function createAccessGate(directory, options = {}) {
             return redirect('/hozzaferesek?allapot=' + (approve ? 'jovahagyva' : 'elutasitva'));
           } else if (data.get('action') === 'revoke') await store.revoke(actor, data.get('username'));
           else throw Object.assign(Error('Ismeretlen művelet.'), { status: 400 });
-          return html(accessPage(actor, store.list(actor), invitation));
+          return html(accessPage(actor, store.list(actor), invitation, '', '', localization));
         } catch (error) {
           return html(
-            accessPage(actor, store.list(actor), null, error.status ? error.message : 'A módosítás most nem menthető.'),
+            accessPage(actor, store.list(actor), null, error.status ? error.message : 'A módosítás most nem menthető.', '', localization),
             error.status || 503,
           );
         }

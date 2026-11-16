@@ -1,3 +1,4 @@
+import { uiText } from '~/lib/common/localization/ui';
 import { getAgentLoopProgress } from '~/lib/common/agentLoop';
 import {
   getMessageParts,
@@ -16,71 +17,71 @@ function workingPhase(parts: unknown[]) {
   const state = getToolState(latest);
 
   if (state === 'output-error' || output?.isError === true) {
-    return 'Ellenőrzöm, miért akadt el a lépés…';
+    return uiText("Ellenőrzöm, miért akadt el a lépés…", "Checking why this step stopped…");
   }
 
   // A completed old tool is not evidence that this phase is still running.
   if (state === 'output-available' && output?.status !== 'running') {
-    return 'Dolgozom az oldaladon…';
+    return uiText("Dolgozom az oldaladon…", "Working on your project…");
   }
 
   if (name === 'agent_plan') {
-    return 'Megtervezem az oldalt…';
+    return uiText("Megtervezem az oldalt…", "Planning your project…");
   }
 
   if (name === 'website_reference') {
-    return 'Beolvasom a mintaoldalt…';
+    return uiText("Beolvasom a mintaoldalt…", "Reading the reference site…");
   }
 
   if (name?.startsWith('design_21st_')) {
-    return 'Összeállítom a megjelenést…';
+    return uiText("Összeállítom a megjelenést…", "Preparing the design…");
   }
 
   if (['project_write_file', 'project_patch_file'].includes(name ?? '')) {
-    return 'Írom az oldal kódját…';
+    return uiText("Írom az oldal kódját…", "Writing your code…");
   }
 
   if (['project_read_file', 'project_list_paths', 'project_search_content'].includes(name ?? '')) {
-    return 'Átnézem az oldal fájljait…';
+    return uiText("Átnézem az oldal fájljait…", "Inspecting your files…");
   }
 
   if (name === 'project_render_media') {
-    return 'Előkészítem a letölthető fájlt…';
+    return uiText("Előkészítem a letölthető fájlt…", "Preparing the export…");
   }
 
   if (name === 'project_visual_review') {
-    return 'Átnézem az oldal megjelenését…';
+    return uiText("Átnézem az oldal megjelenését…", "Reviewing the design…");
   }
 
   if (name === 'project_preview_report') {
-    return 'Ellenőrzöm az asztali és telefonos nézetet…';
+    return uiText("Ellenőrzöm az asztali és telefonos nézetet…", "Checking desktop and mobile previews…");
   }
 
   if (name === 'project_quality_report') {
-    return 'Ellenőrzöm a kódot…';
+    return uiText("Ellenőrzöm a kódot…", "Checking the code…");
   }
 
   if (name === 'agent_complete') {
-    return 'Lezárom az ellenőrzést…';
+    return uiText("Lezárom az ellenőrzést…", "Finishing the checks…");
   }
 
   if (name === 'project_run_command' || name === 'project_get_process_output') {
     const purpose = output?.purpose ?? input?.purpose;
 
     if (purpose === 'test') {
-      return 'Ellenőrzöm az oldal működését…';
+      return uiText("Ellenőrzöm az oldal működését…", "Testing the project…");
     }
 
     if (purpose === 'install') {
-      return 'Előkészítem az oldalt…';
+      return uiText("Előkészítem az oldalt…", "Preparing the project…");
     }
 
     if (purpose === 'run') {
-      return 'Indítom az előnézetet…';
+      return uiText("Indítom az előnézetet…", "Starting the preview…");
     }
   }
 
-  return 'Dolgozom az oldaladon…';
+  return uiText("Dolgozom az oldaladon…", "Working on your project…");
 }
 
 export function buildStatus(
@@ -95,18 +96,18 @@ export function buildStatus(
   const parts = messages.slice(lastUser + 1).flatMap((message) => getMessageParts(message) ?? []);
 
   if (parts.some((part) => getToolState(part) === 'approval-requested')) {
-    return { kind: 'waiting', text: 'A jóváhagyásodra várok.' };
+    return { kind: 'waiting', text: uiText("A jóváhagyásodra várok.", "Waiting for approval.") };
   }
 
   if (active) {
     const repair = repairEnabled ? getAgentLoopProgress(messages, true, repairRounds).automaticRepair : undefined;
 
     if (repair?.phase === 'fixing') {
-      return { kind: 'working', text: 'Automatikus javítás folyik…' };
+      return { kind: 'working', text: uiText("Automatikus javítás folyik…", "Applying an automatic fix…") };
     }
 
     if (repair?.phase === 'checking') {
-      return { kind: 'working', text: 'Újraellenőrzöm a javítást…' };
+      return { kind: 'working', text: uiText("Újraellenőrzöm a javítást…", "Verifying the fix…") };
     }
 
     return { kind: 'working', text: workingPhase(parts) };
@@ -124,20 +125,20 @@ export function buildStatus(
     return {
       kind: 'blocked',
       text: preview
-        ? 'A készítés megállt · az előnézet megnyitható.'
-        : 'A készítés megállt · a részletek a beszélgetésben láthatók.',
+        ? uiText("A készítés megállt · az előnézet megnyitható.", "The build stopped · Preview is available.")
+        : uiText("A készítés megállt · a részletek a beszélgetésben láthatók.", "The build stopped · See the conversation for details."),
     };
   }
 
   if (completed && preview) {
-    return { kind: 'ready', text: 'Elkészült · az előnézet kipróbálható.' };
+    return { kind: 'ready', text: uiText("Elkészült · az előnézet kipróbálható.", "Ready · Try the preview.") };
   }
 
   if (preview) {
-    return { kind: 'idle', text: 'Most nem dolgozom · az előnézet megnyitható.' };
+    return { kind: 'idle', text: uiText("Most nem dolgozom · az előnézet megnyitható.", "Idle · Preview is available.") };
   }
 
-  return { kind: 'idle', text: 'Most nem dolgozom · még nincs futó előnézet.' };
+  return { kind: 'idle', text: uiText("Most nem dolgozom · még nincs futó előnézet.", "Idle · No preview running.") };
 }
 
 export function formatBuildDuration(milliseconds: number) {

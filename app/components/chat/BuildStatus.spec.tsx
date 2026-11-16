@@ -5,6 +5,8 @@ import { BuildStatus } from './BuildStatus';
 import type { AnyMessage } from '~/lib/persistence/messageMigration';
 
 vi.mock('~/lib/stores/workbench', () => ({ workbenchStore: { previews: atom([]) } }));
+vi.mock('~/lib/persistence/useChatHistory', () => ({ chatId: atom(undefined) }));
+vi.mock('~/lib/hooks/useWorkspacePreferences', () => ({ useWorkspacePreferences: () => undefined }));
 
 const user: AnyMessage = { id: 'task-one', role: 'user', parts: [{ type: 'text', text: 'Készíts oldalt' }] };
 

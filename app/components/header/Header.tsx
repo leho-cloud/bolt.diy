@@ -1,3 +1,6 @@
+import { useLocation } from 'react-router';
+import { languageSwitchUrl } from '~/lib/common/localization/language.mjs';
+import { uiLanguage, uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
@@ -8,6 +11,7 @@ import { classNames } from '~/utils/classNames';
 
 export function Header() {
   const chat = useStore(chatStore);
+  const { pathname, search, hash } = useLocation();
 
   return (
     <header
@@ -19,7 +23,7 @@ export function Header() {
       <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
         <button
           type="button"
-          aria-label="Projektek megnyitása"
+          aria-label={uiText('Projektek megnyitása', 'Open projects')}
           className="muhely-header-icon"
           onClick={() => document.dispatchEvent(new Event('open-muhely-menu'))}
         >
@@ -36,9 +40,9 @@ export function Header() {
         </a>
       </div>
       {!chat.started && (
-        <nav className="muhely-header-nav max-[400px]:hidden" aria-label="Fő navigáció">
-          <a href="#sajat-projektek">Projektjeim</a>
-          <a href="#kesz-alapok">Kész alapok</a>
+        <nav className="muhely-header-nav max-[400px]:hidden" aria-label={uiText('Fő navigáció', 'Main navigation')}>
+          <a href="#sajat-projektek">{uiText('Projektjeim', 'My projects')}</a>
+          <a href="#kesz-alapok">{uiText('Kész alapok', 'Templates')}</a>
           <ClientOnly>{() => <ThemeSwitch />}</ClientOnly>
         </nav>
       )}
@@ -56,17 +60,24 @@ export function Header() {
           </ClientOnly>
         </>
       )}
-      <nav className="ml-auto flex shrink-0 items-center gap-1" aria-label="Fiók">
-        <a href="/fiokom" className="muhely-header-icon" aria-label="Fiókom" title="Fiókom">
+      <nav className="ml-auto flex shrink-0 items-center gap-1" aria-label={uiText('Fiók', 'Account')}>
+        <a
+          className="px-2 text-xs text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
+          href={languageSwitchUrl(uiLanguage(), pathname + search + hash)}
+          lang={uiText('en', 'hu')}
+        >
+          {uiText('English', 'Magyar')}
+        </a>
+        <a href="/fiokom" className="muhely-header-icon" aria-label={uiText('Fiókom', 'My account')} title={uiText('Fiókom', 'My account')}>
           <span className="i-ph:user-circle text-lg" aria-hidden="true" />
         </a>
         <a
           href="/kijelentkezes"
           className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
-          title="Kijelentkezés"
+          title={uiText('Kijelentkezés', 'Sign out')}
         >
           <span className="i-ph:sign-out text-base" aria-hidden="true" />
-          <span className="sr-only sm:not-sr-only">Kijelentkezés</span>
+          <span className="sr-only sm:not-sr-only">{uiText('Kijelentkezés', 'Sign out')}</span>
         </a>
       </nav>
     </header>
