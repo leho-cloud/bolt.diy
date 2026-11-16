@@ -16,7 +16,7 @@ export async function createSummary(props: {
   providerSettings?: Record<string, IProviderSetting>;
   promptId?: string;
   contextOptimization?: boolean;
-  onFinish?: (resp: Awaited<ReturnType<typeof generateText>>) => void;
+  onFinish?: (resp: Awaited<ReturnType<typeof generateText>>) => void | Promise<void>;
 }) {
   const { messages, env: serverEnv, onFinish } = props;
 
@@ -189,7 +189,7 @@ Please provide a summary of the chat till now including the hitorical summary of
   const response = resp.text;
 
   if (onFinish) {
-    onFinish(resp);
+    await onFinish(resp);
   }
 
   return response;

@@ -1,3 +1,4 @@
+import { createCreditMeter } from '~/lib/.server/api/credit-meter';
 import type { ActionFunctionArgs } from 'react-router';
 import { toApiErrorResponse, ValidationError } from '~/lib/.server/api/errors';
 import { readJsonBody } from '~/lib/.server/api/read-body';
@@ -24,7 +25,7 @@ async function visualReviewAction({ request, context }: ActionFunctionArgs) {
 
     const env = { ...process.env, ...((context.cloudflare?.env as unknown as Record<string, string>) ?? {}) };
 
-    return Response.json(await reviewVisualImages(body.data, env, request.signal));
+    return Response.json(await reviewVisualImages(body.data, env, request.signal, fetch, createCreditMeter(request)));
   } catch (error) {
     return toApiErrorResponse(error);
   }

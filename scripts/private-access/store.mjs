@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, unlink, chmod } from 'node:fs/promi
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
+import { addCredits, creditAccount, paidCheckoutCreditGrant, recordCreditUsage } from './credits.mjs';
 import { workspaceDefaults } from './workspace-preferences.mjs';
 
 const derive = promisify(scrypt);
@@ -112,6 +113,37 @@ export async function openPrivateAccess(directory, { now = Date.now } = {}) {
     return { secret, user: publicUser(user) };
   }
   return {
+    credits(actor) {
+      return creditAccount(state.users.find((entry) => entry.id === actor.id));
+    },
+    async recordUsage(accountId, requestId, total) {
+      return transaction((next) => {
+        const user = next.users.find((entry) => entry.id === accountId);
+        if (!user) return false;
+        recordCreditUsage(user, requestId, total, now());
+        return true;
+      });
+    },
+    async grantCredits(owner, username, credits, receipt) {
+      if (owner?.role !== 'owner') throw fail('Ehhez tulajdonosi hozzáférés szükséges.', 403);
+      if (typeof receipt !== 'string' || !/^[a-f0-9-]{36}$/.test(receipt))
+        throw fail('A jóváírási űrlap lejárt. Nyisd meg újra a felületet.');
+      if (!Number.isSafeInteger(credits) || credits < 1 || credits > 1_000_000)
+        throw fail('Adj meg egy egész kreditmennyiséget 1 és 1 000 000 között.');
+      return transaction((next) => {
+        const user = next.users.find((entry) => entry.username === username && !entry.disabled);
+        if (!user) throw fail('A felhasználói fiók nem érhető el.', 404);
+        addCredits(user, credits, 'manual:' + receipt);
+      });
+    },
+    async fulfillPaidCheckout(session, creditsByPrice) {
+      const grant = paidCheckoutCreditGrant(session, creditsByPrice);
+      if (!grant) return false;
+      return transaction((next) => {
+        const user = next.users.find((entry) => entry.id === grant.accountId);
+        return user ? addCredits(user, grant.credits, grant.receipt) : false;
+      });
+    },
     workspace(actor, project) {
       const user = state.users.find((entry) => entry.id === actor.id && !entry.disabled);
       const preferences = user?.workspacePreferences || workspaceDefaults;

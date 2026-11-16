@@ -1,3 +1,4 @@
+import { createCreditMeter } from '~/lib/.server/api/credit-meter';
 import {
   createUIMessageStreamResponse,
   generateId,
@@ -85,6 +86,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     connectorEnabled,
   } = body;
 
+  const recordUsage = createCreditMeter(request);
   const messages = asMessages(body.messages);
   const starterBuild = chatMode === 'build' ? getStarterBuildProgress(messages) : getStarterBuildProgress([]);
   const agentLoopEnabled = chatMode === 'build';
@@ -220,7 +222,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             providerSettings,
             promptId,
             contextOptimization,
-            onFinish(resp) {
+            async onFinish(resp) {
+              await recordUsage(resp.totalUsage ?? resp.usage);
               if (resp.usage) {
                 logger.debug('createSummary token usage', JSON.stringify(resp.usage));
                 cumulativeUsage.completionTokens += (resp.usage as any)?.outputTokens || 0;
@@ -269,7 +272,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             promptId,
             contextOptimization,
             summary,
-            onFinish(resp) {
+            async onFinish(resp) {
+              await recordUsage(resp.totalUsage ?? resp.usage);
               if (resp.usage) {
                 logger.debug('selectContext token usage', JSON.stringify(resp.usage));
                 cumulativeUsage.completionTokens += (resp.usage as any)?.outputTokens || 0;
@@ -503,7 +507,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
           abortSignal: request.signal,
           telemetry: { functionId: 'bolt-chat' },
-          onStepEnd: ({ toolCalls, finishReason }) => {
+          onStepEnd: async ({ toolCalls, finishReason, usage }) => {
+            await recordUsage(usage);
             if (finishReason !== 'error') {
               recovery.stepSucceeded();
             }

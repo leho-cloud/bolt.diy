@@ -113,6 +113,7 @@ export async function createAccessGate(directory, options = {}) {
   return {
     store,
     workspaceContext,
+    accountId(request) { return store.session(sessionToken(request))?.id; },
     async handle(request) {
       const url = new URL(request.url), path = url.pathname, raw = sessionToken(request);
       const actor = store.session(raw);
@@ -222,6 +223,7 @@ export async function createAccessGate(directory, options = {}) {
         return actor.role === 'owner'
           ? publisher.handle(request)
           : json(403, { error: 'A közzétételt csak a Műhely tulajdonosa indíthatja.' });
+      if (path === '/api/credits' && request.method === 'GET') return json(200, store.credits(actor));
       if (path === '/api/workspace-preferences') {
         if (request.method === 'GET') return json(200, workspaceContext(request));
         if (request.method !== 'POST') return json(405, { error: 'A művelet nem érhető el.' });
@@ -258,7 +260,7 @@ export async function createAccessGate(directory, options = {}) {
         const project = workspaceProjectId(url.searchParams.get('projekt'));
         const destination = project ? '/fiokom?projekt=' + encodeURIComponent(project) : '/fiokom';
         const account = (error = '', status = 200, notice = '') =>
-          html(accountPage(actor, error, { ...store.workspace(actor, project), project, notice, ...localization }), status);
+          html(accountPage(actor, error, { ...store.workspace(actor, project), credits: store.credits(actor), project, notice, ...localization }), status);
         if (request.method === 'GET')
           return account('', 200, url.searchParams.get('mentve') === '1' ? 'A beállítások mentve.' : '');
         if (request.method !== 'POST') return json(405, { error: 'POST szükséges.' });
@@ -294,6 +296,7 @@ export async function createAccessGate(directory, options = {}) {
           const notice = {
             jovahagyva: 'A fiókot jóváhagytad. A jelentkező már beléphet a saját jelszavával.',
             elutasitva: 'A regisztrációs kérelmet elutasítottad.',
+            kredit: localized(language, 'A krediteket jóváírtad.', 'Credits added.'),
           }[url.searchParams.get('allapot')];
           return html(accessPage(actor, store.list(actor), null, '', typeof notice === 'string' ? notice : '', localization));
         }
@@ -301,6 +304,10 @@ export async function createAccessGate(directory, options = {}) {
         try {
           const data = new URLSearchParams(await request.text());
           let invitation = null;
+          if (data.get('action') === 'grant-credits') {
+            await store.grantCredits(actor, data.get('username'), Number(data.get('credits')), data.get('receipt'));
+            return redirect('/hozzaferesek?allapot=kredit#kreditek');
+          }
           if (data.get('action') === 'invite') {
             const result = await store.invite(actor, data.get('username'));
             invitation =

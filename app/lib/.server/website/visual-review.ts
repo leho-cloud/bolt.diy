@@ -45,6 +45,7 @@ export async function reviewVisualImages(
   env: Record<string, string | undefined>,
   signal: AbortSignal,
   fetcher = fetch,
+  onUsage?: (usage: { totalTokens?: number; inputTokens?: number; outputTokens?: number }) => Promise<void>,
 ) {
   const key = env.OPEN_ROUTER_API_KEY;
 
@@ -129,6 +130,14 @@ export async function reviewVisualImages(
   }
 
   const data = JSON.parse(await readLimited(response, 24000));
+
+  if (data.usage) {
+    await onUsage?.({
+      totalTokens: data.usage.total_tokens,
+      inputTokens: data.usage.prompt_tokens,
+      outputTokens: data.usage.completion_tokens,
+    });
+  }
 
   if (data.choices?.[0]?.finish_reason !== 'stop' || typeof data.choices[0].message?.content !== 'string') {
     throw new Error('A képi ellenőrzés válasza nem teljes.');

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { unitsPerCredit } from './credits.mjs';
 import { languageSwitchUrl, localized } from '../../app/lib/common/localization/language.mjs';
 
 export const escapeHTML = (value) =>
@@ -27,6 +29,9 @@ const englishFeedback = new Map([
   ['A projektjegyzet legfeljebb 2000 karakter lehet.', 'Project notes can contain up to 2,000 characters.'],
   ['Nyisd meg ezt a beállítást a projektből.', 'Open this setting from the project.'],
   ['A beállítások mentve.', 'Settings saved.'],
+  ['Adj meg egy egész kreditmennyiséget 1 és 1 000 000 között.', 'Enter a whole number of credits from 1 to 1,000,000.'],
+  ['A felhasználói fiók nem érhető el.', 'The user account is unavailable.'],
+  ['A jóváírási űrlap lejárt. Nyisd meg újra a felületet.', 'The credit form expired. Reopen the page and try again.'],
   ['A fiókot jóváhagytad. A jelentkező már beléphet a saját jelszavával.', 'Account approved. The applicant can now sign in.'],
   ['A regisztrációs kérelmet elutasítottad.', 'Registration request declined.'],
 ]);
@@ -179,12 +184,26 @@ function workspaceCards({ preferences, memory, projects = [], project, notice = 
     </section>`;
 }
 
+function creditCard(credits, language) {
+  if (!credits) return '';
+  const t = (hu, en) => localized(language, hu, en);
+  const count = (units) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(units / unitsPerCredit);
+  return `<section class="card" id="kreditek">
+    <h2>${t('Kreditek', 'Credits')}</h2>
+    <div class="grid">
+      <div><div class="note muted">${t('Elérhető egyenleg', 'Available balance')}</div><strong>${count(credits.balance)} ${t('kredit', 'credits')}</strong></div>
+      <div><div class="note muted">${t('Mért felhasználás', 'Tracked usage')}</div><strong>${count(credits.used)} ${t('kredit', 'credits')}</strong></div>
+    </div>
+    <p class="note">${t('A próbaelszámolásban 1 kredit 1000 AI-token. A mért használat akkor is gyűlik, ha az egyenleg 0.', 'During the pilot, 1 credit equals 1,000 AI tokens. Usage is tracked even when your balance is zero.')}</p>
+  </section>`;
+}
+
 export function accountPage(user, error = '', workspace = {}) {
   const { language = 'hu', path = '/fiokom' } = workspace;
   const t = (hu, en) => localized(language, hu, en);
   return page(
     t("Saját belépésem", "My account"),
-    `<main><section class="intro"><span class="eyebrow">${t("Saját belépésem", "My account")}</span><h1>${escapeHTML(user.username)}</h1><p>${t("A belépésed egy hétig megmarad. Bármikor kijelentkezhetsz.", "You stay signed in for one week. You can sign out at any time.")}</p><div class="actions"><a class="button primary" href="/muhely">${t("Műhely megnyitása →", "Open Műhely →")}</a>${user.role === 'owner' ? `<a class="button" href="/hozzaferesek">${t("Hozzáférések kezelése", "Manage access")}</a><a class="button" href="https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/" target="_blank" rel="noopener noreferrer">${t("Korábbi munkák ↗", "Previous projects ↗")}</a>` : ''}<form method="post" action="/kijelentkezes"><button>${t("Kijelentkezés", "Sign out")}</button></form></div></section>${workspaceCards(workspace)}<section class="card"><h2>${t("Jelszó módosítása", "Change password")}</h2>${workspace.preferences ? '' : '<!--feedback-->'}<form method="post" action="/fiokom"><label>${t("Jelenlegi jelszó", "Current password")}<input name="oldPassword" type="password" required autocomplete="current-password" maxlength="256"></label><label>${t("Új jelszó", "New password")}<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label><p class="note">${t("A módosítás után az új jelszóval kell belépned az eszközeiden.", "After changing your password, sign in again on your devices.")}</p><button class="primary">${t("Új jelszó mentése", "Save new password")}</button></form></section></main>`,
+    `<main><section class="intro"><span class="eyebrow">${t("Saját belépésem", "My account")}</span><h1>${escapeHTML(user.username)}</h1><p>${t("A belépésed egy hétig megmarad. Bármikor kijelentkezhetsz.", "You stay signed in for one week. You can sign out at any time.")}</p><div class="actions"><a class="button primary" href="/muhely">${t("Műhely megnyitása →", "Open Műhely →")}</a>${user.role === 'owner' ? `<a class="button" href="/hozzaferesek">${t("Hozzáférések kezelése", "Manage access")}</a><a class="button" href="https://xzmy2phls5uwuhltjhadbcbg.187.126.2.206.sslip.io/" target="_blank" rel="noopener noreferrer">${t("Korábbi munkák ↗", "Previous projects ↗")}</a>` : ''}<form method="post" action="/kijelentkezes"><button>${t("Kijelentkezés", "Sign out")}</button></form></div></section>${creditCard(workspace.credits, language)}${workspaceCards(workspace)}<section class="card"><h2>${t("Jelszó módosítása", "Change password")}</h2>${workspace.preferences ? '' : '<!--feedback-->'}<form method="post" action="/fiokom"><label>${t("Jelenlegi jelszó", "Current password")}<input name="oldPassword" type="password" required autocomplete="current-password" maxlength="256"></label><label>${t("Új jelszó", "New password")}<input name="password" type="password" required minlength="12" maxlength="256" autocomplete="new-password"></label><p class="note">${t("A módosítás után az új jelszóval kell belépned az eszközeiden.", "After changing your password, sign in again on your devices.")}</p><button class="primary">${t("Új jelszó mentése", "Save new password")}</button></form></section></main>`,
     { user, error, language, path },
   ).replace('<!--workspace-feedback-->', error ? `<p class="error" role="alert">${escapeHTML(feedback(language, error))}</p>` : '');
 }
@@ -224,9 +243,24 @@ export function accessPage(user, data, invitation = null, error = '', notice = '
         `<div class="person"><div><b>${escapeHTML(i.username)}</b><small>${t("Meghívó elküldhető · 3 napig érvényes", "Invitation ready to share · Valid for 3 days")}</small></div><form action="/hozzaferesek" method="post"><input type="hidden" name="action" value="revoke"><input type="hidden" name="username" value="${escapeHTML(i.username)}"><button class="small">${t("Meghívó visszavonása", "Revoke invitation")}</button></form></div>`,
     )
     .join('');
+  const creditGrant = `<section class="card" id="kreditek">
+    <h2>${t('Kredit jóváírása', 'Add credits')}</h2>
+    <form method="post" action="/hozzaferesek">
+      <input type="hidden" name="action" value="grant-credits">
+      <input type="hidden" name="receipt" value="${randomUUID()}">
+      <div class="grid">
+        <label>${t('Felhasználónév', 'Username')}<select name="username" required>
+          ${data.users.filter((user) => !user.disabled).map(({ username }) =>
+            `<option value="${escapeHTML(username)}">${escapeHTML(username)}</option>`).join('')}
+        </select></label>
+        <label>${t('Kredit', 'Credits')}<input name="credits" type="number" min="1" max="1000000" step="1" required></label>
+      </div>
+      <button class="primary">${t('Jóváírás', 'Add credits')}</button>
+    </form>
+  </section>`;
   return page(
     t("Hozzáférések", "Access management"),
-    `<main><section class="intro"><span class="eyebrow">${t("Te döntöd el, ki léphet be.", "Manage who can sign in.")}</span><h1>${t("Hozzáférések.", "Access management")}</h1><p>${t("Itt hagyhatod jóvá a regisztrációkat, készíthetsz meghívót és vonhatod vissza a hozzáférést. A tagok AI-használata a te szolgáltatói keretedből fogy.", "Approve registrations, create invitations and revoke access. Members’ AI usage counts towards your provider allowance.")}</p></section><!--feedback-->${notice ? `<p class="success" role="status">${escapeHTML(feedback(language, notice))}</p>` : ''}<section class="card" id="regisztracios-kerelmek"><h2>${t("Regisztrációs kérelmek", "Registration requests")}</h2>${registrations || `<p class="note">${t("Nincs függő regisztrációs kérelem.", "No pending registration requests.")}</p>`}</section>${invitation ? `<section class="success"><b>${t("A meghívó elkészült.", "Invitation ready.")}</b><p class="note">${t("Másold ki a linket, és küldd el annak, akinek hozzáférést adsz. E-mailt nem küldtünk. A link egyszer használható, három napig érvényes.", "Copy the link and share it with the person you want to invite. The single-use link expires in three days.")}</p><label>${t("Meghívólink", "Invitation link")}<textarea readonly rows="3">${escapeHTML(invitation)}</textarea></label></section>` : ''}<div class="grid"><section class="card"><h2>${t("Új meghívó", "New invitation")}</h2><form method="post" action="/hozzaferesek"><input type="hidden" name="action" value="invite"><label>${t("Felhasználónév", "Username")}<input name="username" minlength="3" maxlength="40" pattern="[a-z0-9][a-z0-9._\\-]{2,39}" required placeholder="${t("például: anna", "e.g. anna")}" autocomplete="off"></label><p class="note">${t("Kisbetű, szám, pont, kötőjel vagy aláhúzás. Meglévő meghívottnak új linkkel a jelszavát is visszaállíthatod.", "Use lowercase letters, numbers, periods, hyphens or underscores. A new invitation can reset an existing member’s password.")}</p><button class="primary">${t("Meghívó készítése →", "Create invitation →")}</button></form></section><section class="card"><h2>${t("Akik beléphetnek", "People with access")}</h2>${persons}${pending ? `<h2>${t("Fel nem használt meghívók", "Unused invitations")}</h2>` + pending : ''}</section></div></main>`,
+    `<main><section class="intro"><span class="eyebrow">${t("Te döntöd el, ki léphet be.", "Manage who can sign in.")}</span><h1>${t("Hozzáférések.", "Access management")}</h1><p>${t("Itt hagyhatod jóvá a regisztrációkat, készíthetsz meghívót és vonhatod vissza a hozzáférést. A tagok AI-használata a te szolgáltatói keretedből fogy.", "Approve registrations, create invitations and revoke access. Members’ AI usage counts towards your provider allowance.")}</p></section><!--feedback-->${notice ? `<p class="success" role="status">${escapeHTML(feedback(language, notice))}</p>` : ''}${creditGrant}<section class="card" id="regisztracios-kerelmek"><h2>${t("Regisztrációs kérelmek", "Registration requests")}</h2>${registrations || `<p class="note">${t("Nincs függő regisztrációs kérelem.", "No pending registration requests.")}</p>`}</section>${invitation ? `<section class="success"><b>${t("A meghívó elkészült.", "Invitation ready.")}</b><p class="note">${t("Másold ki a linket, és küldd el annak, akinek hozzáférést adsz. E-mailt nem küldtünk. A link egyszer használható, három napig érvényes.", "Copy the link and share it with the person you want to invite. The single-use link expires in three days.")}</p><label>${t("Meghívólink", "Invitation link")}<textarea readonly rows="3">${escapeHTML(invitation)}</textarea></label></section>` : ''}<div class="grid"><section class="card"><h2>${t("Új meghívó", "New invitation")}</h2><form method="post" action="/hozzaferesek"><input type="hidden" name="action" value="invite"><label>${t("Felhasználónév", "Username")}<input name="username" minlength="3" maxlength="40" pattern="[a-z0-9][a-z0-9._\\-]{2,39}" required placeholder="${t("például: anna", "e.g. anna")}" autocomplete="off"></label><p class="note">${t("Kisbetű, szám, pont, kötőjel vagy aláhúzás. Meglévő meghívottnak új linkkel a jelszavát is visszaállíthatod.", "Use lowercase letters, numbers, periods, hyphens or underscores. A new invitation can reset an existing member’s password.")}</p><button class="primary">${t("Meghívó készítése →", "Create invitation →")}</button></form></section><section class="card"><h2>${t("Akik beléphetnek", "People with access")}</h2>${persons}${pending ? `<h2>${t("Fel nem használt meghívók", "Unused invitations")}</h2>` + pending : ''}</section></div></main>`,
     { user, error, language, path },
   );
 }

@@ -7,6 +7,10 @@ import type { Plugin } from 'vite';
 /* Node-only plugin code lives outside the application's ~/ alias. */
 // eslint-disable-next-line no-restricted-imports
 import { createAccessGate } from '../private-access/gate.mjs';
+// eslint-disable-next-line no-restricted-imports
+import { openCreditMeter } from '../private-access/credit-meter.mjs';
+
+const meteredRoutes = new Set(['/api/chat', '/api/enhancer', '/api/llmcall', '/api/visual-review']);
 
 /** Runs in Node before Vite/Cloudflare preview can dispatch an API request. */
 export function privateAccess(): Plugin {
@@ -15,6 +19,10 @@ export function privateAccess(): Plugin {
     async configurePreviewServer(server) {
       const directory = process.env.BOLT_PRIVATE_ACCESS_DIR || join(process.cwd(), '.private-access');
       const gate = await createAccessGate(directory);
+      const meter = await openCreditMeter((account: string, requestId: string, total: number) =>
+        gate.store.recordUsage(account, requestId, total),
+      );
+      server.httpServer.once('close', () => meter.close());
       server.middlewares.use(async (req, res, next) => {
         try {
           const host = req.headers.host || '';
@@ -63,6 +71,13 @@ export function privateAccess(): Plugin {
           if (!response) {
             delete req.headers.authorization;
             delete req.headers['x-muhely-workspace-context'];
+            delete req.headers['x-muhely-credit-meter'];
+
+            if (meteredRoutes.has(url.pathname) && req.method === 'POST') {
+              const account = gate.accountId(request);
+
+              if (account) req.headers['x-muhely-credit-meter'] = meter.context(account);
+            }
 
             if (url.pathname === '/api/chat') {
               const workspace = gate.workspaceContext(request);

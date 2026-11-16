@@ -3,6 +3,7 @@ import { languageSwitchUrl } from '~/lib/common/localization/language.mjs';
 import { uiLanguage, uiText } from '~/lib/common/localization/ui';
 import { useStore } from '@nanostores/react';
 import { ClientOnly } from 'remix-utils/client-only';
+import { CreditBalance } from './CreditBalance';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
@@ -61,6 +62,7 @@ export function Header() {
         </>
       )}
       <nav className="ml-auto flex shrink-0 items-center gap-1" aria-label={uiText('Fiók', 'Account')}>
+        <CreditBalance />
         <a
           className="px-2 text-xs text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary"
           href={languageSwitchUrl(uiLanguage(), pathname + search + hash)}

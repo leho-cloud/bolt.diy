@@ -1,3 +1,4 @@
+import { createCreditMeter } from '~/lib/.server/api/credit-meter';
 import type { UIMessage } from 'ai';
 import type { ActionFunctionArgs } from 'react-router';
 import { toApiErrorResponse, toMissingCredentialError } from '~/lib/.server/api/errors';
@@ -26,6 +27,7 @@ async function enhancerAction({ context, request }: ActionFunctionArgs) {
     return toApiErrorResponse(error);
   }
 
+  const recordUsage = createCreditMeter(request);
   const { message, model } = body;
   const providerName = body.provider.name;
 
@@ -73,6 +75,7 @@ async function enhancerAction({ context, request }: ActionFunctionArgs) {
       apiKeys,
       providerSettings,
       options: {
+        onStepEnd: ({ usage }) => recordUsage(usage),
         system:
           'You are a senior software principal architect, you should help the user analyse the user query and enrich it with the necessary context and constraints to make it more specific, actionable, and effective. You should also ensure that the prompt is self-contained and uses professional language. Your response should ONLY contain the enhanced prompt text. Do not include any explanations, metadata, or wrapper tags.',
 

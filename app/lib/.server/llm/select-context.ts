@@ -23,7 +23,7 @@ export async function selectContext(props: {
   promptId?: string;
   contextOptimization?: boolean;
   summary: string;
-  onFinish?: (resp: Awaited<ReturnType<typeof generateText>>) => void;
+  onFinish?: (resp: Awaited<ReturnType<typeof generateText>>) => void | Promise<void>;
 }) {
   const { messages, env: serverEnv, files, summary, onFinish } = props;
 
@@ -219,7 +219,7 @@ export async function selectContext(props: {
   });
 
   if (onFinish) {
-    onFinish(resp);
+    await onFinish(resp);
   }
 
   const totalFiles = Object.keys(filteredFiles).length;

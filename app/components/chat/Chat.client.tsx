@@ -345,9 +345,11 @@ export const ChatImpl = memo(
       sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
       onError: (e) => {
         setFakeLoading(false);
+        window.dispatchEvent(new Event('muhely-credits-changed'));
         handleError(e, 'chat');
       },
       onFinish: ({ message }) => {
+        window.dispatchEvent(new Event('muhely-credits-changed'));
         setProgressAnnotations([]);
 
         const project = repairProjectRef.current;

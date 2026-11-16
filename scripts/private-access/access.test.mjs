@@ -374,3 +374,46 @@ test('English is retained from the public welcome through sign-in and account wi
   );
   assert.match(await (await f.gate.handle(request('/'))).text(), /<html lang="hu">/);
 });
+
+test('credits are private, persist across restarts and settle each usage/payment only once', async (t) => {
+  const f = await fixture(t);
+  const ownerCookie = cookieOf(await owner(f));
+  const ownerUser = f.gate.store.session(ownerCookie.split('=')[1]);
+  const invite = await f.gate.store.invite(ownerUser, 'anna');
+  const memberCookie = cookieOf(await f.gate.handle(
+    request('/belepes', { body: { action: 'enroll', username: 'anna', password, token: invite.secret } }),
+  ));
+  const member = f.gate.store.session(memberCookie.split('=')[1]);
+  const topUp = { action: 'grant-credits', username: 'anna', credits: '5', receipt: '01234567-89ab-4321-aaaa-111111111113' };
+  assert.equal((await f.gate.handle(request('/hozzaferesek', { cookie: memberCookie, body: topUp }))).status, 403);
+  assert.equal((await f.gate.handle(request('/hozzaferesek', { cookie: ownerCookie, body: topUp }))).status, 303);
+  assert.equal((await f.gate.handle(request('/hozzaferesek', { cookie: ownerCookie, body: topUp }))).status, 303);
+  const usage = '01234567-89ab-4321-aaaa-111111111111';
+  await Promise.all([
+    f.gate.store.recordUsage(member.id, usage, 1200),
+    f.gate.store.recordUsage(member.id, usage, 1800),
+    f.gate.store.recordUsage(member.id, usage, 1800),
+    f.gate.store.recordUsage(member.id, usage, 1500),
+  ]);
+  assert.deepEqual(await (await f.gate.handle(request('/api/credits', { cookie: memberCookie }))).json(), {
+    balance: 3200, used: 1800,
+  });
+  assert.deepEqual(await (await f.gate.handle(request('/api/credits', { cookie: ownerCookie }))).json(), {
+    balance: 0, used: 0,
+  });
+  assert.equal((await f.gate.handle(request('/api/credits'))).status, 401);
+  const prices = new Map([['price_known_pack', 10]]);
+  const session = {
+    id: 'cs_test_Xabc', mode: 'payment', payment_status: 'paid', client_reference_id: member.id,
+    line_items: { has_more: false, data: [{ quantity: 1, price: { id: 'price_known_pack' } }] },
+  };
+  assert.equal(await f.gate.store.fulfillPaidCheckout({ ...session, payment_status: 'unpaid' }, prices), false);
+  assert.equal(await f.gate.store.fulfillPaidCheckout({ ...session, mode: 'subscription' }, prices), false);
+  assert.equal(await f.gate.store.fulfillPaidCheckout(session, prices), true);
+  const reopened = await createAccessGate(f.dir);
+  assert.equal(await reopened.store.fulfillPaidCheckout(session, prices), false);
+  assert.deepEqual(reopened.store.credits(member), { balance: 13200, used: 1800 });
+  await reopened.store.recordUsage(member.id, usage, 15000);
+  assert.deepEqual(reopened.store.credits(member), { balance: 0, used: 15000 });
+  assert.match(await (await reopened.handle(request('/fiokom', { cookie: memberCookie }))).text(), /Mért felhasználás/);
+});

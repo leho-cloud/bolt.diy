@@ -1,3 +1,4 @@
+import { createCreditMeter } from '~/lib/.server/api/credit-meter';
 import { generateText, type UIMessage } from 'ai';
 import type { ActionFunctionArgs } from 'react-router';
 import {
@@ -95,6 +96,7 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
     return toApiErrorResponse(error);
   }
 
+  const recordUsage = createCreditMeter(request);
   const { system, message, streamOutput } = body;
   const { model, apiKeys, providerSettings } = managedAI(context.cloudflare?.env);
   const provider = PROVIDER_LIST.find((item) => item.name === 'OpenRouter')!;
@@ -104,6 +106,7 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
     try {
       const result = await streamText({
         options: {
+          onStepEnd: ({ usage }) => recordUsage(usage),
           system,
         },
         messages: [
@@ -233,6 +236,7 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
       );
 
       const result = await generateText(finalParams);
+      await recordUsage(result.totalUsage ?? result.usage);
       logger.info(`Generated response`);
 
       return new Response(JSON.stringify(toLlmCallResponse(result)), {
