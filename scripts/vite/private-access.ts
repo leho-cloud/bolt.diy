@@ -12,6 +12,18 @@ import { openCreditMeter } from '../private-access/credit-meter.mjs';
 
 const meteredRoutes = new Set(['/api/chat', '/api/enhancer', '/api/llmcall', '/api/visual-review']);
 
+// Cloudflare preview builds its Request from the raw list, while other middleware uses headers.
+function setForwardedHeader(request: IncomingMessage, name: string, value?: string) {
+  delete request.headers[name];
+  for (let index = request.rawHeaders.length - 2; index >= 0; index -= 2) {
+    if (request.rawHeaders[index].toLowerCase() === name) request.rawHeaders.splice(index, 2);
+  }
+  if (value !== undefined) {
+    request.headers[name] = value;
+    request.rawHeaders.push(name, value);
+  }
+}
+
 /** Runs in Node before Vite/Cloudflare preview can dispatch an API request. */
 export function privateAccess(): Plugin {
   return {
@@ -69,21 +81,21 @@ export function privateAccess(): Plugin {
           const response = await gate.handle(request);
 
           if (!response) {
-            delete req.headers.authorization;
-            delete req.headers['x-muhely-workspace-context'];
-            delete req.headers['x-muhely-credit-meter'];
+            setForwardedHeader(req, 'authorization');
+            setForwardedHeader(req, 'x-muhely-workspace-context');
+            setForwardedHeader(req, 'x-muhely-credit-meter');
 
             if (meteredRoutes.has(url.pathname) && req.method === 'POST') {
               const account = gate.accountId(request);
 
-              if (account) req.headers['x-muhely-credit-meter'] = meter.context(account);
+              if (account) setForwardedHeader(req, 'x-muhely-credit-meter', meter.context(account));
             }
 
             if (url.pathname === '/api/chat') {
               const workspace = gate.workspaceContext(request);
 
               if (workspace) {
-                req.headers['x-muhely-workspace-context'] = Buffer.from(JSON.stringify(workspace)).toString('base64');
+                setForwardedHeader(req, 'x-muhely-workspace-context', Buffer.from(JSON.stringify(workspace)).toString('base64'));
               }
             }
             next();
