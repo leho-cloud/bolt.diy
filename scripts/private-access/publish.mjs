@@ -176,7 +176,8 @@ export function createPublisher(directory, env = process.env, fetcher = fetch) {
       const zip = await zipBuild(files);
       const digest = createHash('sha256').update(zip).digest('hex');
       const domain = publicDomain(slug);
-      const marker = `Bolt statikus projekt: ${projectId}`;
+      const marker = `Muhely statikus projekt / ${projectId}`;
+      const legacyMarker = `Bolt statikus projekt: ${projectId}`;
       const rawList = await coolify('/applications');
       const list = Array.isArray(rawList) ? rawList : rawList.data;
       if (!Array.isArray(list)) fail(502, 'A szerver alkalmazáslistája nem olvasható.');
@@ -193,7 +194,7 @@ export function createPublisher(directory, env = process.env, fetcher = fetch) {
 
       if (
         existing &&
-        (existing.description !== marker ||
+        (![marker, legacyMarker].includes(existing.description) ||
           existing.build_pack !== 'dockerfile' ||
           !idPattern.test(existing.uuid || ''))
       )
@@ -213,13 +214,13 @@ export function createPublisher(directory, env = process.env, fetcher = fetch) {
       let uuid = existing?.uuid;
 
       if (uuid) {
-        await coolify('/applications/' + uuid, 'PATCH', { dockerfile: definition });
+        await coolify('/applications/' + uuid, 'PATCH', { dockerfile: definition, description: marker });
       } else {
         const result = await coolify('/applications/dockerfile', 'POST', {
           project_uuid: env.COOLIFY_PROJECT_UUID,
           server_uuid: env.COOLIFY_SERVER_UUID,
           environment_name: env.COOLIFY_ENVIRONMENT_NAME || 'production',
-          name: 'Bolt – ' + slug,
+          name: 'Muhely - ' + slug,
           description: marker,
           dockerfile: definition,
           domains: domain,

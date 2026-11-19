@@ -71,6 +71,8 @@ test('publishes a downloadable build bundle and returns ready only after HTTPS s
       ['POST', '/api/v1/deploy'],
     ],
   );
+  assert.equal(calls[1].data.name, 'Muhely - iskola');
+  assert.equal(calls[1].data.description, 'Muhely statikus projekt / 13-test-0');
   const definition = Buffer.from(calls[1].data.dockerfile, 'base64').toString('utf8');
   const address = definition.match(/^ADD (https:\/\/\S+) /m)?.[1];
   assert.match(
