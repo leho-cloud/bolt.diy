@@ -110,12 +110,15 @@ describe('agent plan and completion tools', () => {
       role: 'user',
       content: 'Kövesd ezt vizuális referenciaként: https://example.com/#front',
     };
+
     const messages: AnyMessage[] = [request, { role: 'assistant', parts: [part('agent_plan', { plan })] }];
+
     const loop = createAgentLoopTools(messages, true, true, [
       'website_reference',
       'project_read_file',
       'project_write_file',
     ]);
+
     const step = loop.prepareStep({ steps: [], initialInstructions: 'build' });
     expect(step.activeTools).toContain('project_read_file');
     expect(step.activeTools).not.toContain('project_write_file');
@@ -126,6 +129,7 @@ describe('agent plan and completion tools', () => {
     'offers media export only for a checked image or video request: %s',
     async (deliverable) => {
       const [request, assistant] = verified;
+
       const checked: AnyMessage[] = [
         request,
         {
@@ -136,14 +140,18 @@ describe('agent plan and completion tools', () => {
           ],
         },
       ];
+
       const loop = createAgentLoopTools(checked, true, true, ['project_render_media']);
       const step = loop.prepareStep({ steps: [] });
+
       if (deliverable !== 'image' && deliverable !== 'video') {
         expect(step.activeTools).not.toContain('project_render_media');
         return;
       }
+
       expect(step.activeTools).toContain('project_render_media');
       expect(await loop.tools.agent_complete.execute!(completion, executeOptions)).toMatchObject({ completed: false });
+
       const followUp = loop.prepareStep({
         steps: [
           {
@@ -159,17 +167,28 @@ describe('agent plan and completion tools', () => {
 
   it('offers export when the preview inspection is unavailable without marking the review as passed', async () => {
     const [request, assistant] = verified;
-    const prior = (assistant as { parts: ReturnType<typeof part>[] }).parts.slice(1).filter(
-      (item) => !['tool-project_preview_report', 'tool-project_visual_review'].includes(item.type),
-    );
+
+    const prior = (assistant as { parts: ReturnType<typeof part>[] }).parts
+      .slice(1)
+      .filter((item) => !['tool-project_preview_report', 'tool-project_visual_review'].includes(item.type));
+
     const unavailable = { isError: true, unavailable: true, checked: false };
+
     const loop = createAgentLoopTools(
-      [request, { role: 'assistant', parts: [
-        part('agent_plan', { plan: { ...plan, deliverable: 'video', requiresPreviewReport: true, requiresVisualReview: true } }),
-        ...prior,
-        part('project_preview_report', unavailable),
-        part('project_preview_report', unavailable),
-      ] }],
+      [
+        request,
+        {
+          role: 'assistant',
+          parts: [
+            part('agent_plan', {
+              plan: { ...plan, deliverable: 'video', requiresPreviewReport: true, requiresVisualReview: true },
+            }),
+            ...prior,
+            part('project_preview_report', unavailable),
+            part('project_preview_report', unavailable),
+          ],
+        },
+      ],
       true,
       true,
       ['project_render_media'],
@@ -341,7 +360,13 @@ describe('agent plan and completion tools', () => {
         parts: [
           part('agent_plan', { plan: { ...plan, requiresQualityReport: true } }),
           part('project_patch_file', { patched: true }),
-          part('project_run_command', { purpose: 'test', command: 'npm run build', processId: 'broken', exitCode: 1, isError: true }),
+          part('project_run_command', {
+            purpose: 'test',
+            command: 'npm run build',
+            processId: 'broken',
+            exitCode: 1,
+            isError: true,
+          }),
         ],
       },
     ];
@@ -349,7 +374,7 @@ describe('agent plan and completion tools', () => {
     const names = ['project_patch_file', 'project_run_command', 'project_get_process_output', 'project_quality_report'];
     const loop = createAgentLoopTools(messages, true, true, names);
     const repair = loop.prepareStep({ steps: [], initialInstructions: 'Build the project.' });
-    expect(repair.toolChoice).toBe('required');
+    expect(repair.toolChoice).toBe('auto');
     expect(repair.instructions).toContain('automatic repair agent');
     expect(repair.activeTools).toEqual(['project_patch_file', 'project_run_command', 'project_get_process_output']);
 
@@ -365,14 +390,19 @@ describe('agent plan and completion tools', () => {
         ],
       }).activeTools,
     ).toEqual(['project_patch_file', 'project_run_command', 'project_get_process_output']);
+
     const patch = {
       toolCalls: [{ toolName: 'project_patch_file', toolCallId: 'fix', input: { path: 'src/App.tsx' } }],
       toolResults: [{ toolCallId: 'fix', output: { patched: true } }],
     };
+
     const recheck = loop.prepareStep({ steps: [patch] });
     expect(recheck.activeTools).toEqual(['project_run_command', 'project_get_process_output']);
+
     const otherCheck = {
-      toolCalls: [{ toolName: 'project_run_command', toolCallId: 'lint', input: { purpose: 'test', command: 'npm run lint' } }],
+      toolCalls: [
+        { toolName: 'project_run_command', toolCallId: 'lint', input: { purpose: 'test', command: 'npm run lint' } },
+      ],
       toolResults: [{ toolCallId: 'lint', output: { processId: 'lint', status: 'exited', exitCode: 0 } }],
     };
     loop.prepareStep({ steps: [patch, otherCheck] });
@@ -382,7 +412,11 @@ describe('agent plan and completion tools', () => {
         patch,
         {
           toolCalls: [
-            { toolName: 'project_run_command', toolCallId: 'check', input: { purpose: 'test', command: 'npm run build' } },
+            {
+              toolName: 'project_run_command',
+              toolCallId: 'check',
+              input: { purpose: 'test', command: 'npm run build' },
+            },
             { toolName: 'project_quality_report', toolCallId: 'quality', input: {} },
           ],
           toolResults: [
@@ -403,6 +437,7 @@ describe('agent plan and completion tools', () => {
     const patch = part('project_patch_file', { patched: true });
     const planned = part('agent_plan', { plan });
     const tools = ['project_preview_report', 'project_patch_file'];
+
     const makeLoop = (...parts: Record<string, unknown>[]) =>
       createAgentLoopTools([user, { role: 'assistant', parts: [planned, ...parts] }], true, true, tools);
 
@@ -411,12 +446,19 @@ describe('agent plan and completion tools', () => {
     expect(capped.toolChoice).toEqual({ type: 'tool', toolName: 'agent_complete' });
 
     const disabledLoop = createAgentLoopTools(
-      [user, { role: 'assistant', parts: [planned, failure] }], true, true, tools,
+      [user, { role: 'assistant', parts: [planned, failure] }],
+      true,
+      true,
+      tools,
       { repairEnabled: false, repairRounds: 1 },
     );
     expect(disabledLoop.prepareStep({ steps: [] }).activeTools).toEqual(['agent_complete']);
+
     const oneRound = createAgentLoopTools(
-      [user, { role: 'assistant', parts: [planned, failure, patch, failure] }], true, true, tools,
+      [user, { role: 'assistant', parts: [planned, failure, patch, failure] }],
+      true,
+      true,
+      tools,
       { repairEnabled: true, repairRounds: 1 },
     );
     expect(oneRound.prepareStep({ steps: [] }).activeTools).toEqual(['agent_complete']);

@@ -2,8 +2,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { agentMediaExport, createMediaJob, videoFrameRates } from './previewExport';
 import { inspectProjectPreview } from './previewAudit';
+import { agentMediaExport, createMediaJob, videoFrameRates } from './previewExport';
+import { ensureProjectDependencies } from './projectDependencies';
 import { assertValidProjectSource, getFileRevision } from './projectFileValidation';
 import { PROJECT_TOOL_NAMES, projectToolDefinitions } from './projectMcp.shared';
 import { projectQualityReport } from './projectQuality';
@@ -34,10 +35,15 @@ interface ProcessRecord {
 const processes = new Map<string, ProcessRecord>();
 const MAX_PROCESSES = 50;
 
+let dependencyLifetime = new AbortController();
+
 workbenchStore.projectGeneration.listen((current, previous) => {
   if (current === previous) {
     return;
   }
+
+  dependencyLifetime.abort();
+  dependencyLifetime = new AbortController();
 
   for (const record of processes.values()) {
     if (record.exitCode === undefined) {
@@ -616,6 +622,7 @@ export async function createProjectMcpBridge() {
         if (bridgeChatId && chatId.get() === bridgeChatId) {
           agentMediaExport.set({ projectId: bridgeChatId, id, settings });
         }
+
         return success({ renderId: id, state: 'queued', format, width, height });
       } catch (error) {
         return failure(error);
@@ -913,7 +920,24 @@ export async function createProjectMcpBridge() {
            * spawn's cwd is relative to the WebContainer project root. Passing
            * wc.workdir as an absolute cwd fails with ENOENT; the default is the project.
            */
-          const process = await wc.spawn('/bin/jsh', ['-c', command]);
+          const manifest = workbenchStore.files.get()[`${WORK_DIR}/package.json`];
+          await ensureProjectDependencies(
+            wc,
+            normalized,
+            manifest?.type === 'file' ? manifest.content : undefined,
+            (text) => {
+              if (workbenchStore.projectGeneration.get() === bridgeProjectGeneration && chatId.get() === bridgeChatId) {
+                workbenchStore.writeToBoltTerminal(text);
+              }
+            },
+            extra.signal ? AbortSignal.any([extra.signal, dependencyLifetime.signal]) : dependencyLifetime.signal,
+          );
+          assertNotAborted(extra.signal);
+          assertProjectCurrent();
+
+          const process = await wc.spawn('/bin/jsh', ['-c', command], {
+            env: { CI: 'true', npm_config_yes: 'false' },
+          });
 
           try {
             assertNotAborted(extra.signal);

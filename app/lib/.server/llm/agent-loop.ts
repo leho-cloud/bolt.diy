@@ -54,8 +54,10 @@ function visualReferenceUrls(text: string): string[] {
     return [];
   }
 
-  // Reuse the capture tool's URL validation so the gate cannot wait on a URL
-  // that the capture tool will always reject.
+  /*
+   * Reuse the capture tool's URL validation so the gate cannot wait on a URL
+   * that the capture tool will always reject.
+   */
   return [
     ...new Set(
       urls.flatMap((url) => {
@@ -78,6 +80,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
   repairSettings?: { repairEnabled: boolean; repairRounds: number },
 ) {
   let currentMessages = messages;
+
   const lastUser = messages.findLastIndex((message) => message.role === 'user');
   const requestedVisualUrls = visualReferenceUrls(getMessageText(messages[lastUser] ?? {}));
 
@@ -230,15 +233,16 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
 
       const repair = pendingVisualUrls.length === 0 && progress.plan ? progress.automaticRepair : undefined;
       const repairDisabled = repairSettings?.repairEnabled === false;
-      const repairGuidance = repair && (
-        repairDisabled
+
+      const repairGuidance =
+        repair &&
+        (repairDisabled
           ? 'Automatic repair is switched off in the account. Call agent_complete with outcome blocked and report the confirmed failure without editing files.'
           : repair.phase === 'exhausted'
-          ? 'The automatic repair cannot verify a fix within its allowed attempts. Call agent_complete with outcome blocked and identify the failed check. Preserve the project files.'
-          : repair.phase === 'checking'
-            ? 'You are the automatic repair agent. Rerun the failing check on the edited project. For a command, repeat the original command and purpose and wait for the result. Do not change files until the check returns.'
-            : 'You are the automatic repair agent. Read the failed check output and the implicated project files, then apply the smallest targeted fix. Preserve the requested content and working features. Do not weaken checks or change unrelated files.'
-      );
+            ? 'The automatic repair cannot verify a fix within its allowed attempts. Call agent_complete with outcome blocked and identify the failed check. Preserve the project files.'
+            : repair.phase === 'checking'
+              ? 'You are the automatic repair agent. Rerun the failing check on the edited project. For a command, repeat the original command and purpose and wait for the result. Do not change files until the check returns.'
+              : 'You are the automatic repair agent. Read the failed check output and the implicated project files, then apply the smallest targeted fix. Preserve the requested content and working features. Do not weaken checks or change unrelated files.');
 
       const guidance = [
         repairGuidance ?? (pendingVisualUrls.length > 0 && progress.plan ? '' : getAgentLoopInstructions(progress)),
@@ -314,19 +318,24 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
 
       if (repair && taskToolNames) {
         if (repairDisabled || repair.phase === 'exhausted') {
-          return { ...instructions, toolChoice: { type: 'tool', toolName: 'agent_complete' } as const, activeTools: ['agent_complete'] };
+          return {
+            ...instructions,
+            toolChoice: { type: 'tool', toolName: 'agent_complete' } as const,
+            activeTools: ['agent_complete'],
+          };
         }
 
         const repairTools = taskToolNames.filter(
-          (name) => name === repair.check.tool ||
+          (name) =>
+            name === repair.check.tool ||
             (repair.check.tool === 'project_run_command' && name === 'project_get_process_output') ||
-            (repair.phase === 'fixing' && (
-              PROJECT_INSPECTION_TOOLS.has(name) || name === 'project_patch_file' || name === 'project_write_file'
-            )),
+            (repair.phase === 'fixing' &&
+              (PROJECT_INSPECTION_TOOLS.has(name) || name === 'project_patch_file' || name === 'project_write_file')),
         );
 
         if (repairTools.length > 0) {
-          return { ...instructions, toolChoice: 'required' as const, activeTools: repairTools };
+          // Use the same provider-compatible choice as normal execution; completion evidence stays mandatory.
+          return { ...instructions, toolChoice: 'auto' as const, activeTools: repairTools };
         }
       }
 
@@ -344,9 +353,7 @@ export function createAgentLoopTools<TaskToolName extends string = never>(
           ? {
               activeTools: [
                 ...taskToolNames.filter(
-                  (name) =>
-                    name !== 'project_render_media' ||
-                    (canRenderMedia(progress) && !progress.mediaRequested),
+                  (name) => name !== 'project_render_media' || (canRenderMedia(progress) && !progress.mediaRequested),
                 ),
                 'agent_plan' as const,
                 'agent_complete' as const,
